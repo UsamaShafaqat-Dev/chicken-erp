@@ -16,7 +16,7 @@ const reportRoutes = require("./src/routes/reportRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
 const cashRoutes = require("./src/routes/cashRoute");
-const dailyRateRoutes = require("./src/routes/dailyRateRoutes"); // Naya Link
+const dailyRateRoutes = require("./src/routes/dailyRateRoutes");
 
 dotenv.config();
 connectDB();
@@ -26,9 +26,11 @@ const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
+
+// 🔥 FIX: CORS updated for Vercel (Live) & Localhost
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://chicken-erp.vercel.app"],
     credentials: true,
   }),
 );
@@ -47,10 +49,10 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/cash", cashRoutes);
-app.use("/api/daily-rates", dailyRateRoutes); // Naya Link active kar diya
+app.use("/api/daily-rates", dailyRateRoutes);
 
 app.get("/", (req, res) => {
-  res.send("🐔 Oxege Poultry ERP API is running...");
+  res.send("🐔 Asia Poultry ERP API is running...");
 });
 
 const PORT = process.env.PORT || 5000;

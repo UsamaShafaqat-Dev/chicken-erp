@@ -5,10 +5,11 @@ const generateToken = (res, userId) => {
     expiresIn: "30d",
   });
 
+  // 🔥 FIX: Cross-Origin (Vercel se Render) request ke liye 'none' aur 'true' karna lazmi hai
   res.cookie("jwt", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV !== "development", // Live par HTTPS require karega
-    sameSite: "strict", // CSRF attacks se bachne ke liye
+    secure: true,
+    sameSite: "none",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 Days
   });
 };

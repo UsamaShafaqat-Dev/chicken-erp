@@ -17,7 +17,7 @@ const registerUser = async (req, res) => {
       userId,
       password,
       mobile,
-      role: role || "staff", // Default role staff hoga agar provide na kiya jaye
+      role: role || "staff",
     });
 
     if (user) {
@@ -28,7 +28,7 @@ const registerUser = async (req, res) => {
         userId: user.userId,
         mobile: user.mobile,
         role: user.role,
-        profilePic: user.profilePic, // 🔥 NAYA: Profile picture add kar di
+        profilePic: user.profilePic,
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -60,7 +60,7 @@ const loginUser = async (req, res) => {
         userId: user.userId,
         mobile: user.mobile,
         role: user.role,
-        profilePic: user.profilePic, // 🔥 NAYA: Login k waqt picture bhi sath aayegi ab!
+        profilePic: user.profilePic,
       });
     } else {
       res.status(401).json({ message: "Invalid User ID or password" });
@@ -73,9 +73,12 @@ const loginUser = async (req, res) => {
 // @desc    Logout user / clear cookie
 // @route   POST /api/auth/logout
 const logoutUser = (req, res) => {
+  // 🔥 FIX: Logout par bhi sameSite "none" aur secure true hona chahiye
   res.cookie("jwt", "", {
     httpOnly: true,
     expires: new Date(0),
+    secure: true,
+    sameSite: "none",
   });
   res.status(200).json({ message: "Logged out successfully" });
 };
