@@ -58,8 +58,8 @@ const Sales = () => {
     try {
       setLoading(true);
       const [salesRes, customersRes] = await Promise.all([
-        axios.get("https://asia-poultry-api.onrender.com//api/sales", { withCredentials: true }),
-        axios.get("https://asia-poultry-api.onrender.com//api/customers", {
+        axios.get("https://asia-poultry-api.onrender.com/api/sales", { withCredentials: true }),
+        axios.get("https://asia-poultry-api.onrender.com/api/customers", {
           withCredentials: true,
         }),
       ]);
@@ -76,7 +76,7 @@ const Sales = () => {
     if (!dateStr) return setDailyRates({ bahawalpurRate: "", supplyRate: "" });
     try {
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com//api/daily-rates/${dateStr}`,
+        `https://asia-poultry-api.onrender.com/api/daily-rates/${dateStr}`,
         { withCredentials: true },
       );
       setDailyRates({
@@ -101,7 +101,7 @@ const Sales = () => {
     try {
       setSavingRates(true);
       await axios.post(
-        "https://asia-poultry-api.onrender.com//api/daily-rates",
+        "https://asia-poultry-api.onrender.com/api/daily-rates",
         {
           date: filterDate,
           bahawalpurRate: Number(dailyRates.bahawalpurRate),
@@ -174,13 +174,13 @@ const Sales = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com//api/sales/${editingId}`,
+          `https://asia-poultry-api.onrender.com/api/sales/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Sale updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com//api/sales", formData, {
+        await axios.post("https://asia-poultry-api.onrender.com/api/sales", formData, {
           withCredentials: true,
         });
         toast.success("Sale added successfully");
@@ -194,7 +194,7 @@ const Sales = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com//api/sales/${deletingId}`, {
+      await axios.delete(`https://asia-poultry-api.onrender.com/api/sales/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("Sale deleted successfully");

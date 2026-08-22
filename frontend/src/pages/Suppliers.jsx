@@ -38,7 +38,7 @@ const Suppliers = () => {
   const fetchSuppliers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com//api/suppliers", {
+      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/suppliers", {
         withCredentials: true,
       });
       setSuppliers(data);
@@ -89,13 +89,13 @@ const Suppliers = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com//api/suppliers/${editingId}`,
+          `https://asia-poultry-api.onrender.com/api/suppliers/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Supplier updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com//api/suppliers", formData, {
+        await axios.post("https://asia-poultry-api.onrender.com/api/suppliers", formData, {
           withCredentials: true,
         });
         toast.success("Supplier added successfully");
@@ -109,7 +109,7 @@ const Suppliers = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com//api/suppliers/${deletingId}`, {
+      await axios.delete(`https://asia-poultry-api.onrender.com/api/suppliers/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("Supplier deleted successfully");

@@ -40,7 +40,7 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com//api/customers", {
+      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/customers", {
         withCredentials: true,
       });
       setCustomers(data);
@@ -93,13 +93,13 @@ const Customers = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com//api/customers/${editingId}`,
+          `https://asia-poultry-api.onrender.com/api/customers/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Customer updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com//api/customers", formData, {
+        await axios.post("https://asia-poultry-api.onrender.com/api/customers", formData, {
           withCredentials: true,
         });
         toast.success("Customer added successfully");
@@ -113,7 +113,7 @@ const Customers = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com//api/customers/${deletingId}`, {
+      await axios.delete(`https://asia-poultry-api.onrender.com/api/customers/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("Customer deleted successfully");

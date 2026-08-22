@@ -24,7 +24,7 @@ const WhatsAppReminder = () => {
   const fetchDefaulters = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com//api/customers", {
+      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/customers", {
         withCredentials: true,
       });
       // Sirf un customers ko filter karein jin ka balance 0 se zyada hai

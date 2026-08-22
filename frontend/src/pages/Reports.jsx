@@ -30,7 +30,7 @@ const Reports = () => {
         query = `?startDate=${start}&endDate=${end}`;
       }
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com//api/reports${query}`,
+        `https://asia-poultry-api.onrender.com/api/reports${query}`,
         { withCredentials: true },
       );
       setReportData(data);

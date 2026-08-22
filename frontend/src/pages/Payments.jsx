@@ -48,16 +48,16 @@ const Payments = () => {
       setLoading(true);
       const [paymentsRes, customersRes, suppliersRes, cashRes] =
         await Promise.all([
-          axios.get("https://asia-poultry-api.onrender.com//api/payments", {
+          axios.get("https://asia-poultry-api.onrender.com/api/payments", {
             withCredentials: true,
           }),
-          axios.get("https://asia-poultry-api.onrender.com//api/customers", {
+          axios.get("https://asia-poultry-api.onrender.com/api/customers", {
             withCredentials: true,
           }),
-          axios.get("https://asia-poultry-api.onrender.com//api/suppliers", {
+          axios.get("https://asia-poultry-api.onrender.com/api/suppliers", {
             withCredentials: true,
           }),
-          axios.get("https://asia-poultry-api.onrender.com//api/cash/accounts", {
+          axios.get("https://asia-poultry-api.onrender.com/api/cash/accounts", {
             withCredentials: true,
           }),
         ]);
@@ -133,13 +133,13 @@ const Payments = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com//api/payments/${editingId}`,
+          `https://asia-poultry-api.onrender.com/api/payments/${editingId}`,
           payload,
           { withCredentials: true },
         );
         toast.success("Payment updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com//api/payments", payload, {
+        await axios.post("https://asia-poultry-api.onrender.com/api/payments", payload, {
           withCredentials: true,
         });
         toast.success("Payment added successfully");
@@ -153,7 +153,7 @@ const Payments = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com//api/payments/${deletingId}`, {
+      await axios.delete(`https://asia-poultry-api.onrender.com/api/payments/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("Payment deleted successfully");

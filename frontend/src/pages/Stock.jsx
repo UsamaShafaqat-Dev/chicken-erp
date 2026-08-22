@@ -29,7 +29,7 @@ const Stock = () => {
   useEffect(() => {
     const fetchStock = async () => {
       try {
-        const { data } = await axios.get("https://asia-poultry-api.onrender.com//api/stock", {
+        const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/stock", {
           withCredentials: true,
         });
         setStockData(data);

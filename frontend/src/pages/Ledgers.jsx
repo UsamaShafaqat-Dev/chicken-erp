@@ -45,7 +45,7 @@ const Ledgers = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com//api/ledgers?type=${partyType}&id=${selectedParty}`,
+        `https://asia-poultry-api.onrender.com/api/ledgers?type=${partyType}&id=${selectedParty}`,
         { withCredentials: true },
       );
       setLedgerData(data);
