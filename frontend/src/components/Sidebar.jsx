@@ -26,7 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   // 🔥 Live Stock Fetching Logic
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/stock", { withCredentials: true })
+      .get("https://asia-poultry-api.onrender.com//api/stock", { withCredentials: true })
       .then((res) => setLiveStock(res.data.currentStock))
       .catch((err) =>
         console.log("Failed to fetch live stock for sidebar:", err),

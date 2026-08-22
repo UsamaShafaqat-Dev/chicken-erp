@@ -42,10 +42,10 @@ const Purchases = () => {
     try {
       setLoading(true);
       const [purchasesRes, suppliersRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/purchases", {
+        axios.get("https://asia-poultry-api.onrender.com//api/purchases", {
           withCredentials: true,
         }),
-        axios.get("http://localhost:5000/api/suppliers", {
+        axios.get("https://asia-poultry-api.onrender.com//api/suppliers", {
           withCredentials: true,
         }),
       ]);
@@ -119,13 +119,13 @@ const Purchases = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://localhost:5000/api/purchases/${editingId}`,
+          `https://asia-poultry-api.onrender.com//api/purchases/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Purchase updated successfully");
       } else {
-        await axios.post("http://localhost:5000/api/purchases", formData, {
+        await axios.post("https://asia-poultry-api.onrender.com//api/purchases", formData, {
           withCredentials: true,
         });
         toast.success("Purchase added successfully");
@@ -139,7 +139,7 @@ const Purchases = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/purchases/${deletingId}`, {
+      await axios.delete(`https://asia-poultry-api.onrender.com//api/purchases/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("Purchase deleted successfully");

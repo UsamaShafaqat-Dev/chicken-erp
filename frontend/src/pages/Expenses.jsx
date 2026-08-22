@@ -47,7 +47,7 @@ const Expenses = () => {
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("http://localhost:5000/api/expenses", {
+      const { data } = await axios.get("https://asia-poultry-api.onrender.com//api/expenses", {
         withCredentials: true,
       });
       setExpenses(data);
@@ -96,13 +96,13 @@ const Expenses = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://localhost:5000/api/expenses/${editingId}`,
+          `https://asia-poultry-api.onrender.com//api/expenses/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Expense updated successfully");
       } else {
-        await axios.post("http://localhost:5000/api/expenses", formData, {
+        await axios.post("https://asia-poultry-api.onrender.com//api/expenses", formData, {
           withCredentials: true,
         });
         toast.success("Expense added successfully");
@@ -116,7 +116,7 @@ const Expenses = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/expenses/${deletingId}`, {
+      await axios.delete(`https://asia-poultry-api.onrender.com//api/expenses/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("Expense deleted");

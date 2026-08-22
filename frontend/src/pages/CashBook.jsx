@@ -27,7 +27,7 @@ const CashBook = () => {
   const fetchAccounts = async () => {
     try {
       const { data } = await axios.get(
-        "http://localhost:5000/api/cash/accounts",
+        "https://asia-poultry-api.onrender.com//api/cash/accounts",
         {
           withCredentials: true,
         },
@@ -50,7 +50,7 @@ const CashBook = () => {
     if (!newAccount.name) return toast.error("Please enter account name");
 
     try {
-      await axios.post("http://localhost:5000/api/cash/accounts", newAccount, {
+      await axios.post("https://asia-poultry-api.onrender.com//api/cash/accounts", newAccount, {
         withCredentials: true,
       });
       toast.success("Cash Account Created Successfully!");
@@ -77,7 +77,7 @@ const CashBook = () => {
 
     try {
       await axios.post(
-        "http://localhost:5000/api/cash/transfer",
+        "https://asia-poultry-api.onrender.com//api/cash/transfer",
         transferData,
         {
           withCredentials: true,

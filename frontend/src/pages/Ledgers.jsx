@@ -26,7 +26,7 @@ const Ledgers = () => {
       try {
         const endpoint =
           partyType === "customer" ? "/api/customers" : "/api/suppliers";
-        const { data } = await axios.get(`http://localhost:5000${endpoint}`, {
+        const { data } = await axios.get(`https://asia-poultry-api.onrender.com/${endpoint}`, {
           withCredentials: true,
         });
         setParties(data.filter((p) => p.status !== "inactive"));
@@ -45,7 +45,7 @@ const Ledgers = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        `http://localhost:5000/api/ledgers?type=${partyType}&id=${selectedParty}`,
+        `https://asia-poultry-api.onrender.com//api/ledgers?type=${partyType}&id=${selectedParty}`,
         { withCredentials: true },
       );
       setLedgerData(data);

@@ -19,7 +19,7 @@ const Topbar = ({ setIsOpen }) => {
     if (user) setUserInfo(JSON.parse(user));
 
     axios
-      .get("http://localhost:5000/api/customers", { withCredentials: true })
+      .get("https://asia-poultry-api.onrender.com//api/customers", { withCredentials: true })
       .then((res) =>
         setAllCustomers(res.data.filter((c) => c.status !== "inactive")),
       )
@@ -29,7 +29,7 @@ const Topbar = ({ setIsOpen }) => {
   const handleLogout = async () => {
     try {
       await axios.post(
-        "http://localhost:5000/api/auth/logout",
+        "https://asia-poultry-api.onrender.com//api/auth/logout",
         {},
         { withCredentials: true },
       );
