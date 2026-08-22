@@ -19,11 +19,11 @@ const Login = () => {
 
     try {
       setLoading(true);
-      // Backend API call
+      // 🔥 FIX: Double slash (//) hata kar single slash (/) kar diya hai
       const response = await axios.post(
-        "https://asia-poultry-api.onrender.com//api/auth/login",
+        "https://asia-poultry-api.onrender.com/api/auth/login",
         { userId, password },
-        { withCredentials: true }, // Cookies (JWT) receive karne ke liye
+        { withCredentials: true }, 
       );
 
       // Agar login successful ho
@@ -35,7 +35,6 @@ const Login = () => {
       // Dashboard par bhej dein
       navigate("/");
     } catch (error) {
-      // Custom Error handling (No old popups)
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       setLoading(false);
@@ -50,7 +49,6 @@ const Login = () => {
           <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🐔</span>
           </div>
-          {/* 🔥 NAYA: Yahan naam change kar diya gaya hai */}
           <h2 className="text-2xl font-bold text-gray-800">
             Asia Poultry Business
           </h2>
