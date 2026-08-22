@@ -26,9 +26,13 @@ const Ledgers = () => {
       try {
         const endpoint =
           partyType === "customer" ? "/api/customers" : "/api/suppliers";
-        const { data } = await axios.get(`https://asia-poultry-api.onrender.com/${endpoint}`, {
-          withCredentials: true,
-        });
+        // 🔥 FIX: Yahan se slash (/) hata diya taake double slash na bane
+        const { data } = await axios.get(
+          `https://asia-poultry-api.onrender.com${endpoint}`,
+          {
+            withCredentials: true,
+          },
+        );
         setParties(data.filter((p) => p.status !== "inactive"));
         setSelectedParty("");
         setLedgerData(null);
@@ -61,7 +65,6 @@ const Ledgers = () => {
     documentTitle: `Ledger_Statement_${new Date().toISOString().split("T")[0]}`,
   });
 
-  // 🔥 NAYA FIX: Table ke aakhri record se pakka balance nikalne ki logic
   const finalBalance =
     ledgerData?.transactions?.length > 0
       ? ledgerData.transactions[ledgerData.transactions.length - 1].balance
@@ -210,7 +213,6 @@ const Ledgers = () => {
                   Current Status:
                 </p>
 
-                {/* 🔥 FIX: Yahan ab hum variable 'finalBalance' use kar rahe hain jo table se match karega */}
                 <h2
                   className={`text-xl sm:text-2xl font-black ${finalBalance > 0 ? "text-red-600" : "text-gray-800"}`}
                 >
