@@ -1,11 +1,48 @@
 const Supplier = require("../models/Supplier");
+const Purchase = require("../models/Purchase"); // 🔥 FIX: Purchase model add kiya
 
 // @desc    Get all suppliers
 // @route   GET /api/suppliers
 const getSuppliers = async (req, res) => {
   try {
-    const suppliers = await Supplier.find().sort({ createdAt: -1 });
-    res.json(suppliers);
+    // .lean() lagaya taake hum custom fields (totalPurchases, totalPaid) add kar sakein
+    const suppliers = await Supplier.find().sort({ createdAt: -1 }).lean();
+
+    // Har supplier k liye Purchases aur Paid calculate karein
+    const updatedSuppliers = await Promise.all(
+      suppliers.map(async (supplier) => {
+        let totalPurchases = 0;
+
+        try {
+          // Supplier ki saari purchases uthayen aur totalAmount jama (sum) karein
+          const purchases = await Purchase.find({ supplier: supplier._id });
+          purchases.forEach((p) => {
+            totalPurchases += Number(p.totalAmount) || 0;
+          });
+        } catch (err) {
+          console.log("Failed to fetch purchases for supplier", err);
+        }
+
+        // 🔥 VIP MATH TRICK:
+        // Current Balance = Opening + Purchases - Paid
+        // Iska matlab hai k: Paid = Opening + Purchases - Current Balance
+        let totalPaid =
+          (Number(supplier.openingBalance) || 0) +
+          totalPurchases -
+          (Number(supplier.currentBalance) || 0);
+
+        // Agar kisi wajah se calculations minus me jayen to usay 0 set kar do
+        if (totalPaid < 0) totalPaid = 0;
+
+        return {
+          ...supplier,
+          totalPurchases,
+          totalPaid,
+        };
+      }),
+    );
+
+    res.json(updatedSuppliers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -33,8 +70,6 @@ const createSupplier = async (req, res) => {
   }
 };
 
-// @desc    Update supplier (Owner Only)
-// @route   PUT /api/suppliers/:id
 // @desc    Update supplier (Owner Only)
 // @route   PUT /api/suppliers/:id
 const updateSupplier = async (req, res) => {
