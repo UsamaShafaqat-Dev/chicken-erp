@@ -18,7 +18,6 @@ const Ledgers = () => {
   const [parties, setParties] = useState([]);
   const [selectedParty, setSelectedParty] = useState("");
 
-  // 🔥 FIX: Date Range Filters
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -54,7 +53,6 @@ const Ledgers = () => {
     try {
       setLoading(true);
 
-      // 🔥 FIX: API request mein Date parameters pass kiye hain
       let apiUrl = `https://asia-poultry-api.onrender.com/api/ledgers?type=${partyType}&id=${selectedParty}`;
       if (fromDate) apiUrl += `&startDate=${fromDate}`;
       if (toDate) apiUrl += `&endDate=${toDate}`;
@@ -87,7 +85,8 @@ const Ledgers = () => {
           <FileText size={20} /> Account Ledgers (Khata)
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        {/* 🔥 FIX: Grid ko 5 columns par set kiya taake Dates ko poori jagah milay */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           {/* Account Type */}
           <div className="lg:col-span-1">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
@@ -142,8 +141,8 @@ const Ledgers = () => {
             </select>
           </div>
 
-          {/* 🔥 FIX: Date Filters Add Kiye Hain */}
-          <div className="lg:col-span-1 flex items-center gap-2 w-full">
+          {/* 🔥 FIX: Date Filters ko lg:col-span-2 de diya taake bara nazar aaye */}
+          <div className="lg:col-span-2 flex items-center gap-2 w-full">
             <div className="flex-1">
               <label className="block text-gray-700 font-medium mb-1 text-sm">
                 From Date
@@ -152,7 +151,7 @@ const Ledgers = () => {
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
               />
             </div>
             <div className="flex-1">
@@ -163,7 +162,7 @@ const Ledgers = () => {
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
               />
             </div>
             {/* Clear Dates Button */}
@@ -258,7 +257,6 @@ const Ledgers = () => {
                 <p className="text-gray-600 text-xs sm:text-sm">
                   {ledgerData.party.address}
                 </p>
-                {/* 🔥 Print me Dates show hongi agar select ki hain */}
                 {(fromDate || toDate) && (
                   <p className="text-blue-700 font-bold text-xs sm:text-sm mt-2 bg-blue-50 inline-block px-2 py-1 rounded">
                     Period:{" "}
