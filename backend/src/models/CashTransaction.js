@@ -23,11 +23,12 @@ const cashTransactionSchema = new mongoose.Schema(
         "supplier_payment",
         "internal_transfer",
         "expense",
+        "employee_salary", // 🔥 NAYA: Staff ki salary/advance ki pehchaan ke liye add kiya
       ],
       required: true,
     },
     referenceId: {
-      type: mongoose.Schema.Types.ObjectId, // Customer ID, Supplier ID, یا Payment ID کا حوالہ
+      type: mongoose.Schema.Types.ObjectId, // Customer ID, Supplier ID, Employee ID یا Payment ID کا حوالہ
     },
     particulars: {
       type: String,
