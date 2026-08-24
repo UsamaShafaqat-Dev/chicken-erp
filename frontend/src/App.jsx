@@ -20,7 +20,8 @@ import Reports from "./pages/Reports";
 import WhatsAppReminder from "./pages/WhatsAppReminder";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
-import CashBook from "./pages/CashBook"; // CashBook import hua wa hai
+import CashBook from "./pages/CashBook";
+import Salaries from "./pages/Salaries";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("userInfo");
@@ -199,6 +200,14 @@ function App() {
               <Layout>
                 <Settings />
               </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/salaries"
+          element={
+            <ProtectedRoute>
+              <Salaries />
             </ProtectedRoute>
           }
         />

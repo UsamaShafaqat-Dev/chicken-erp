@@ -17,6 +17,7 @@ const userRoutes = require("./src/routes/userRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
 const cashRoutes = require("./src/routes/cashRoute");
 const dailyRateRoutes = require("./src/routes/dailyRateRoutes");
+const employeeRoutes = require('./src/routes/employeeRoutes');
 
 // 🔥 FIX: Yahan path mein "src" add kar diya hai
 const expenseCategoryRoutes = require("./src/routes/expenseCategoryRoutes");
@@ -56,6 +57,7 @@ app.use("/api/daily-rates", dailyRateRoutes);
 
 // 🔥 NAYA ROUTE
 app.use("/api/expense-categories", expenseCategoryRoutes);
+app.use('/api/employees', employeeRoutes);
 
 app.get("/", (req, res) => {
   res.send("🐔 Asia Poultry ERP API is running...");
