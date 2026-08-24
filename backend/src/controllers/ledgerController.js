@@ -8,7 +8,8 @@ const Payment = require("../models/Payment");
 // @route   GET /api/ledgers
 const getLedger = async (req, res) => {
   try {
-    const { type, id } = req.query; // type: 'customer' or 'supplier'
+    // 🔥 FIX: startDate aur endDate ko query se nikal liya
+    const { type, id, startDate, endDate } = req.query;
 
     if (!type || !id) {
       return res
@@ -28,14 +29,14 @@ const getLedger = async (req, res) => {
       runningBalance = partyInfo.openingBalance || 0;
       transactions.push({
         date: partyInfo.createdAt,
-        particulars: "Opening Balance",
+        particulars: "Account Opening Balance",
         debit: runningBalance > 0 ? runningBalance : 0,
         credit: runningBalance < 0 ? Math.abs(runningBalance) : 0,
         balance: runningBalance,
         isOpening: true,
       });
 
-      // 1. Get Sales (Customer ne udhaar liya -> Debit)
+      // 1. Get Sales
       const sales = await Sale.find({ customer: id });
       sales.forEach((sale) => {
         transactions.push({
@@ -47,7 +48,7 @@ const getLedger = async (req, res) => {
         });
       });
 
-      // 2. Get Payments (Customer ne paise diye -> Credit)
+      // 2. Get Payments
       const payments = await Payment.find({ customer: id, type: "receive" });
       payments.forEach((payment) => {
         transactions.push({
@@ -66,14 +67,14 @@ const getLedger = async (req, res) => {
       runningBalance = partyInfo.openingBalance || 0;
       transactions.push({
         date: partyInfo.createdAt,
-        particulars: "Opening Balance",
+        particulars: "Account Opening Balance",
         debit: runningBalance < 0 ? Math.abs(runningBalance) : 0,
         credit: runningBalance > 0 ? runningBalance : 0,
         balance: runningBalance,
         isOpening: true,
       });
 
-      // 1. Get Purchases (Hum ne udhaar liya -> Credit)
+      // 1. Get Purchases
       const purchases = await Purchase.find({ supplier: id });
       purchases.forEach((purchase) => {
         transactions.push({
@@ -85,7 +86,7 @@ const getLedger = async (req, res) => {
         });
       });
 
-      // 2. Get Payments (Hum ne paise diye -> Debit)
+      // 2. Get Payments
       const payments = await Payment.find({ supplier: id, type: "pay" });
       payments.forEach((payment) => {
         transactions.push({
@@ -103,19 +104,74 @@ const getLedger = async (req, res) => {
     const otherTxs = transactions.filter((t) => !t.isOpening);
     otherTxs.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Running Balance Calculate karein
-    let finalTransactions = [openingTx];
+    // Sab se pehle shuru se le kar end tak saari calculation karein
+    let allTransactionsCalculated = [];
     let currentBal = openingTx.balance;
 
     otherTxs.forEach((tx) => {
       if (type === "customer") {
-        currentBal = currentBal + tx.debit - tx.credit; // Customer: Debit(+) Credit(-)
+        currentBal = currentBal + tx.debit - tx.credit;
       } else {
-        currentBal = currentBal + tx.credit - tx.debit; // Supplier: Credit(+) Debit(-)
+        currentBal = currentBal + tx.credit - tx.debit;
       }
       tx.balance = currentBal;
-      finalTransactions.push(tx);
+      allTransactionsCalculated.push(tx);
     });
+
+    // 🔥 FIX: DATE FILTERING LOGIC
+    let finalTransactions = [];
+
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate) : new Date(0); // Agar start date nahi, to shuru se
+      start.setHours(0, 0, 0, 0);
+
+      const end = endDate ? new Date(endDate) : new Date("2100-01-01"); // Agar end date nahi, to hamesha tak
+      end.setHours(23, 59, 59, 999);
+
+      // 1. Pichla Hisaab (Brought Forward) dhundhein
+      let broughtForwardBalance = openingTx.balance;
+      for (let i = 0; i < allTransactionsCalculated.length; i++) {
+        let txDate = new Date(allTransactionsCalculated[i].date);
+        if (txDate < start) {
+          broughtForwardBalance = allTransactionsCalculated[i].balance;
+        } else {
+          break; // Filter wali dates shuru ho gayi hain
+        }
+      }
+
+      // Brought Forward entry set karein
+      let bfDebit = 0;
+      let bfCredit = 0;
+      if (type === "customer") {
+        if (broughtForwardBalance > 0) bfDebit = broughtForwardBalance;
+        else if (broughtForwardBalance < 0)
+          bfCredit = Math.abs(broughtForwardBalance);
+      } else {
+        if (broughtForwardBalance > 0) bfCredit = broughtForwardBalance;
+        else if (broughtForwardBalance < 0)
+          bfDebit = Math.abs(broughtForwardBalance);
+      }
+
+      finalTransactions.push({
+        date: startDate ? new Date(startDate) : openingTx.date,
+        particulars: "Brought Forward (Pichla Hisaab)",
+        debit: bfDebit,
+        credit: bfCredit,
+        balance: broughtForwardBalance,
+        isOpening: true,
+      });
+
+      // 2. Sirf range wali transactions filter karein
+      const rangeTxs = allTransactionsCalculated.filter((tx) => {
+        let txDate = new Date(tx.date);
+        return txDate >= start && txDate <= end;
+      });
+
+      finalTransactions = [...finalTransactions, ...rangeTxs];
+    } else {
+      // Agar koi date filter nahi laga to poora ledger dikhao
+      finalTransactions = [openingTx, ...allTransactionsCalculated];
+    }
 
     res.json({
       party: partyInfo,

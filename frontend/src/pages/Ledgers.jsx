@@ -9,6 +9,7 @@ import {
   Truck,
   Calendar,
   Phone,
+  X,
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -16,6 +17,11 @@ const Ledgers = () => {
   const [partyType, setPartyType] = useState("customer");
   const [parties, setParties] = useState([]);
   const [selectedParty, setSelectedParty] = useState("");
+
+  // 🔥 FIX: Date Range Filters
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +32,6 @@ const Ledgers = () => {
       try {
         const endpoint =
           partyType === "customer" ? "/api/customers" : "/api/suppliers";
-        // 🔥 FIX: Yahan se slash (/) hata diya taake double slash na bane
         const { data } = await axios.get(
           `https://asia-poultry-api.onrender.com${endpoint}`,
           {
@@ -48,10 +53,14 @@ const Ledgers = () => {
 
     try {
       setLoading(true);
-      const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com/api/ledgers?type=${partyType}&id=${selectedParty}`,
-        { withCredentials: true },
-      );
+
+      // 🔥 FIX: API request mein Date parameters pass kiye hain
+      let apiUrl = `https://asia-poultry-api.onrender.com/api/ledgers?type=${partyType}&id=${selectedParty}`;
+      if (fromDate) apiUrl += `&startDate=${fromDate}`;
+      if (toDate) apiUrl += `&endDate=${toDate}`;
+
+      const { data } = await axios.get(apiUrl, { withCredentials: true });
+
       setLedgerData(data);
     } catch (error) {
       toast.error("Failed to generate ledger");
@@ -78,14 +87,15 @@ const Ledgers = () => {
           <FileText size={20} /> Account Ledgers (Khata)
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          {/* Account Type */}
+          <div className="lg:col-span-1">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
-              Select Account Type
+              Account Type
             </label>
             <div className="flex gap-2">
               <label
-                className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg border-2 cursor-pointer transition-all ${partyType === "customer" ? "border-green-500 bg-green-50 text-green-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all ${partyType === "customer" ? "border-green-500 bg-green-50 text-green-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
               >
                 <input
                   type="radio"
@@ -98,7 +108,7 @@ const Ledgers = () => {
                 <User size={16} /> Customer
               </label>
               <label
-                className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg border-2 cursor-pointer transition-all ${partyType === "supplier" ? "border-orange-500 bg-orange-50 text-orange-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all ${partyType === "supplier" ? "border-orange-500 bg-orange-50 text-orange-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
               >
                 <input
                   type="radio"
@@ -113,7 +123,8 @@ const Ledgers = () => {
             </div>
           </div>
 
-          <div>
+          {/* Party Name */}
+          <div className="lg:col-span-1">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               Select Name
             </label>
@@ -131,7 +142,47 @@ const Ledgers = () => {
             </select>
           </div>
 
-          <div className="flex items-end">
+          {/* 🔥 FIX: Date Filters Add Kiye Hain */}
+          <div className="lg:col-span-1 flex items-center gap-2 w-full">
+            <div className="flex-1">
+              <label className="block text-gray-700 font-medium mb-1 text-sm">
+                From Date
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-gray-700 font-medium mb-1 text-sm">
+                To Date
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
+              />
+            </div>
+            {/* Clear Dates Button */}
+            {(fromDate || toDate) && (
+              <button
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                }}
+                className="p-2 mb-0.5 mt-auto text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-lg shrink-0"
+                title="Clear Dates"
+              >
+                <X size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <div className="lg:col-span-1">
             <button
               onClick={generateLedger}
               disabled={loading}
@@ -207,10 +258,23 @@ const Ledgers = () => {
                 <p className="text-gray-600 text-xs sm:text-sm">
                   {ledgerData.party.address}
                 </p>
+                {/* 🔥 Print me Dates show hongi agar select ki hain */}
+                {(fromDate || toDate) && (
+                  <p className="text-blue-700 font-bold text-xs sm:text-sm mt-2 bg-blue-50 inline-block px-2 py-1 rounded">
+                    Period:{" "}
+                    {fromDate
+                      ? new Date(fromDate).toLocaleDateString("en-GB")
+                      : "Start"}{" "}
+                    To{" "}
+                    {toDate
+                      ? new Date(toDate).toLocaleDateString("en-GB")
+                      : "End"}
+                  </p>
+                )}
               </div>
               <div className="text-left sm:text-right print:text-right bg-gray-50 sm:bg-transparent p-3 sm:p-0 rounded-lg w-full sm:w-auto">
                 <p className="text-xs sm:text-sm text-gray-500 mb-1 uppercase font-bold">
-                  Current Status:
+                  Closing Balance:
                 </p>
 
                 <h2
@@ -220,7 +284,10 @@ const Ledgers = () => {
                 </h2>
 
                 <p className="text-gray-500 text-[10px] sm:text-xs uppercase">
-                  Total Outstanding
+                  As of{" "}
+                  {toDate
+                    ? new Date(toDate).toLocaleDateString("en-GB")
+                    : "Today"}
                 </p>
               </div>
             </div>
@@ -246,29 +313,40 @@ const Ledgers = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {ledgerData.transactions.map((tx, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap text-xs sm:text-sm">
-                        <Calendar
-                          size={12}
-                          className="inline mr-1 text-gray-400"
-                        />{" "}
-                        {new Date(tx.date).toLocaleDateString("en-GB")}
-                      </td>
-                      <td className="px-3 py-3 text-gray-800 font-medium text-xs sm:text-sm">
-                        {tx.particulars}
-                      </td>
-                      <td className="px-3 py-3 text-right font-medium text-gray-700 text-xs sm:text-sm">
-                        {tx.debit > 0 ? tx.debit.toLocaleString() : "-"}
-                      </td>
-                      <td className="px-3 py-3 text-right font-medium text-gray-700 text-xs sm:text-sm">
-                        {tx.credit > 0 ? tx.credit.toLocaleString() : "-"}
-                      </td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-900 text-xs sm:text-sm">
-                        {tx.balance.toLocaleString()}
+                  {ledgerData.transactions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="text-center py-6 text-gray-500 font-medium"
+                      >
+                        No records found for this date range.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    ledgerData.transactions.map((tx, index) => (
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="px-3 py-3 text-gray-700 whitespace-nowrap text-xs sm:text-sm">
+                          <Calendar
+                            size={12}
+                            className="inline mr-1 text-gray-400"
+                          />{" "}
+                          {new Date(tx.date).toLocaleDateString("en-GB")}
+                        </td>
+                        <td className="px-3 py-3 text-gray-800 font-medium text-xs sm:text-sm">
+                          {tx.particulars}
+                        </td>
+                        <td className="px-3 py-3 text-right font-medium text-gray-700 text-xs sm:text-sm">
+                          {tx.debit > 0 ? tx.debit.toLocaleString() : "-"}
+                        </td>
+                        <td className="px-3 py-3 text-right font-medium text-gray-700 text-xs sm:text-sm">
+                          {tx.credit > 0 ? tx.credit.toLocaleString() : "-"}
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-gray-900 text-xs sm:text-sm">
+                          {tx.balance.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -278,40 +356,46 @@ const Ledgers = () => {
               <div className="border-y-2 border-gray-800 bg-gray-100 px-3 py-2 text-xs font-bold text-gray-800 uppercase tracking-wider mb-2">
                 Transaction History
               </div>
-              {ledgerData.transactions.map((tx, index) => (
-                <div key={index} className="border-b border-gray-200 py-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs text-gray-500 flex items-center gap-1 font-medium bg-gray-100 px-2 py-0.5 rounded">
-                      <Calendar size={12} />{" "}
-                      {new Date(tx.date).toLocaleDateString("en-GB")}
-                    </span>
-                    <span className="font-bold text-gray-900 text-sm">
-                      Bal: {tx.balance.toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-sm font-bold text-gray-800 mb-3">
-                    {tx.particulars}
-                  </p>
-                  <div className="flex gap-2 text-sm">
-                    <div className="flex-1 bg-red-50/50 p-2 rounded-lg border border-red-100">
-                      <span className="text-[10px] uppercase text-gray-500 block mb-0.5 font-bold">
-                        Debit (Dr)
-                      </span>
-                      <span className="font-bold text-gray-800">
-                        {tx.debit > 0 ? tx.debit.toLocaleString() : "-"}
-                      </span>
-                    </div>
-                    <div className="flex-1 bg-green-50/50 p-2 rounded-lg border border-green-100">
-                      <span className="text-[10px] uppercase text-gray-500 block mb-0.5 font-bold">
-                        Credit (Cr)
-                      </span>
-                      <span className="font-bold text-gray-800">
-                        {tx.credit > 0 ? tx.credit.toLocaleString() : "-"}
-                      </span>
-                    </div>
-                  </div>
+              {ledgerData.transactions.length === 0 ? (
+                <div className="text-center py-6 text-gray-500 font-medium bg-gray-50 rounded-lg mt-2">
+                  No records found for this period.
                 </div>
-              ))}
+              ) : (
+                ledgerData.transactions.map((tx, index) => (
+                  <div key={index} className="border-b border-gray-200 py-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs text-gray-500 flex items-center gap-1 font-medium bg-gray-100 px-2 py-0.5 rounded">
+                        <Calendar size={12} />{" "}
+                        {new Date(tx.date).toLocaleDateString("en-GB")}
+                      </span>
+                      <span className="font-bold text-gray-900 text-sm">
+                        Bal: {tx.balance.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-gray-800 mb-3">
+                      {tx.particulars}
+                    </p>
+                    <div className="flex gap-2 text-sm">
+                      <div className="flex-1 bg-red-50/50 p-2 rounded-lg border border-red-100">
+                        <span className="text-[10px] uppercase text-gray-500 block mb-0.5 font-bold">
+                          Debit (Dr)
+                        </span>
+                        <span className="font-bold text-gray-800">
+                          {tx.debit > 0 ? tx.debit.toLocaleString() : "-"}
+                        </span>
+                      </div>
+                      <div className="flex-1 bg-green-50/50 p-2 rounded-lg border border-green-100">
+                        <span className="text-[10px] uppercase text-gray-500 block mb-0.5 font-bold">
+                          Credit (Cr)
+                        </span>
+                        <span className="font-bold text-gray-800">
+                          {tx.credit > 0 ? tx.credit.toLocaleString() : "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Print Footer */}
