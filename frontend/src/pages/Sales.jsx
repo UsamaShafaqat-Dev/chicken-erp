@@ -23,7 +23,7 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purchases, setPurchases] = useState([]);
-  const [payments, setPayments] = useState([]); // 🔥 NAYA: Payments (Recovery) ka data
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,7 +63,6 @@ const Sales = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // 🔥 FIX: Ab Payments ki API bhi sath mangwa li ta k Total Cash calculate ho
       const [salesRes, customersRes, purchasesRes, paymentsRes] =
         await Promise.all([
           axios.get("https://asia-poultry-api.onrender.com/api/sales", {
@@ -82,7 +81,7 @@ const Sales = () => {
       setSales(salesRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
       setPurchases(purchasesRes.data);
-      setPayments(paymentsRes.data); // Save payments to state
+      setPayments(paymentsRes.data);
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -254,11 +253,8 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  // 🔥 NAYA: Date filter lagana Recoveries (Payments) pe jo in (receive) hui hain
   const filteredRecoveries = payments.filter((p) => {
-    // Sirf Receive wali payments (Customer se aayi hui)
     if (p.type !== "receive") return false;
-
     const pDate = new Date(p.date).toISOString().split("T")[0];
     const matchFrom = fromDate ? pDate >= fromDate : true;
     const matchTo = toDate ? pDate <= toDate : true;
@@ -279,22 +275,23 @@ const Sales = () => {
     0,
   );
 
-  // Sale karte waqt jo cash mila
   const salesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
     0,
   );
 
-  // Purani recovery jo payments page se aayi
   const recoveryPaid = filteredRecoveries.reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
     0,
   );
 
-  // 🔥 NAYA: Total Cash = Sales ki amount + Purani wasooli ki amount
   const totalPaid = salesPaid + recoveryPaid;
 
-  const totalOutstanding = filteredSales.reduce(
+  // 🔥 FIX: Top Card k liye Asli Udhaar = Total Sale - Total Paid (Sales cash + Recovery)
+  const netUdhaar = totalAmount - totalPaid;
+
+  // Table k footer k liye purana total outstanding (sirf parchi ka hisab)
+  const tableOutstanding = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.balanceDue) || 0),
     0,
   );
@@ -382,7 +379,7 @@ const Sales = () => {
             Rs. {totalAmount.toLocaleString()}
           </h3>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center relative group">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center relative group cursor-pointer hover:border-blue-200">
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={16} className="text-teal-600" />
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
@@ -392,10 +389,10 @@ const Sales = () => {
           <h3 className="text-lg sm:text-xl font-bold text-gray-800">
             Rs. {totalPaid.toLocaleString()}
           </h3>
-          {/* Tooltip to show details */}
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg">
-            Sales Cash: Rs. {salesPaid.toLocaleString()} <br /> Recovery: Rs.{" "}
-            {recoveryPaid.toLocaleString()}
+          {/* Hover Tooltip Breakdown */}
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-2 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg border border-gray-700">
+            Sale Cash: Rs. {salesPaid.toLocaleString()} <br /> Payment Recovery:
+            Rs. {recoveryPaid.toLocaleString()}
           </div>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -405,8 +402,10 @@ const Sales = () => {
               Udhaar
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-            Rs. {totalOutstanding.toLocaleString()}
+          <h3
+            className={`text-lg sm:text-xl font-bold ${netUdhaar > 0 ? "text-red-600" : "text-green-600"}`}
+          >
+            Rs. {netUdhaar.toLocaleString()}
           </h3>
         </div>
       </div>
@@ -650,10 +649,11 @@ const Sales = () => {
                 ))
               )}
             </tbody>
-            <tfoot className="hidden print:table-row-group bg-gray-100 font-bold text-black border-t-4 border-gray-800">
+            {/* 🔥 FIX: Footer ab hamesha nazar aayega taake client ko neeche bhi total dikhe */}
+            <tfoot className="table-row-group bg-gray-100 font-bold text-black border-t-2 border-gray-300">
               <tr>
                 <td colSpan="2" className="px-3 py-3 text-right">
-                  TOTAL:
+                  TOTAL (TABLE):
                 </td>
                 <td className="px-3 py-3">{totalWeight} KG</td>
                 <td className="px-3 py-3">-</td>
@@ -662,7 +662,7 @@ const Sales = () => {
                 </td>
                 <td className="px-3 py-3">Rs. {salesPaid.toLocaleString()}</td>
                 <td className="px-3 py-3">
-                  Rs. {totalOutstanding.toLocaleString()}
+                  Rs. {tableOutstanding.toLocaleString()}
                 </td>
               </tr>
             </tfoot>
