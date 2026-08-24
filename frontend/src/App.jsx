@@ -148,7 +148,6 @@ function App() {
           }
         />
 
-        {/* 🔥 NAYA: Cash Book ko Layout k andar rakh diya gaya hai */}
         <Route
           path="/cashbook"
           element={
@@ -203,11 +202,15 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* 🔥 FIX: Salaries ko Layout ke andar wrap kar diya gaya hai */}
         <Route
           path="/salaries"
           element={
             <ProtectedRoute>
-              <Salaries />
+              <Layout>
+                <Salaries />
+              </Layout>
             </ProtectedRoute>
           }
         />

@@ -85,16 +85,16 @@ const Ledgers = () => {
           <FileText size={20} /> Account Ledgers (Khata)
         </h2>
 
-        {/* 🔥 FIX: Grid ko 5 columns par set kiya taake Dates ko poori jagah milay */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        {/* 🔥 FIX: Khulli Khulli Grid lagayi hai taake styling kharab na ho */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
           {/* Account Type */}
-          <div className="lg:col-span-1">
+          <div className="w-full">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               Account Type
             </label>
             <div className="flex gap-2">
               <label
-                className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all ${partyType === "customer" ? "border-green-500 bg-green-50 text-green-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg border-2 cursor-pointer transition-all ${partyType === "customer" ? "border-green-500 bg-green-50 text-green-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
               >
                 <input
                   type="radio"
@@ -107,7 +107,7 @@ const Ledgers = () => {
                 <User size={16} /> Customer
               </label>
               <label
-                className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all ${partyType === "supplier" ? "border-orange-500 bg-orange-50 text-orange-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg border-2 cursor-pointer transition-all ${partyType === "supplier" ? "border-orange-500 bg-orange-50 text-orange-700 font-bold" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
               >
                 <input
                   type="radio"
@@ -123,14 +123,14 @@ const Ledgers = () => {
           </div>
 
           {/* Party Name */}
-          <div className="lg:col-span-1">
+          <div className="w-full">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               Select Name
             </label>
             <select
               value={selectedParty}
               onChange={(e) => setSelectedParty(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
             >
               <option value="">-- Choose from list --</option>
               {parties.map((p) => (
@@ -141,19 +141,21 @@ const Ledgers = () => {
             </select>
           </div>
 
-          {/* 🔥 FIX: Date Filters ko lg:col-span-2 de diya taake bara nazar aaye */}
-          <div className="lg:col-span-2 flex items-center gap-2 w-full">
-            <div className="flex-1">
-              <label className="block text-gray-700 font-medium mb-1 text-sm">
-                From Date
-              </label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
-              />
-            </div>
+          {/* From Date */}
+          <div className="w-full">
+            <label className="block text-gray-700 font-medium mb-1 text-sm">
+              From Date
+            </label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
+            />
+          </div>
+
+          {/* To Date */}
+          <div className="w-full flex items-end gap-2">
             <div className="flex-1">
               <label className="block text-gray-700 font-medium mb-1 text-sm">
                 To Date
@@ -162,7 +164,7 @@ const Ledgers = () => {
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
               />
             </div>
             {/* Clear Dates Button */}
@@ -172,7 +174,7 @@ const Ledgers = () => {
                   setFromDate("");
                   setToDate("");
                 }}
-                className="p-2 mb-0.5 mt-auto text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-lg shrink-0"
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-gray-100 hover:bg-red-50 rounded-lg shrink-0"
                 title="Clear Dates"
               >
                 <X size={20} />
@@ -180,8 +182,8 @@ const Ledgers = () => {
             )}
           </div>
 
-          {/* Submit Button */}
-          <div className="lg:col-span-1">
+          {/* Submit Button (Full Width par aayega) */}
+          <div className="sm:col-span-2 lg:col-span-4 mt-2">
             <button
               onClick={generateLedger}
               disabled={loading}
