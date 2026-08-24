@@ -4,8 +4,8 @@ const { protect } = require("../middlewares/authMiddleware");
 const {
   getEmployees,
   createEmployee,
-  updateEmployee, // 🔥 NAYA
-  deleteEmployee, // 🔥 NAYA
+  updateEmployee,
+  deleteEmployee,
   addTransaction,
   getEmployeeLedger,
 } = require("../controllers/employeeController");
@@ -13,14 +13,16 @@ const {
 // Get & Create
 router.route("/").get(protect, getEmployees).post(protect, createEmployee);
 
-// 🔥 NAYA: Edit & Delete
+// 🔥 FIX: /transaction ko /:id se UPAR rakhna zaroori hai!
+router.post("/transaction", protect, addTransaction);
+
+// Edit & Delete
 router
   .route("/:id")
   .put(protect, updateEmployee)
   .delete(protect, deleteEmployee);
 
-// Transactions & Ledger
-router.post("/transaction", protect, addTransaction);
+// Ledger
 router.get("/:id/ledger", protect, getEmployeeLedger);
 
 module.exports = router;
