@@ -38,9 +38,12 @@ const Suppliers = () => {
   const fetchSuppliers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/suppliers", {
-        withCredentials: true,
-      });
+      const { data } = await axios.get(
+        "https://asia-poultry-api.onrender.com/api/suppliers",
+        {
+          withCredentials: true,
+        },
+      );
       setSuppliers(data);
     } catch (error) {
       toast.error("Failed to fetch suppliers");
@@ -95,9 +98,13 @@ const Suppliers = () => {
         );
         toast.success("Supplier updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com/api/suppliers", formData, {
-          withCredentials: true,
-        });
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/suppliers",
+          formData,
+          {
+            withCredentials: true,
+          },
+        );
         toast.success("Supplier added successfully");
       }
       setIsModalOpen(false);
@@ -109,9 +116,12 @@ const Suppliers = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com/api/suppliers/${deletingId}`, {
-        withCredentials: true,
-      });
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/suppliers/${deletingId}`,
+        {
+          withCredentials: true,
+        },
+      );
       toast.success("Supplier deleted successfully");
       setIsDeleteModalOpen(false);
       fetchSuppliers();
@@ -208,8 +218,13 @@ const Suppliers = () => {
                     >
                       {supplier.address || "-"}
                     </td>
-                    <td className="px-3 py-4 text-gray-600">Rs. 0</td>
-                    <td className="px-3 py-4 text-gray-600">Rs. 0</td>
+                    {/* 🔥 FIX: Yahan hardcoded 0 ki jagah asli value laga di */}
+                    <td className="px-3 py-4 text-blue-600 font-medium">
+                      Rs. {supplier.totalPurchases?.toLocaleString() || 0}
+                    </td>
+                    <td className="px-3 py-4 text-green-600 font-medium">
+                      Rs. {supplier.totalPaid?.toLocaleString() || 0}
+                    </td>
                     <td
                       className={`px-3 py-4 font-bold ${supplier.currentBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                     >
@@ -290,11 +305,16 @@ const Suppliers = () => {
               <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Purchases</p>
-                  <p className="font-medium">Rs. 0</p>
+                  {/* 🔥 FIX: Mobile view mein bhi real value laga di */}
+                  <p className="font-medium text-blue-600">
+                    Rs. {supplier.totalPurchases?.toLocaleString() || 0}
+                  </p>
                 </div>
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Paid</p>
-                  <p className="font-medium">Rs. 0</p>
+                  <p className="font-medium text-green-600">
+                    Rs. {supplier.totalPaid?.toLocaleString() || 0}
+                  </p>
                 </div>
                 <div className="col-span-2 pt-2 border-t border-gray-200">
                   <p className="text-gray-500 text-xs mb-1">Payable Balance</p>

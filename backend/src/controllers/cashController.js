@@ -1,7 +1,7 @@
 const CashAccount = require("../models/CashAccount");
 const CashTransaction = require("../models/CashTransaction");
 
-// 1. نیا کیش اکاؤنٹ بنائیں (لڑکے کا یا اونر کا)
+// 1. Naya cash account banayen (Larkay ka ya Owner ka)
 const createAccount = async (req, res) => {
   try {
     const { name, type, initialBalance } = req.body;
@@ -16,7 +16,7 @@ const createAccount = async (req, res) => {
   }
 };
 
-// 2. تمام کیش اکاؤنٹس کی لسٹ منگوائیں
+// 2. Tamam cash accounts ki list mangwayen
 const getAccounts = async (req, res) => {
   try {
     const accounts = await CashAccount.find({ status: "active" });
@@ -26,7 +26,7 @@ const getAccounts = async (req, res) => {
   }
 };
 
-// 3. ایک اکاؤنٹ سے دوسرے اکاؤنٹ میں پیسے ٹرانسفر کریں (جیسے لڑکے سے رانا صاحب کو)
+// 3. Ek account se doosre account mein paise transfer karein (jaise larkay se owner ko)
 const transferCash = async (req, res) => {
   try {
     const { fromAccountId, toAccountId, amount, particulars, date } = req.body;
@@ -35,7 +35,7 @@ const transferCash = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // پیسے دینے والے کے اکاؤنٹ سے رقم کم کریں
+    // Paise dene wale ke account se raqam kam karein
     const fromAccount = await CashAccount.findById(fromAccountId);
     if (fromAccount.balance < amount) {
       return res
@@ -45,12 +45,12 @@ const transferCash = async (req, res) => {
     fromAccount.balance -= Number(amount);
     await fromAccount.save();
 
-    // پیسے لینے والے کے اکاؤنٹ میں رقم جمع کریں
+    // Paise lene wale ke account mein raqam jama karein
     const toAccount = await CashAccount.findById(toAccountId);
     toAccount.balance += Number(amount);
     await toAccount.save();
 
-    // ٹرانسفر کی ہسٹری محفوظ کریں
+    // Transfer ki history mehfooz karein
     const transaction = await CashTransaction.create({
       fromAccount: fromAccountId,
       toAccount: toAccountId,
@@ -70,23 +70,62 @@ const transferCash = async (req, res) => {
   }
 };
 
-// 4. کسی ایک اکاؤنٹ کا لیجر (ہسٹری) نکالیں
+// 4. Kisi ek account ka ledger (history) nikalen
 const getAccountLedger = async (req, res) => {
   try {
     const { id } = req.params;
     const account = await CashAccount.findById(id);
 
-    // وہ ٹرانزیکشنز جہاں یہ اکاؤنٹ پیسے دینے والا یا لینے والا تھا
+    if (!account) {
+      return res.status(404).json({ message: "Account not found" });
+    }
+
+    // 🔥 FIX: Populate ko theek kiya, aur frontend k mutabiq calculations kar k bhejein
     const transactions = await CashTransaction.find({
       $or: [{ fromAccount: id }, { toAccount: id }],
     })
-      .populate("fromAccount name")
-      .populate("toAccount name")
+      .populate("fromAccount", "name")
+      .populate("toAccount", "name")
       .sort({ date: -1 });
 
-    res.json({ account, transactions });
+    // Frontend ko data formatted chahiye (IN / OUT type k sath)
+    const formattedTransactions = transactions.map((tx) => {
+      // Check karein k paisa is account me aaya hai (IN) ya yahan se gaya hai (OUT)
+      const isReceive = tx.toAccount && tx.toAccount._id.toString() === id;
+
+      let otherPartyName = "System / Adjustment";
+      if (isReceive && tx.fromAccount) {
+        otherPartyName = tx.fromAccount.name;
+      } else if (!isReceive && tx.toAccount) {
+        otherPartyName = tx.toAccount.name;
+      }
+
+      return {
+        _id: tx._id,
+        type: isReceive ? "in" : "out",
+        amount: tx.amount,
+        particulars:
+          tx.particulars ||
+          (isReceive
+            ? `Received from ${otherPartyName}`
+            : `Paid to ${otherPartyName}`),
+        date: tx.date,
+        transactionType: tx.transactionType,
+      };
+    });
+
+    // Hum apna formatted data bhejenge jo frontend handle kar sake
+    res.json({
+      success: true,
+      ledger: {
+        accountName: account.name,
+        balance: account.balance,
+        transactions: formattedTransactions,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Ledger Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
