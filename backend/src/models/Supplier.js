@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const supplierSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    mobile: { type: String, required: true },
+    mobile: { type: String,},
     whatsapp: { type: String },
     address: { type: String },
     openingBalance: { type: Number, default: 0 },
