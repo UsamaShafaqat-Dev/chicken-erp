@@ -16,7 +16,8 @@ import {
   UserCog,
   Settings,
   X,
-  Wallet, // 🔥 FIX: Wallet icon import kar liya Cash Book k liye
+  Wallet,
+  Briefcase, // 🔥 NAYA: Salaries page k liye icon
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -45,10 +46,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: "Stock", icon: Package, path: "/stock" },
     { name: "Expenses", icon: Receipt, path: "/expenses" },
     { name: "Ledgers", icon: BookOpen, path: "/ledgers" },
-    { name: "Cash Book", icon: Wallet, path: "/cashbook" }, // 🔥 NAYA: Cash Book ka link add kar diya
+    { name: "Cash Book", icon: Wallet, path: "/cashbook" },
     { name: "Reports", icon: BarChart3, path: "/reports" },
     { name: "WhatsApp Reminder", icon: MessageCircle, path: "/whatsapp" },
     { name: "Users / Staff", icon: UserCog, path: "/users" },
+    { name: "Staff / Salaries", icon: Briefcase, path: "/salaries" }, // 🔥 FIX: Yahan add ho gaya
     { name: "Settings", icon: Settings, path: "/settings" },
   ];
 
@@ -93,7 +95,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 <li key={item.name}>
                   <Link
                     to={item.path}
-                    onClick={() => setIsOpen(false)} // 🔥 FIX: Mobile par link click hone par sidebar automatically band ho jayega
+                    onClick={() => setIsOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                       isActive
                         ? "bg-[#0a5228] text-white font-medium"
