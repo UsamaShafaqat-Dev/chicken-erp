@@ -16,6 +16,8 @@ import {
   FileText,
   Printer,
   History,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 
 const Expenses = () => {
@@ -33,7 +35,7 @@ const Expenses = () => {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [savingCategory, setSavingCategory] = useState(false);
 
-  // 🔥 NAYA: Khata/Ledger Modal States
+  // Khata/Ledger Modal States
   const [showLedgerModal, setShowLedgerModal] = useState(false);
   const [selectedCategoryLedger, setSelectedCategoryLedger] = useState({
     category: "",
@@ -70,7 +72,7 @@ const Expenses = () => {
           .catch(() => ({ data: [] })),
       ]);
 
-      setExpenses(expensesRes.data);
+      setExpenses(expensesRes.data || []);
 
       const dbCategories = categoriesRes.data || [];
       const defaultCats = [
@@ -86,8 +88,9 @@ const Expenses = () => {
         dbCategories.length > 0 ? dbCategories.map((c) => c.name) : defaultCats;
 
       // Agar koi aisa kharcha hai jiski category list mein nahi, usay list mein daal do
-      expensesRes.data.forEach((e) => {
-        if (!finalCats.includes(e.category)) finalCats.push(e.category);
+      (expensesRes.data || []).forEach((e) => {
+        const catName = e.category || "Other";
+        if (!finalCats.includes(catName)) finalCats.push(catName);
       });
 
       setCategories(finalCats);
@@ -108,11 +111,11 @@ const Expenses = () => {
   const openModal = (expense = null) => {
     if (expense) {
       setFormData({
-        category: expense.category,
-        description: expense.description,
-        amount: expense.amount,
+        category: expense.category || "Other",
+        description: expense.description || "",
+        amount: expense.amount || "",
         paymentMethod: expense.paymentMethod || "cash",
-        date: new Date(expense.date).toISOString().split("T")[0],
+        date: new Date(expense.date || Date.now()).toISOString().split("T")[0],
       });
       setEditingId(expense._id);
     } else {
@@ -198,32 +201,37 @@ const Expenses = () => {
     }
   };
 
-  // 🔥 NAYA: Group Expenses by Category (Cards banane ke liye)
+  // 🔥 FIX: Safety Checks added for null/undefined categories and search queries
   const getCategoryStats = () => {
     return categories
       .map((cat) => {
-        const catExpenses = expenses.filter((e) => e.category === cat);
+        const catName = cat || "Other";
+        const catExpenses = expenses.filter(
+          (e) => (e.category || "Other") === catName,
+        );
         const total = catExpenses.reduce(
           (sum, e) => sum + (Number(e.amount) || 0),
           0,
         );
-        return { category: cat, total, transactions: catExpenses };
+        return { category: catName, total, transactions: catExpenses };
       })
       .filter(
         (stat) =>
-          stat.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          stat.total > 0,
+          (stat.category || "")
+            .toLowerCase()
+            .includes((searchQuery || "").toLowerCase()) || stat.total > 0,
       );
-    // Sirf wo cards show hongay jinme kharcha hua ho ya search kiya gaya ho
   };
 
+  // 🔥 FIX: Safe Sorting (Naye array me copy kar ke sort kiya taake React crash na ho)
   const openLedger = (stat) => {
+    const sortedTransactions = [...stat.transactions].sort(
+      (a, b) => new Date(b.date) - new Date(a.date),
+    );
     setSelectedCategoryLedger({
       category: stat.category,
       total: stat.total,
-      transactions: stat.transactions.sort(
-        (a, b) => new Date(b.date) - new Date(a.date),
-      ), // Latest pehle
+      transactions: sortedTransactions,
     });
     setShowLedgerModal(true);
   };
@@ -295,14 +303,14 @@ const Expenses = () => {
                 <History size={12} /> View Details
               </p>
               <h2 className="text-2xl font-black mt-auto text-red-600">
-                Rs. {stat.total.toLocaleString()}
+                Rs. {(stat.total || 0).toLocaleString()}
               </h2>
             </div>
           ))}
         </div>
       )}
 
-      {/* 🔥 NAYA: EXPENSE LEDGER MODAL */}
+      {/* EXPENSE LEDGER MODAL */}
       {showLedgerModal && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -325,7 +333,7 @@ const Expenses = () => {
                     Total Expense
                   </p>
                   <p className="text-lg font-black text-red-600">
-                    Rs. {selectedCategoryLedger.total.toLocaleString()}
+                    Rs. {(selectedCategoryLedger.total || 0).toLocaleString()}
                   </p>
                 </div>
                 <button
@@ -370,7 +378,7 @@ const Expenses = () => {
                       Total Spent:
                     </p>
                     <h2 className="text-2xl font-black text-red-600">
-                      Rs. {selectedCategoryLedger.total.toLocaleString()}
+                      Rs. {(selectedCategoryLedger.total || 0).toLocaleString()}
                     </h2>
                   </div>
                 </div>
@@ -396,7 +404,9 @@ const Expenses = () => {
                             {tx.description}
                           </p>
                           <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                            {new Date(tx.date).toLocaleDateString("en-GB")}
+                            {new Date(tx.date || Date.now()).toLocaleDateString(
+                              "en-GB",
+                            )}
                             <span className="capitalize bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 print:bg-white print:border-none">
                               via {tx.paymentMethod}
                             </span>
@@ -405,7 +415,7 @@ const Expenses = () => {
                       </div>
                       <div className="flex flex-col sm:items-end gap-2 sm:gap-1 pl-11 sm:pl-0">
                         <p className="font-black text-red-600 print:text-base">
-                          - Rs. {tx.amount.toLocaleString()}
+                          - Rs. {(tx.amount || 0).toLocaleString()}
                         </p>
                         {isOwner && (
                           <div className="flex gap-1.5 print:hidden">
@@ -566,7 +576,7 @@ const Expenses = () => {
       {/* CATEGORY ADD MODAL */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl w-full max-w-xs shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-xl w-full max-w-xs shadow-2xl overflow-hidden transform transition-all">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <Tag size={18} className="text-blue-600" /> New Khata
