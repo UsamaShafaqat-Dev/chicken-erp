@@ -207,7 +207,7 @@ const Suppliers = () => {
                       {supplier.name}
                     </td>
                     <td className="px-3 py-4 text-gray-800">
-                      {supplier.mobile}
+                      {supplier.mobile || "-"}
                     </td>
                     <td className="px-3 py-4 text-green-600 font-medium">
                       {supplier.whatsapp || "-"}
