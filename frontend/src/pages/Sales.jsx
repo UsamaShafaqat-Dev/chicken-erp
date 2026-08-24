@@ -138,33 +138,28 @@ const Sales = () => {
     const { name, value } = e.target;
     let newFormData = { ...formData, [name]: value };
 
-    // Agar weight, rate ya payment method change ho raha hai
-    if (name === "weight" || name === "rate" || name === "paymentMethod") {
+    // Agar weight ya rate change ho raha hai
+    if (name === "weight" || name === "rate") {
       const weight = parseFloat(newFormData.weight) || 0;
       const rate = parseFloat(newFormData.rate) || 0;
 
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
 
-      // 🔥 AUTO FILL LOGIC: Agar cash/bank hai toh poori amount khud Paid mein aa jayegi
-      if (
-        newFormData.paymentMethod === "cash" ||
-        newFormData.paymentMethod === "bank"
-      ) {
-        newFormData.paidAmount = totalAmount;
-      } else if (newFormData.paymentMethod === "credit") {
-        newFormData.paidAmount = 0; // Udhaar par khud 0 ho jayega
-      }
-
+      // 🔥 FIX: Auto Fill nikal diya gaya hai. Ab Paid amount wahi rahegi jo user ne likhi hai
       newFormData.balanceDue =
         totalAmount - (parseFloat(newFormData.paidAmount) || 0);
     }
+    // Agar payment method change ho
+    else if (name === "paymentMethod") {
+      if (value === "credit") {
+        newFormData.paidAmount = ""; // Udhaar select karne par paid amount 0 ho jaye
+        newFormData.balanceDue = parseFloat(newFormData.totalAmount) || 0;
+      }
+    }
     // Agar user khud hath se paidAmount type kare ya change kare
     else if (name === "paidAmount") {
-      const weight = parseFloat(newFormData.weight) || 0;
-      const rate = parseFloat(newFormData.rate) || 0;
-      const totalAmount = weight * rate;
-
+      const totalAmount = parseFloat(newFormData.totalAmount) || 0;
       newFormData.balanceDue = totalAmount - (parseFloat(value) || 0);
     }
 
@@ -662,11 +657,9 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmount.toLocaleString()}
                     </td>
-                    {/* 🔥 FIX: Yahan ab Payments wali amount auto-add ho kar show hogi */}
                     <td className="px-3 py-4 print:py-2 text-green-600 font-medium print:text-black whitespace-nowrap">
                       Rs. {sale.displayPaid.toLocaleString()}
                     </td>
-                    {/* 🔥 FIX: Outstanding automatically minus ho kar show hoga */}
                     <td
                       className={`px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black ${sale.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                     >
