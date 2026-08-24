@@ -1,6 +1,6 @@
 const Employee = require("../models/Employee");
 const SalaryTransaction = require("../models/SalaryTransaction");
-const Expense = require("../models/Expense"); // 🔥 NAYA: Expense model link kiya
+const Expense = require("../models/Expense");
 
 // 1. Get all employees
 const getEmployees = async (req, res) => {
@@ -60,7 +60,7 @@ const deleteEmployee = async (req, res) => {
   }
 };
 
-// 5. Add Transaction (Salary lagana ya Advance Dena)
+// 5. Add Transaction
 const addTransaction = async (req, res) => {
   try {
     const { employeeId, amount, type, description, date } = req.body;
@@ -69,12 +69,8 @@ const addTransaction = async (req, res) => {
     if (!employee)
       return res.status(404).json({ message: "Employee not found" });
 
-    // Balance update logic
     if (type === "salary_added") {
       employee.currentBalance += Number(amount);
-
-      // 🔥 NAYA JADOO: DOUBLE EFFECT (Auto Expense Entry)
-      // Jab salary banegi toh automatically expenses mein 'Staff Salary' ke naam se chali jayegi
       await Expense.create({
         category: "Staff Salary",
         description: `${employee.name} - ${description || "Monthly Salary"}`,
@@ -118,6 +114,32 @@ const getEmployeeLedger = async (req, res) => {
   }
 };
 
+// 🔥 7. NAYA: Sirf ek Transaction (Entry) Delete karna
+const deleteTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const transaction = await SalaryTransaction.findById(id);
+    if (!transaction)
+      return res.status(404).json({ message: "Transaction not found" });
+
+    const employee = await Employee.findById(transaction.employee);
+    if (employee) {
+      // Balance ko reverse karna
+      if (transaction.type === "salary_added") {
+        employee.currentBalance -= Number(transaction.amount);
+      } else if (transaction.type === "payment_given") {
+        employee.currentBalance += Number(transaction.amount);
+      }
+      await employee.save();
+    }
+
+    await SalaryTransaction.findByIdAndDelete(id);
+    res.json({ message: "Transaction deleted and balance reversed" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getEmployees,
   createEmployee,
@@ -125,4 +147,5 @@ module.exports = {
   deleteEmployee,
   addTransaction,
   getEmployeeLedger,
+  deleteTransaction,
 };

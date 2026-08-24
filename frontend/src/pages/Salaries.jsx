@@ -11,9 +11,9 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Briefcase,
-  Edit, // 🔥 NAYA
-  Trash2, // 🔥 NAYA
-  AlertTriangle, // 🔥 NAYA
+  Edit,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const Salaries = () => {
@@ -25,18 +25,22 @@ const Salaries = () => {
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false); // 🔥 NAYA
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // 🔥 NAYA: Khate ki single entry delete modal
+  const [isDeleteTxnModalOpen, setIsDeleteTxnModalOpen] = useState(false);
+  const [deletingTxnId, setDeletingTxnId] = useState(null);
 
   // Data States
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [ledgerData, setLedgerData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [editingId, setEditingId] = useState(null); // 🔥 NAYA
-  const [deletingId, setDeletingId] = useState(null); // 🔥 NAYA
+  const [editingId, setEditingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-  const isOwner = userInfo?.role === "owner"; // Sirf owner edit/delete kar sakta hai
+  const isOwner = userInfo?.role === "owner";
 
   // Forms
   const [empForm, setEmpForm] = useState({
@@ -74,7 +78,6 @@ const Salaries = () => {
     fetchEmployees();
   }, []);
 
-  // --- 🔥 NAYA: Open Edit or Create Modal ---
   const openEmpModal = (emp = null) => {
     if (emp) {
       setEmpForm({
@@ -96,7 +99,6 @@ const Salaries = () => {
     setIsEmpModalOpen(true);
   };
 
-  // --- Handlers ---
   const handleEmpSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -153,7 +155,6 @@ const Salaries = () => {
     }
   };
 
-  // --- 🔥 NAYA: Confirm Delete Handler ---
   const confirmDelete = async () => {
     try {
       await axios.delete(
@@ -177,9 +178,28 @@ const Salaries = () => {
         { withCredentials: true },
       );
       setLedgerData(data.transactions);
+
+      // Update employee state inside ledger just in case
+      setSelectedEmp(data.employee);
     } catch (error) {
       toast.error("Failed to load ledger");
       setIsLedgerModalOpen(false);
+    }
+  };
+
+  // 🔥 NAYA: Single transaction delete handler
+  const confirmDeleteTxn = async () => {
+    try {
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/employees/transaction/${deletingTxnId}`,
+        { withCredentials: true },
+      );
+      toast.success("Entry removed from khata");
+      setIsDeleteTxnModalOpen(false);
+      openLedger(selectedEmp); // Ledger refresh karein taake balance update ho jaye
+      fetchEmployees(); // Bahir cards ka balance update ho jaye
+    } catch (error) {
+      toast.error("Failed to remove entry");
     }
   };
 
@@ -189,7 +209,6 @@ const Salaries = () => {
 
   return (
     <div className="space-y-6 w-full">
-      {/* Header Row */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-72 flex items-center gap-2">
@@ -211,7 +230,6 @@ const Salaries = () => {
         </button>
       </div>
 
-      {/* Employees Grid */}
       {loading ? (
         <div className="text-center p-8 text-gray-500">
           Loading staff details...
@@ -237,7 +255,6 @@ const Salaries = () => {
                   </p>
                 </div>
 
-                {/* 🔥 NAYA: Edit / Delete Buttons & Salary */}
                 <div className="flex flex-col items-end gap-2">
                   {isOwner && (
                     <div className="flex items-center gap-1.5">
@@ -311,7 +328,7 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* 1. ADD/EDIT EMPLOYEE MODAL */}
+      {/* ADD/EDIT EMPLOYEE MODAL */}
       {isEmpModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
@@ -412,7 +429,7 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* 2. ADD TRANSACTION MODAL */}
+      {/* ADD TRANSACTION MODAL */}
       {isTxnModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
@@ -519,7 +536,7 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* 3. LEDGER (KHATA) MODAL */}
+      {/* LEDGER (KHATA) MODAL */}
       {isLedgerModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -587,13 +604,25 @@ const Salaries = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="flex flex-col items-end gap-1.5">
                         <p
                           className={`text-sm font-bold ${tx.type === "salary_added" ? "text-green-600" : "text-red-600"}`}
                         >
                           {tx.type === "salary_added" ? "+" : "-"} Rs.{" "}
                           {tx.amount.toLocaleString()}
                         </p>
+                        {/* 🔥 NAYA: Sirf ek transaction delete karne ka button */}
+                        {isOwner && (
+                          <button
+                            onClick={() => {
+                              setDeletingTxnId(tx._id);
+                              setIsDeleteTxnModalOpen(true);
+                            }}
+                            className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded text-[10px] font-bold border border-red-100 transition-colors"
+                          >
+                            Del
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -604,7 +633,7 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* 4. 🔥 NAYA: DELETE CONFIRMATION MODAL */}
+      {/* FULL EMPLOYEE DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
@@ -612,7 +641,7 @@ const Salaries = () => {
               <AlertTriangle size={32} />
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">
-              Delete Employee?
+              Delete Entire Employee?
             </h3>
             <p className="text-gray-500 text-sm mb-6">
               Are you sure? This will delete the employee and their entire khata
@@ -630,6 +659,38 @@ const Salaries = () => {
                 className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
               >
                 Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 NAYA: SINGLE TRANSACTION DELETE MODAL */}
+      {isDeleteTxnModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Entry?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure you want to remove this entry? The Khata balance will
+              be reversed automatically.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteTxnModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteTxn}
+                className="px-4 py-2 flex-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium"
+              >
+                Delete Entry
               </button>
             </div>
           </div>

@@ -8,21 +8,22 @@ const {
   deleteEmployee,
   addTransaction,
   getEmployeeLedger,
+  deleteTransaction, // 🔥 NAYA
 } = require("../controllers/employeeController");
 
 // Get & Create
 router.route("/").get(protect, getEmployees).post(protect, createEmployee);
 
-// 🔥 FIX: /transaction ko /:id se UPAR rakhna zaroori hai!
+// Transactions
 router.post("/transaction", protect, addTransaction);
+router.delete("/transaction/:id", protect, deleteTransaction); // 🔥 NAYA: Single entry delete ka route
 
-// Edit & Delete
+// Edit, Delete & Ledger
 router
   .route("/:id")
   .put(protect, updateEmployee)
   .delete(protect, deleteEmployee);
 
-// Ledger
 router.get("/:id/ledger", protect, getEmployeeLedger);
 
 module.exports = router;
