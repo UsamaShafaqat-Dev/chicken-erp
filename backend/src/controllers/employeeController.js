@@ -27,7 +27,42 @@ const createEmployee = async (req, res) => {
   }
 };
 
-// 3. Add Transaction (Salary lagana ya Advance Dena)
+// 🔥 3. NAYA: Update Employee (Edit)
+const updateEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, mobile, designation, monthlySalary } = req.body;
+    const employee = await Employee.findByIdAndUpdate(
+      id,
+      { name, mobile, designation, monthlySalary },
+      { new: true },
+    );
+    if (!employee)
+      return res.status(404).json({ message: "Employee not found" });
+    res.json(employee);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// 🔥 4. NAYA: Delete Employee
+const deleteEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const employee = await Employee.findByIdAndDelete(id);
+    if (!employee)
+      return res.status(404).json({ message: "Employee not found" });
+
+    // Employee delete hone par uska khata bhi delete ho jaye
+    await SalaryTransaction.deleteMany({ employee: id });
+
+    res.json({ message: "Employee and related data deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 5. Add Transaction (Salary lagana ya Advance Dena)
 const addTransaction = async (req, res) => {
   try {
     const { employeeId, amount, type, description, date } = req.body;
@@ -61,7 +96,7 @@ const addTransaction = async (req, res) => {
   }
 };
 
-// 4. Get Employee Ledger (Khata History)
+// 6. Get Employee Ledger (Khata History)
 const getEmployeeLedger = async (req, res) => {
   try {
     const { id } = req.params;
@@ -79,6 +114,8 @@ const getEmployeeLedger = async (req, res) => {
 module.exports = {
   getEmployees,
   createEmployee,
+  updateEmployee, // Naya Export
+  deleteEmployee, // Naya Export
   addTransaction,
   getEmployeeLedger,
 };

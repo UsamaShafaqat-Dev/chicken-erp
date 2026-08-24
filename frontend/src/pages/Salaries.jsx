@@ -11,6 +11,9 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Briefcase,
+  Edit, // 🔥 NAYA
+  Trash2, // 🔥 NAYA
+  AlertTriangle, // 🔥 NAYA
 } from "lucide-react";
 
 const Salaries = () => {
@@ -22,11 +25,18 @@ const Salaries = () => {
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false); // 🔥 NAYA
 
   // Data States
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [ledgerData, setLedgerData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [editingId, setEditingId] = useState(null); // 🔥 NAYA
+  const [deletingId, setDeletingId] = useState(null); // 🔥 NAYA
+
+  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const isOwner = userInfo?.role === "owner"; // Sirf owner edit/delete kar sakta hai
 
   // Forms
   const [empForm, setEmpForm] = useState({
@@ -37,7 +47,7 @@ const Salaries = () => {
   });
 
   const [txnForm, setTxnForm] = useState({
-    type: "salary_added", // 'salary_added' (Khate me daalna) ya 'payment_given' (Advance/Pay dena)
+    type: "salary_added",
     amount: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
@@ -64,20 +74,49 @@ const Salaries = () => {
     fetchEmployees();
   }, []);
 
+  // --- 🔥 NAYA: Open Edit or Create Modal ---
+  const openEmpModal = (emp = null) => {
+    if (emp) {
+      setEmpForm({
+        name: emp.name,
+        mobile: emp.mobile || "",
+        designation: emp.designation || "Staff",
+        monthlySalary: emp.monthlySalary,
+      });
+      setEditingId(emp._id);
+    } else {
+      setEmpForm({
+        name: "",
+        mobile: "",
+        designation: "Staff",
+        monthlySalary: "",
+      });
+      setEditingId(null);
+    }
+    setIsEmpModalOpen(true);
+  };
+
   // --- Handlers ---
   const handleEmpSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await axios.post(
-        "https://asia-poultry-api.onrender.com/api/employees",
-        empForm,
-        {
-          withCredentials: true,
-        },
-      );
-      toast.success("Employee added successfully!");
+      if (editingId) {
+        await axios.put(
+          `https://asia-poultry-api.onrender.com/api/employees/${editingId}`,
+          empForm,
+          { withCredentials: true },
+        );
+        toast.success("Employee updated successfully!");
+      } else {
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/employees",
+          empForm,
+          { withCredentials: true },
+        );
+        toast.success("Employee added successfully!");
+      }
       setIsEmpModalOpen(false);
       setEmpForm({
         name: "",
@@ -87,7 +126,7 @@ const Salaries = () => {
       });
       fetchEmployees();
     } catch (error) {
-      toast.error("Failed to add employee");
+      toast.error("Failed to save employee");
     } finally {
       setIsSubmitting(false);
     }
@@ -111,6 +150,21 @@ const Salaries = () => {
       toast.error("Failed to add transaction");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // --- 🔥 NAYA: Confirm Delete Handler ---
+  const confirmDelete = async () => {
+    try {
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/employees/${deletingId}`,
+        { withCredentials: true },
+      );
+      toast.success("Employee deleted successfully");
+      setIsDeleteModalOpen(false);
+      fetchEmployees();
+    } catch (error) {
+      toast.error("Failed to delete employee");
     }
   };
 
@@ -150,7 +204,7 @@ const Salaries = () => {
           </div>
         </div>
         <button
-          onClick={() => setIsEmpModalOpen(true)}
+          onClick={() => openEmpModal()}
           className="w-full sm:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <Plus size={18} /> Add Employee
@@ -182,11 +236,36 @@ const Salaries = () => {
                     <Briefcase size={14} /> {emp.designation}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Monthly Salary</p>
-                  <p className="font-bold text-gray-700">
-                    Rs. {emp.monthlySalary.toLocaleString()}
-                  </p>
+
+                {/* 🔥 NAYA: Edit / Delete Buttons & Salary */}
+                <div className="flex flex-col items-end gap-2">
+                  {isOwner && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => openEmpModal(emp)}
+                        className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors"
+                        title="Edit Employee"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingId(emp._id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition-colors"
+                        title="Delete Employee"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Monthly Salary</p>
+                    <p className="font-bold text-gray-700">
+                      Rs. {emp.monthlySalary.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -232,12 +311,14 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* 1. ADD EMPLOYEE MODAL */}
+      {/* 1. ADD/EDIT EMPLOYEE MODAL */}
       {isEmpModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="flex justify-between items-center p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800">Add New Staff</h2>
+              <h2 className="text-lg font-bold text-gray-800">
+                {editingId ? "Edit Staff" : "Add New Staff"}
+              </h2>
               <button
                 onClick={() => setIsEmpModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -319,7 +400,11 @@ const Salaries = () => {
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium"
                 >
-                  {isSubmitting ? "Saving..." : "Save Employee"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingId
+                      ? "Update Employee"
+                      : "Save Employee"}
                 </button>
               </div>
             </form>
@@ -514,6 +599,38 @@ const Salaries = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. 🔥 NAYA: DELETE CONFIRMATION MODAL */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Employee?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure? This will delete the employee and their entire khata
+              history permanently.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Yes, Delete
+              </button>
             </div>
           </div>
         </div>
