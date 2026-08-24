@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useReactToPrint } from "react-to-print";
 import {
   Wallet,
   ArrowRightLeft,
@@ -11,6 +12,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   History,
+  Printer, // 🔥 NAYA: Printer icon import kiya
 } from "lucide-react";
 
 const CashBook = () => {
@@ -34,7 +36,7 @@ const CashBook = () => {
     initialBalance: "",
   });
 
-  // 🔥 NAYA: Ledger History Modal States
+  // Ledger History Modal States
   const [showLedgerModal, setShowLedgerModal] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [selectedAccountLedger, setSelectedAccountLedger] = useState({
@@ -42,6 +44,9 @@ const CashBook = () => {
     balance: 0,
     transactions: [],
   });
+
+  // 🔥 NAYA: Print ke liye reference
+  const printRef = useRef(null);
 
   const fetchAccounts = async () => {
     try {
@@ -121,7 +126,7 @@ const CashBook = () => {
     }
   };
 
-  // 🔥 NAYA: Kisi specific account ki history (Ledger) lana
+  // Kisi specific account ki history (Ledger) lana
   const handleOpenLedger = async (account) => {
     setShowLedgerModal(true);
     setLedgerLoading(true);
@@ -132,13 +137,11 @@ const CashBook = () => {
     });
 
     try {
-      // Backend api call
       const { data } = await axios.get(
         `https://asia-poultry-api.onrender.com/api/cash/ledger/${account._id}`,
         { withCredentials: true },
       );
 
-      // Assume API returns object with transactions array
       if (data.success && data.ledger) {
         setSelectedAccountLedger({
           accountName: account.name,
@@ -146,7 +149,6 @@ const CashBook = () => {
           transactions: data.ledger.transactions || [],
         });
       } else {
-        // Fallback if data structure is different
         setSelectedAccountLedger({
           accountName: account.name,
           balance: account.balance,
@@ -160,6 +162,12 @@ const CashBook = () => {
       setLedgerLoading(false);
     }
   };
+
+  // 🔥 NAYA: Print Function
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Cash_Ledger_${selectedAccountLedger.accountName}_${new Date().toISOString().split("T")[0]}`,
+  });
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
@@ -204,7 +212,7 @@ const CashBook = () => {
             accounts.map((acc) => (
               <div
                 key={acc._id}
-                onClick={() => handleOpenLedger(acc)} // 🔥 FIX: Card par click karne se history khulegi
+                onClick={() => handleOpenLedger(acc)}
                 className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
                 title="Click to view history"
               >
@@ -235,7 +243,7 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* 🔥 NAYA: LEDGER HISTORY MODAL */}
+      {/* LEDGER HISTORY MODAL */}
       {showLedgerModal && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -249,12 +257,12 @@ const CashBook = () => {
                   <FileText className="text-blue-600" />{" "}
                   {selectedAccountLedger.accountName}
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 mt-1 print:hidden">
                   Transaction History & Details
                 </p>
               </div>
               <div className="flex items-center gap-4">
-                <div className="text-right hidden sm:block">
+                <div className="text-right hidden sm:block print:hidden">
                   <p className="text-xs text-gray-500 font-bold uppercase">
                     Current Balance
                   </p>
@@ -264,6 +272,18 @@ const CashBook = () => {
                     Rs. {selectedAccountLedger.balance.toLocaleString()}
                   </p>
                 </div>
+
+                {/* 🔥 NAYA: Print Button */}
+                <button
+                  onClick={handlePrint}
+                  disabled={ledgerLoading}
+                  className="bg-blue-100 hover:bg-blue-200 text-blue-700 p-2 rounded-lg transition-colors flex items-center gap-1.5 font-bold text-sm shadow-sm"
+                  title="Print Ledger"
+                >
+                  <Printer size={18} />{" "}
+                  <span className="hidden sm:inline">Print</span>
+                </button>
+
                 <button
                   onClick={() => setShowLedgerModal(false)}
                   className="bg-white p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-gray-200"
@@ -273,27 +293,66 @@ const CashBook = () => {
               </div>
             </div>
 
-            {/* Modal Body (Transactions List) */}
-            <div className="flex-1 overflow-y-auto p-5 bg-white custom-scrollbar">
+            {/* Modal Body (Printable Area) */}
+            <div
+              ref={printRef}
+              className="flex-1 overflow-y-auto p-5 bg-white custom-scrollbar print:p-8 print:w-full print:h-auto print:overflow-visible"
+            >
+              {/* 🔥 NAYA: Print-Only Header (Sirf Print karte waqt show hoga) */}
+              <div className="hidden print:block text-center mb-8 border-b-2 border-gray-800 pb-4">
+                <h1 className="text-3xl font-black text-gray-900 mb-1">
+                  ASIA POULTRY BUSINESS
+                </h1>
+                <p className="text-gray-600 font-bold mb-6">
+                  Cash Account Ledger
+                </p>
+                <div className="flex justify-between items-end text-left mt-4">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">
+                      Account Name:
+                    </p>
+                    <h2 className="text-xl font-bold text-gray-800">
+                      {selectedAccountLedger.accountName}
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Printed On: {new Date().toLocaleDateString("en-GB")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 uppercase font-bold mb-1">
+                      Current Balance:
+                    </p>
+                    <h2
+                      className={`text-2xl font-black ${selectedAccountLedger.balance >= 0 ? "text-blue-700" : "text-red-600"}`}
+                    >
+                      Rs. {selectedAccountLedger.balance.toLocaleString()}
+                    </h2>
+                  </div>
+                </div>
+              </div>
+
               {ledgerLoading ? (
-                <div className="flex justify-center items-center h-40">
+                <div className="flex justify-center items-center h-40 print:hidden">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : selectedAccountLedger.transactions.length === 0 ? (
-                <div className="text-center p-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <History size={40} className="mx-auto mb-3 text-gray-300" />
+                <div className="text-center p-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200 print:border-none print:bg-white">
+                  <History
+                    size={40}
+                    className="mx-auto mb-3 text-gray-300 print:hidden"
+                  />
                   No transactions found for this account.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 print:space-y-0 print:border-t print:border-gray-200">
                   {selectedAccountLedger.transactions.map((tx, idx) => (
                     <div
                       key={idx}
-                      className="p-4 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      className="p-4 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:border-0 print:border-b print:border-gray-200 print:shadow-none print:rounded-none print:py-3 print:px-1"
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className={`mt-0.5 p-2 rounded-lg shrink-0 ${tx.type === "in" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}
+                          className={`mt-0.5 p-2 rounded-lg shrink-0 print:border ${tx.type === "in" ? "bg-green-100 text-green-600 print:border-green-600 print:bg-white" : "bg-red-100 text-red-600 print:border-red-600 print:bg-white"}`}
                         >
                           {tx.type === "in" ? (
                             <ArrowDownLeft size={16} />
@@ -302,7 +361,7 @@ const CashBook = () => {
                           )}
                         </div>
                         <div>
-                          <p className="font-bold text-gray-800 text-sm">
+                          <p className="font-bold text-gray-800 text-sm print:text-base">
                             {tx.particulars || "Transfer / Adjustment"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
@@ -317,7 +376,7 @@ const CashBook = () => {
 
                       <div className="text-right pl-11 sm:pl-0">
                         <p
-                          className={`font-black ${tx.type === "in" ? "text-green-600" : "text-red-600"}`}
+                          className={`font-black print:text-base ${tx.type === "in" ? "text-green-600" : "text-red-600"}`}
                         >
                           {tx.type === "in" ? "+" : "-"} Rs.{" "}
                           {tx.amount.toLocaleString()}
