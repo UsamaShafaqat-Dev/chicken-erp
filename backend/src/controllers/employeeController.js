@@ -1,5 +1,6 @@
 const Employee = require("../models/Employee");
 const SalaryTransaction = require("../models/SalaryTransaction");
+const Expense = require("../models/Expense"); // 🔥 NAYA: Expense model link kiya
 
 // 1. Get all employees
 const getEmployees = async (req, res) => {
@@ -17,7 +18,7 @@ const createEmployee = async (req, res) => {
     const { name, mobile, designation, monthlySalary } = req.body;
     const employee = await Employee.create({
       name,
-      mobile: mobile || null, // 🔥 FIX: Khali string ki jagah null jayega taake duplicate error na aaye
+      mobile: mobile || null,
       designation,
       monthlySalary,
     });
@@ -27,19 +28,14 @@ const createEmployee = async (req, res) => {
   }
 };
 
-// 3. Update Employee (Edit)
+// 3. Update Employee
 const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, mobile, designation, monthlySalary } = req.body;
     const employee = await Employee.findByIdAndUpdate(
       id,
-      {
-        name,
-        mobile: mobile || null, // 🔥 FIX: Yahan bhi null jayega
-        designation,
-        monthlySalary,
-      },
+      { name, mobile: mobile || null, designation, monthlySalary },
       { new: true },
     );
     if (!employee)
@@ -57,11 +53,8 @@ const deleteEmployee = async (req, res) => {
     const employee = await Employee.findByIdAndDelete(id);
     if (!employee)
       return res.status(404).json({ message: "Employee not found" });
-
-    // Employee delete hone par uska khata bhi delete ho jaye
     await SalaryTransaction.deleteMany({ employee: id });
-
-    res.json({ message: "Employee and related data deleted successfully" });
+    res.json({ message: "Employee deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -78,9 +71,19 @@ const addTransaction = async (req, res) => {
 
     // Balance update logic
     if (type === "salary_added") {
-      employee.currentBalance += Number(amount); // Plus (Humne dene hain)
+      employee.currentBalance += Number(amount);
+
+      // 🔥 NAYA JADOO: DOUBLE EFFECT (Auto Expense Entry)
+      // Jab salary banegi toh automatically expenses mein 'Staff Salary' ke naam se chali jayegi
+      await Expense.create({
+        category: "Staff Salary",
+        description: `${employee.name} - ${description || "Monthly Salary"}`,
+        amount: Number(amount),
+        paymentMethod: "cash",
+        date: date || Date.now(),
+      });
     } else if (type === "payment_given") {
-      employee.currentBalance -= Number(amount); // Minus (Humne de diye / Advance)
+      employee.currentBalance -= Number(amount);
     }
 
     await employee.save();
@@ -101,7 +104,7 @@ const addTransaction = async (req, res) => {
   }
 };
 
-// 6. Get Employee Ledger (Khata History)
+// 6. Get Employee Ledger
 const getEmployeeLedger = async (req, res) => {
   try {
     const { id } = req.params;
@@ -109,7 +112,6 @@ const getEmployeeLedger = async (req, res) => {
     const transactions = await SalaryTransaction.find({ employee: id }).sort({
       date: -1,
     });
-
     res.json({ employee, transactions });
   } catch (error) {
     res.status(500).json({ message: error.message });
