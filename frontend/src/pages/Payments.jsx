@@ -20,9 +20,10 @@ const Payments = () => {
   const [payments, setPayments] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [employees, setEmployees] = useState([]); // 🔥 NAYA
   const [cashAccounts, setCashAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 FIX: Double click roknay ke liye
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,10 +31,14 @@ const Payments = () => {
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
+  // 🔥 NAYA: Ye decide karega ke Supplier ko dena hai ya Employee ko
+  const [payeeType, setPayeeType] = useState("supplier");
+
   const [formData, setFormData] = useState({
     type: "receive",
     customer: "",
     supplier: "",
+    employee: "", // 🔥 NAYA
     cashAccountId: "",
     amount: "",
     method: "cash",
@@ -62,9 +67,23 @@ const Payments = () => {
             withCredentials: true,
           }),
         ]);
+
+      // 🔥 Employee api fetch ki koshish karega
+      let empData = [];
+      try {
+        const empRes = await axios.get(
+          "https://asia-poultry-api.onrender.com/api/employees",
+          { withCredentials: true },
+        );
+        empData = empRes.data;
+      } catch (err) {
+        console.log("Employees fetch issue or route named differently.");
+      }
+
       setPayments(paymentsRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
       setSuppliers(suppliersRes.data.filter((s) => s.status !== "inactive"));
+      setEmployees(empData);
       setCashAccounts(cashRes.data);
     } catch (error) {
       toast.error("Failed to fetch data");
@@ -80,7 +99,14 @@ const Payments = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === "type") {
-      setFormData({ ...formData, type: value, customer: "", supplier: "" });
+      setFormData({
+        ...formData,
+        type: value,
+        customer: "",
+        supplier: "",
+        employee: "",
+      });
+      if (value === "receive") setPayeeType("supplier"); // Reset toggle
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -88,10 +114,12 @@ const Payments = () => {
 
   const openModal = (payment = null) => {
     if (payment) {
+      setPayeeType(payment.employee ? "employee" : "supplier");
       setFormData({
         type: payment.type,
         customer: payment.customer?._id || "",
         supplier: payment.supplier?._id || "",
+        employee: payment.employee?._id || "",
         cashAccountId:
           payment.cashAccountId?._id || payment.cashAccountId || "",
         amount: payment.amount,
@@ -101,10 +129,12 @@ const Payments = () => {
       });
       setEditingId(payment._id);
     } else {
+      setPayeeType("supplier");
       setFormData({
         type: "receive",
         customer: "",
         supplier: "",
+        employee: "",
         cashAccountId: "",
         amount: "",
         method: "cash",
@@ -118,22 +148,43 @@ const Payments = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // 🔥 FIX: Agar already save ho raha hai toh return kardo
+    if (isSubmitting) return;
 
     if (formData.type === "receive" && !formData.customer)
       return toast.error("Please select a customer");
-    if (formData.type === "pay" && !formData.supplier)
+    if (
+      formData.type === "pay" &&
+      payeeType === "supplier" &&
+      !formData.supplier
+    )
       return toast.error("Please select a supplier");
+    if (
+      formData.type === "pay" &&
+      payeeType === "employee" &&
+      !formData.employee
+    )
+      return toast.error("Please select a staff member");
     if (!formData.cashAccountId)
       return toast.error("Please select a Cash Account");
     if (!formData.amount || formData.amount <= 0)
       return toast.error("Please enter a valid amount");
 
     const payload = { ...formData };
-    if (payload.type === "receive") delete payload.supplier;
-    if (payload.type === "pay") delete payload.customer;
+    // Cleanup unwanted data
+    if (payload.type === "receive") {
+      delete payload.supplier;
+      delete payload.employee;
+    }
+    if (payload.type === "pay" && payeeType === "supplier") {
+      delete payload.customer;
+      delete payload.employee;
+    }
+    if (payload.type === "pay" && payeeType === "employee") {
+      delete payload.customer;
+      delete payload.supplier;
+    }
 
-    setIsSubmitting(true); // 🔥 FIX: Loading start
+    setIsSubmitting(true);
 
     try {
       if (editingId) {
@@ -147,9 +198,7 @@ const Payments = () => {
         await axios.post(
           "https://asia-poultry-api.onrender.com/api/payments",
           payload,
-          {
-            withCredentials: true,
-          },
+          { withCredentials: true },
         );
         toast.success("Payment added successfully");
       }
@@ -158,7 +207,7 @@ const Payments = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
-      setIsSubmitting(false); // 🔥 FIX: Loading end
+      setIsSubmitting(false);
     }
   };
 
@@ -166,9 +215,7 @@ const Payments = () => {
     try {
       await axios.delete(
         `https://asia-poultry-api.onrender.com/api/payments/${deletingId}`,
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
       toast.success("Payment deleted successfully");
       setIsDeleteModalOpen(false);
@@ -180,7 +227,11 @@ const Payments = () => {
 
   const filteredPayments = payments.filter((p) => {
     const partyName =
-      p.type === "receive" ? p.customer?.name : p.supplier?.name;
+      p.type === "receive"
+        ? p.customer?.name
+        : p.employee
+          ? p.employee?.name
+          : p.supplier?.name;
     return (
       partyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -278,22 +329,19 @@ const Payments = () => {
                       )}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <p
-                        className="font-bold text-gray-800 truncate max-w-[150px]"
-                        title={
-                          payment.type === "receive"
-                            ? payment.customer?.name
-                            : payment.supplier?.name
-                        }
-                      >
+                      <p className="font-bold text-gray-800 truncate max-w-[150px]">
                         {payment.type === "receive"
                           ? payment.customer?.name || "Unknown"
-                          : payment.supplier?.name || "Unknown"}
+                          : payment.employee
+                            ? payment.employee?.name || "Unknown"
+                            : payment.supplier?.name || "Unknown"}
                       </p>
                       <p className="text-[11px] text-gray-500 uppercase">
                         {payment.type === "receive"
                           ? "Customer"
-                          : "Broker / Supplier"}
+                          : payment.employee
+                            ? "Staff / Employee"
+                            : "Broker / Supplier"}
                       </p>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
@@ -317,7 +365,7 @@ const Payments = () => {
                             <FileText
                               size={14}
                               className="text-gray-400 shrink-0"
-                            />{" "}
+                            />
                             <span className="truncate">{payment.notes}</span>
                           </>
                         ) : (
@@ -385,13 +433,19 @@ const Payments = () => {
                       </span>
                     )}
                     <span className="text-xs text-gray-500 uppercase">
-                      {payment.type === "receive" ? "Customer" : "Broker"}
+                      {payment.type === "receive"
+                        ? "Customer"
+                        : payment.employee
+                          ? "Staff"
+                          : "Broker"}
                     </span>
                   </div>
                   <h3 className="font-bold text-gray-800 text-lg">
                     {payment.type === "receive"
                       ? payment.customer?.name || "Unknown"
-                      : payment.supplier?.name || "Unknown"}
+                      : payment.employee
+                        ? payment.employee?.name || "Unknown"
+                        : payment.supplier?.name || "Unknown"}
                   </h3>
                   <p className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
                     <Calendar size={14} />{" "}
@@ -510,6 +564,32 @@ const Payments = () => {
                 </label>
               </div>
 
+              {/* 🔥 NAYA: Payee Toggle (Agar type 'pay' hai) */}
+              {formData.type === "pay" && !editingId && (
+                <div className="flex gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200 mt-2">
+                  <label className="flex-1 flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 p-1">
+                    <input
+                      type="radio"
+                      value="supplier"
+                      checked={payeeType === "supplier"}
+                      onChange={(e) => setPayeeType(e.target.value)}
+                      className="accent-orange-600"
+                    />
+                    Broker / Supplier
+                  </label>
+                  <label className="flex-1 flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 p-1">
+                    <input
+                      type="radio"
+                      value="employee"
+                      checked={payeeType === "employee"}
+                      onChange={(e) => setPayeeType(e.target.value)}
+                      className="accent-orange-600"
+                    />
+                    Staff / Employee
+                  </label>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-4">
                 {formData.type === "receive" ? (
                   <div>
@@ -532,7 +612,7 @@ const Payments = () => {
                       ))}
                     </select>
                   </div>
-                ) : (
+                ) : payeeType === "supplier" ? (
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">
                       Select Broker/Supplier (To Pay To) *
@@ -543,12 +623,33 @@ const Payments = () => {
                       onChange={handleInputChange}
                       required
                       disabled={editingId}
-                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-green-500"}`}
+                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
                     >
                       <option value="">-- Choose Broker --</option>
                       {suppliers.map((s) => (
                         <option key={s._id} value={s._id}>
                           {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1">
+                      Select Staff / Employee (To Pay To) *
+                    </label>
+                    <select
+                      name="employee"
+                      value={formData.employee}
+                      onChange={handleInputChange}
+                      required
+                      disabled={editingId}
+                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
+                    >
+                      <option value="">-- Choose Staff --</option>
+                      {employees.map((emp) => (
+                        <option key={emp._id} value={emp._id}>
+                          {emp.name}
                         </option>
                       ))}
                     </select>
@@ -635,7 +736,11 @@ const Payments = () => {
                     value={formData.notes}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="e.g. Cash collected"
+                    placeholder={
+                      payeeType === "employee"
+                        ? "e.g. August Salary"
+                        : "e.g. Cash collected"
+                    }
                   />
                 </div>
               </div>
@@ -646,14 +751,14 @@ const Payments = () => {
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
-                disabled={isSubmitting} // 🔥 FIX: Agar save ho raha hai toh cancel bhi disable ho jaye
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={isSubmitting} // 🔥 FIX: Double click band
+                disabled={isSubmitting}
                 className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
               >
                 {isSubmitting

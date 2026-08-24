@@ -5,7 +5,7 @@ const paymentSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["receive", "pay"],
-      required: true, // 'receive' for Customers, 'pay' for Suppliers
+      required: true, // 'receive' for Customers, 'pay' for Suppliers/Staff
     },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
@@ -15,11 +15,15 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Supplier",
     },
-    // 🔥 NAYA ADD KIYA: Cash Account ko link karne ke liye
+    // 🔥 NAYA: Employee (Staff) ka link add kiya
+    employee: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+    },
     cashAccountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CashAccount",
-      required: true, // Lazmi ho gya k payment kahan aayi ya kahan se gayi
+      required: true,
     },
     amount: {
       type: Number,
@@ -35,7 +39,7 @@ const paymentSchema = new mongoose.Schema(
       default: Date.now,
     },
     notes: {
-      type: String, // Bank slip number, Cheque number etc.
+      type: String,
     },
   },
   { timestamps: true },
