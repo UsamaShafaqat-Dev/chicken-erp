@@ -17,7 +17,7 @@ const createEmployee = async (req, res) => {
     const { name, mobile, designation, monthlySalary } = req.body;
     const employee = await Employee.create({
       name,
-      mobile,
+      mobile: mobile || null, // 🔥 FIX: Khali string ki jagah null jayega taake duplicate error na aaye
       designation,
       monthlySalary,
     });
@@ -27,14 +27,19 @@ const createEmployee = async (req, res) => {
   }
 };
 
-// 🔥 3. NAYA: Update Employee (Edit)
+// 3. Update Employee (Edit)
 const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, mobile, designation, monthlySalary } = req.body;
     const employee = await Employee.findByIdAndUpdate(
       id,
-      { name, mobile, designation, monthlySalary },
+      {
+        name,
+        mobile: mobile || null, // 🔥 FIX: Yahan bhi null jayega
+        designation,
+        monthlySalary,
+      },
       { new: true },
     );
     if (!employee)
@@ -45,7 +50,7 @@ const updateEmployee = async (req, res) => {
   }
 };
 
-// 🔥 4. NAYA: Delete Employee
+// 4. Delete Employee
 const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
@@ -114,8 +119,8 @@ const getEmployeeLedger = async (req, res) => {
 module.exports = {
   getEmployees,
   createEmployee,
-  updateEmployee, // Naya Export
-  deleteEmployee, // Naya Export
+  updateEmployee,
+  deleteEmployee,
   addTransaction,
   getEmployeeLedger,
 };
