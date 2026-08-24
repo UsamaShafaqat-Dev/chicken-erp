@@ -1,6 +1,7 @@
 const express = require("express");
-const router = express.createRouter ? express.createRouter() : express.Router();
-const { protect } = require("../middleware/authMiddleware");
+const router = express.Router();
+// 🔥 FIX: 'middleware' ki jagah 'middlewares' kar diya
+const { protect } = require("../middlewares/authMiddleware");
 const {
   getEmployees,
   createEmployee,
