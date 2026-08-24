@@ -86,8 +86,8 @@ const Suppliers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.mobile)
-      return toast.error("Name and Mobile are required");
+    // 🔥 FIX: Yahan se 'mobile' ki requirement hata di hai
+    if (!formData.name) return toast.error("Broker Name is required");
 
     try {
       if (editingId) {
@@ -142,7 +142,7 @@ const Suppliers = () => {
   const filteredSuppliers = suppliers.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.mobile.includes(searchQuery),
+      (s.mobile && s.mobile.includes(searchQuery)),
   );
 
   return (
@@ -218,7 +218,6 @@ const Suppliers = () => {
                     >
                       {supplier.address || "-"}
                     </td>
-                    {/* 🔥 FIX: Yahan hardcoded 0 ki jagah asli value laga di */}
                     <td className="px-3 py-4 text-blue-600 font-medium">
                       Rs. {supplier.totalPurchases?.toLocaleString() || 0}
                     </td>
@@ -285,7 +284,7 @@ const Suppliers = () => {
                   <p className="flex items-center gap-2">
                     <Phone size={14} className="text-gray-400" />{" "}
                     <span className="font-medium text-gray-700">
-                      {supplier.mobile}
+                      {supplier.mobile || "-"}
                     </span>
                   </p>
                   {supplier.whatsapp && (
@@ -305,7 +304,6 @@ const Suppliers = () => {
               <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Purchases</p>
-                  {/* 🔥 FIX: Mobile view mein bhi real value laga di */}
                   <p className="font-medium text-blue-600">
                     Rs. {supplier.totalPurchases?.toLocaleString() || 0}
                   </p>
@@ -361,7 +359,6 @@ const Suppliers = () => {
         </div>
       </div>
 
-      {/* MODALS REMAIN EXACTLY THE SAME */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
@@ -393,17 +390,17 @@ const Suppliers = () => {
                   />
                 </div>
                 <div>
+                  {/* 🔥 FIX: Mobile No se required tag hata diya aur Optional likh diya */}
                   <label className="block text-gray-700 font-medium mb-1">
-                    Mobile No *
+                    Mobile No
                   </label>
                   <input
                     type="text"
                     name="mobile"
                     value={formData.mobile}
                     onChange={handleInputChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="0300-1234567"
+                    placeholder="0300-1234567 (Optional)"
                   />
                 </div>
               </div>
