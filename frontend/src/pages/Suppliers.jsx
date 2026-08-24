@@ -63,7 +63,7 @@ const Suppliers = () => {
     if (supplier) {
       setFormData({
         name: supplier.name,
-        mobile: supplier.mobile,
+        mobile: supplier.mobile || "",
         whatsapp: supplier.whatsapp || "",
         address: supplier.address || "",
         openingBalance: supplier.openingBalance,
