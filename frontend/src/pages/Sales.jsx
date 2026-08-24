@@ -246,6 +246,39 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
+  // 🔥 MAGIC TRICK: Sales k table k andar Payments ko auto-add karna
+  const enhancedSales = filteredSales.map((sale) => {
+    const saleDateStr = new Date(sale.date).toISOString().split("T")[0];
+    const customerId = sale.customer?._id;
+
+    // Is customer ki aaj k din aayi hui recovery dhundhein
+    const customerRecoveriesToday = payments.filter((p) => {
+      const pDateStr = new Date(p.date).toISOString().split("T")[0];
+      const pCustomerId = p.customer?._id || p.customer;
+      return (
+        p.type === "receive" &&
+        pCustomerId === customerId &&
+        pDateStr === saleDateStr
+      );
+    });
+
+    // Total extra cash jo aaj payments me add hua hai
+    const extraCashToday = customerRecoveriesToday.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0,
+    );
+
+    // Bill ki dynamic amount
+    const displayPaid = (Number(sale.paidAmount) || 0) + extraCashToday;
+    const displayBalance = (Number(sale.totalAmount) || 0) - displayPaid;
+
+    return {
+      ...sale,
+      displayPaid,
+      displayBalance,
+    };
+  });
+
   const filteredPurchases = purchases.filter((p) => {
     const pDate = new Date(p.date).toISOString().split("T")[0];
     const matchFrom = fromDate ? pDate >= fromDate : true;
@@ -266,11 +299,11 @@ const Sales = () => {
     (sum, p) => sum + (Number(p.weight) || 0),
     0,
   );
-  const totalWeight = filteredSales.reduce(
+  const totalWeight = enhancedSales.reduce(
     (sum, sale) => sum + (Number(sale.weight) || 0),
     0,
   );
-  const totalAmount = filteredSales.reduce(
+  const totalAmount = enhancedSales.reduce(
     (sum, sale) => sum + (Number(sale.totalAmount) || 0),
     0,
   );
@@ -286,13 +319,15 @@ const Sales = () => {
   );
 
   const totalPaid = salesPaid + recoveryPaid;
-
-  // 🔥 FIX: Top Card k liye Asli Udhaar = Total Sale - Total Paid (Sales cash + Recovery)
   const netUdhaar = totalAmount - totalPaid;
 
-  // Table k footer k liye purana total outstanding (sirf parchi ka hisab)
-  const tableOutstanding = filteredSales.reduce(
-    (sum, sale) => sum + (Number(sale.balanceDue) || 0),
+  // Table k neechay wala hisaab ab dynamic table data pe chale ga
+  const tablePaidAmount = enhancedSales.reduce(
+    (sum, sale) => sum + (Number(sale.displayPaid) || 0),
+    0,
+  );
+  const tableOutstanding = enhancedSales.reduce(
+    (sum, sale) => sum + (Number(sale.displayBalance) || 0),
     0,
   );
 
@@ -399,7 +434,7 @@ const Sales = () => {
           <div className="flex items-center gap-2 mb-1">
             <AlertCircle size={16} className="text-orange-500" />
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
-              Udhaar
+              Net Udhaar
             </p>
           </div>
           <h3
@@ -577,7 +612,7 @@ const Sales = () => {
                     Loading sales...
                   </td>
                 </tr>
-              ) : filteredSales.length === 0 ? (
+              ) : enhancedSales.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center p-8 text-gray-500">
                     {fromDate || toDate
@@ -586,7 +621,7 @@ const Sales = () => {
                   </td>
                 </tr>
               ) : (
-                filteredSales.map((sale) => (
+                enhancedSales.map((sale) => (
                   <tr
                     key={sale._id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors print:border-b-2 print:border-gray-300"
@@ -608,14 +643,16 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmount.toLocaleString()}
                     </td>
+                    {/* 🔥 FIX: Yahan ab Payments wali amount auto-add ho kar show hogi */}
                     <td className="px-3 py-4 print:py-2 text-green-600 font-medium print:text-black whitespace-nowrap">
-                      Rs. {sale.paidAmount.toLocaleString()}
+                      Rs. {sale.displayPaid.toLocaleString()}
                     </td>
+                    {/* 🔥 FIX: Outstanding automatically minus ho kar show hoga */}
                     <td
-                      className={`px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black ${sale.balanceDue > 0 ? "text-red-500" : "text-gray-600"}`}
+                      className={`px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black ${sale.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                     >
-                      {sale.balanceDue > 0
-                        ? `Rs. ${sale.balanceDue.toLocaleString()}`
+                      {sale.displayBalance > 0
+                        ? `Rs. ${sale.displayBalance.toLocaleString()}`
                         : "Nil"}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
@@ -649,7 +686,6 @@ const Sales = () => {
                 ))
               )}
             </tbody>
-            {/* 🔥 FIX: Footer ab hamesha nazar aayega taake client ko neeche bhi total dikhe */}
             <tfoot className="table-row-group bg-gray-100 font-bold text-black border-t-2 border-gray-300">
               <tr>
                 <td colSpan="2" className="px-3 py-3 text-right">
@@ -660,7 +696,9 @@ const Sales = () => {
                 <td className="px-3 py-3">
                   Rs. {totalAmount.toLocaleString()}
                 </td>
-                <td className="px-3 py-3">Rs. {salesPaid.toLocaleString()}</td>
+                <td className="px-3 py-3">
+                  Rs. {tablePaidAmount.toLocaleString()}
+                </td>
                 <td className="px-3 py-3">
                   Rs. {tableOutstanding.toLocaleString()}
                 </td>
@@ -671,10 +709,10 @@ const Sales = () => {
 
         {/* MOBILE CARDS VIEW */}
         <div className="lg:hidden flex flex-col print:hidden">
-          {filteredSales.map((sale, index) => (
+          {enhancedSales.map((sale, index) => (
             <div
               key={sale._id}
-              className={`p-4 flex flex-col gap-4 ${index !== filteredSales.length - 1 ? "border-b border-gray-100" : ""}`}
+              className={`p-4 flex flex-col gap-4 ${index !== enhancedSales.length - 1 ? "border-b border-gray-100" : ""}`}
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -709,7 +747,7 @@ const Sales = () => {
                   <div>
                     <p className="text-gray-500 text-xs mb-1">Paid Amount</p>
                     <p className="font-medium text-green-600">
-                      Rs. {sale.paidAmount.toLocaleString()}
+                      Rs. {sale.displayPaid.toLocaleString()}
                     </p>
                   </div>
                   <div>
@@ -717,10 +755,10 @@ const Sales = () => {
                       Outstanding Balance
                     </p>
                     <p
-                      className={`font-bold ${sale.balanceDue > 0 ? "text-red-500" : "text-gray-600"}`}
+                      className={`font-bold ${sale.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                     >
-                      {sale.balanceDue > 0
-                        ? `Rs. ${sale.balanceDue.toLocaleString()}`
+                      {sale.displayBalance > 0
+                        ? `Rs. ${sale.displayBalance.toLocaleString()}`
                         : "Nil"}
                     </p>
                   </div>
