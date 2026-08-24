@@ -17,6 +17,7 @@ import {
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 FIX: Double click rokne ke liye
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,9 +41,12 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/customers", {
-        withCredentials: true,
-      });
+      const { data } = await axios.get(
+        "https://asia-poultry-api.onrender.com/api/customers",
+        {
+          withCredentials: true,
+        },
+      );
       setCustomers(data);
     } catch (error) {
       toast.error("Failed to fetch customers");
@@ -62,7 +66,7 @@ const Customers = () => {
     if (customer) {
       setFormData({
         name: customer.name,
-        mobile: customer.mobile,
+        mobile: customer.mobile || "", // Fallback empty string if not present
         whatsapp: customer.whatsapp || "",
         area: customer.area || "",
         address: customer.address || "",
@@ -87,9 +91,14 @@ const Customers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.mobile || !formData.area)
-      return toast.error("Name, Mobile and Area are required");
+    if (isSubmitting) return; // 🔥 FIX
 
+    // 🔥 FIX: Mobile required condition hata di hai. Sirf name and area zaroori hai.
+    if (!formData.name || !formData.area) {
+      return toast.error("Name and Area are required");
+    }
+
+    setIsSubmitting(true);
     try {
       if (editingId) {
         await axios.put(
@@ -99,23 +108,32 @@ const Customers = () => {
         );
         toast.success("Customer updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com/api/customers", formData, {
-          withCredentials: true,
-        });
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/customers",
+          formData,
+          {
+            withCredentials: true,
+          },
+        );
         toast.success("Customer added successfully");
       }
       setIsModalOpen(false);
       fetchCustomers();
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com/api/customers/${deletingId}`, {
-        withCredentials: true,
-      });
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/customers/${deletingId}`,
+        {
+          withCredentials: true,
+        },
+      );
       toast.success("Customer deleted successfully");
       setIsDeleteModalOpen(false);
       fetchCustomers();
@@ -136,7 +154,7 @@ const Customers = () => {
   const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.mobile.includes(searchQuery) ||
+      (c.mobile && c.mobile.includes(searchQuery)) ||
       (c.area && c.area.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
@@ -211,7 +229,7 @@ const Customers = () => {
                       {customer.name}
                     </td>
                     <td className="px-1.5 py-3 text-gray-800 whitespace-nowrap">
-                      {customer.mobile}
+                      {customer.mobile || "-"}
                     </td>
                     <td className="px-1.5 py-3 whitespace-nowrap">
                       {customer.whatsapp ? (
@@ -309,7 +327,7 @@ const Customers = () => {
                   <p className="flex items-center gap-2">
                     <Phone size={14} className="text-gray-400" />{" "}
                     <span className="font-medium text-gray-700">
-                      {customer.mobile}
+                      {customer.mobile || "N/A"}
                     </span>
                   </p>
                   {customer.whatsapp && (
@@ -420,17 +438,17 @@ const Customers = () => {
                   />
                 </div>
                 <div>
+                  {/* 🔥 FIX: Mobile optional kar diya (required or * hata diya) */}
                   <label className="block text-gray-700 font-medium mb-1">
-                    Mobile No *
+                    Mobile No
                   </label>
                   <input
                     type="text"
                     name="mobile"
                     value={formData.mobile}
                     onChange={handleInputChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="0300-1234567"
+                    placeholder="Optional"
                   />
                 </div>
               </div>
@@ -497,15 +515,21 @@ const Customers = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting} // 🔥 FIX
                   className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium"
+                  disabled={isSubmitting} // 🔥 FIX: Double click band
+                  className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
                 >
-                  {editingId ? "Update Customer" : "Save Customer"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingId
+                      ? "Update Customer"
+                      : "Save Customer"}
                 </button>
               </div>
             </form>

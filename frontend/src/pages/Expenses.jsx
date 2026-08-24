@@ -11,55 +11,80 @@ import {
   Calendar,
   Receipt,
   Banknote,
+  Tag,
 } from "lucide-react";
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
+  const [categories, setCategories] = useState([]); // 🔥 NAYA: Categories database se aayengi
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Double click rokne k liye
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // 🔥 NAYA: Nayi Category add karne ka Modal
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   const [formData, setFormData] = useState({
-    category: "Food / Refreshment",
+    category: "",
     description: "",
     amount: "",
     paymentMethod: "cash",
     date: "",
   });
 
-  const categories = [
-    "Food / Refreshment",
-    "Fuel / Petrol",
-    "Utility Bill",
-    "Salary / Wages",
-    "Rent",
-    "Maintenance",
-    "Other",
-  ];
-
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
   const isOwner = userInfo?.role === "owner";
 
-  const fetchExpenses = async () => {
+  // Sab Data Ikhatta Mangwana
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/expenses", {
-        withCredentials: true,
-      });
-      setExpenses(data);
+      const [expensesRes, categoriesRes] = await Promise.all([
+        axios.get("https://asia-poultry-api.onrender.com/api/expenses", {
+          withCredentials: true,
+        }),
+        // 🔥 NAYA: Categories API call (agar server.js me path yahi rakha hai)
+        axios
+          .get("https://asia-poultry-api.onrender.com/api/expense-categories", {
+            withCredentials: true,
+          })
+          .catch(() => ({ data: [] })), // Fallback agar api na ho to crash na ho
+      ]);
+
+      setExpenses(expensesRes.data);
+
+      // Default categories agar DB khali ho
+      const dbCategories = categoriesRes.data || [];
+      if (dbCategories.length > 0) {
+        setCategories(dbCategories.map((c) => c.name));
+      } else {
+        setCategories([
+          "Food / Refreshment",
+          "Fuel / Petrol",
+          "Utility Bill",
+          "Salary / Wages",
+          "Rent",
+          "Maintenance",
+          "Other",
+        ]);
+      }
     } catch (error) {
-      toast.error("Failed to fetch expenses");
+      toast.error("Failed to fetch data");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchExpenses();
+    fetchData();
   }, []);
 
   const handleInputChange = (e) =>
@@ -77,7 +102,7 @@ const Expenses = () => {
       setEditingId(expense._id);
     } else {
       setFormData({
-        category: "Food / Refreshment",
+        category: categories.length > 0 ? categories[0] : "Other",
         description: "",
         amount: "",
         paymentMethod: "cash",
@@ -90,9 +115,12 @@ const Expenses = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.description || !formData.amount)
-      return toast.error("Description and Amount are required");
+    if (isSubmitting) return; // Double click check
 
+    if (!formData.description || !formData.amount || !formData.category)
+      return toast.error("Category, Description and Amount are required");
+
+    setIsSubmitting(true);
     try {
       if (editingId) {
         await axios.put(
@@ -102,28 +130,61 @@ const Expenses = () => {
         );
         toast.success("Expense updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com/api/expenses", formData, {
-          withCredentials: true,
-        });
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/expenses",
+          formData,
+          {
+            withCredentials: true,
+          },
+        );
         toast.success("Expense added successfully");
       }
       setIsModalOpen(false);
-      fetchExpenses();
+      fetchData(); // Refresh sab kuch
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com/api/expenses/${deletingId}`, {
-        withCredentials: true,
-      });
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/expenses/${deletingId}`,
+        {
+          withCredentials: true,
+        },
+      );
       toast.success("Expense deleted");
       setIsDeleteModalOpen(false);
-      fetchExpenses();
+      fetchData();
     } catch (error) {
       toast.error("Failed to delete expense");
+    }
+  };
+
+  // 🔥 NAYA: Nayi Category Save Karne Ka Function
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return toast.error("Name cannot be empty");
+
+    setSavingCategory(true);
+    try {
+      const { data } = await axios.post(
+        "https://asia-poultry-api.onrender.com/api/expense-categories",
+        { name: newCategoryName.trim() },
+        { withCredentials: true },
+      );
+      toast.success("New Category Added!");
+      setCategories([...categories, data.name]); // Array me naya naam add
+      setFormData({ ...formData, category: data.name }); // Form me wahi select kar do
+      setNewCategoryName("");
+      setIsCategoryModalOpen(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to add category");
+    } finally {
+      setSavingCategory(false);
     }
   };
 
@@ -135,6 +196,7 @@ const Expenses = () => {
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-80 flex items-center gap-2">
@@ -156,6 +218,7 @@ const Expenses = () => {
         </button>
       </div>
 
+      {/* Main Table Container */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden">
         {/* DESKTOP TABLE */}
         <div className="hidden lg:block w-full overflow-x-auto">
@@ -163,7 +226,7 @@ const Expenses = () => {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-gray-600">
                 <th className="px-4 py-4 font-medium">Date</th>
-                <th className="px-4 py-4 font-medium">Category</th>
+                <th className="px-4 py-4 font-medium">Category / Khata</th>
                 <th className="px-4 py-4 font-medium">Description</th>
                 <th className="px-4 py-4 font-medium">Method</th>
                 <th className="px-4 py-4 font-medium">Amount</th>
@@ -174,7 +237,7 @@ const Expenses = () => {
               {loading ? (
                 <tr>
                   <td colSpan="6" className="text-center p-8 text-gray-500">
-                    Loading...
+                    Loading expenses...
                   </td>
                 </tr>
               ) : filteredExpenses.length === 0 ? (
@@ -209,28 +272,32 @@ const Expenses = () => {
                     <td className="px-4 py-4 font-bold text-red-600">
                       Rs. {expense.amount.toLocaleString()}
                     </td>
-                    <td className="px-4 py-4 flex justify-center items-center gap-1.5">
-                      {isOwner ? (
-                        <>
-                          <button
-                            onClick={() => openModal(expense)}
-                            className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
-                          >
-                            <Edit size={14} /> Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeletingId(expense._id);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
-                          >
-                            <Trash2 size={14} /> Del
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-400">No Action</span>
-                      )}
+                    <td className="px-4 py-4">
+                      <div className="flex justify-center items-center gap-1.5">
+                        {isOwner ? (
+                          <>
+                            <button
+                              onClick={() => openModal(expense)}
+                              className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                            >
+                              <Edit size={14} /> Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingId(expense._id);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                            >
+                              <Trash2 size={14} /> Del
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400">
+                            No Action
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -309,6 +376,7 @@ const Expenses = () => {
                 <X size={20} />
               </button>
             </div>
+
             <form onSubmit={handleSubmit} className="p-5 space-y-4 text-sm">
               <div>
                 <label className="block text-gray-700 font-medium mb-1">
@@ -324,22 +392,33 @@ const Expenses = () => {
                 />
               </div>
 
+              {/* 🔥 FIX: Category Dropdown aur ADD Button */}
               <div>
                 <label className="block text-gray-700 font-medium mb-1">
-                  Category *
+                  Category / Khata *
                 </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
-                >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center"
+                    title="Add New Category"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -392,17 +471,61 @@ const Expenses = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting}
                   className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium w-full"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium w-full"
+                  disabled={isSubmitting}
+                  className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium w-full transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
                 >
-                  {editingId ? "Update" : "Save"}
+                  {isSubmitting ? "Saving..." : editingId ? "Update" : "Save"}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 NAYA: CATEGORY ADD MODAL */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl w-full max-w-xs shadow-2xl overflow-hidden transform transition-all">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <Tag size={18} className="text-blue-600" /> New Khata / Category
+              </h3>
+              <button
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleAddCategory} className="p-5 space-y-4">
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-1">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="e.g. Employee Ali, Vehicle 123"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingCategory}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                {savingCategory ? "Saving..." : "Add Khata"}
+              </button>
             </form>
           </div>
         </div>

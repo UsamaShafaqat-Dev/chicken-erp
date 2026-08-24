@@ -16,17 +16,23 @@ import {
   AlertCircle,
   Printer,
   Save,
+  Package,
 } from "lucide-react";
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [purchases, setPurchases] = useState([]);
+  const [payments, setPayments] = useState([]); // 🔥 NAYA: Payments (Recovery) ka data
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterDate, setFilterDate] = useState(
+
+  const [fromDate, setFromDate] = useState(
     new Date().toISOString().split("T")[0],
   );
+  const [toDate, setToDate] = useState(new Date().toISOString().split("T")[0]);
 
   const [dailyRates, setDailyRates] = useState({
     bahawalpurRate: "",
@@ -57,14 +63,26 @@ const Sales = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [salesRes, customersRes] = await Promise.all([
-        axios.get("https://asia-poultry-api.onrender.com/api/sales", { withCredentials: true }),
-        axios.get("https://asia-poultry-api.onrender.com/api/customers", {
-          withCredentials: true,
-        }),
-      ]);
+      // 🔥 FIX: Ab Payments ki API bhi sath mangwa li ta k Total Cash calculate ho
+      const [salesRes, customersRes, purchasesRes, paymentsRes] =
+        await Promise.all([
+          axios.get("https://asia-poultry-api.onrender.com/api/sales", {
+            withCredentials: true,
+          }),
+          axios.get("https://asia-poultry-api.onrender.com/api/customers", {
+            withCredentials: true,
+          }),
+          axios.get("https://asia-poultry-api.onrender.com/api/purchases", {
+            withCredentials: true,
+          }),
+          axios.get("https://asia-poultry-api.onrender.com/api/payments", {
+            withCredentials: true,
+          }),
+        ]);
       setSales(salesRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
+      setPurchases(purchasesRes.data);
+      setPayments(paymentsRes.data); // Save payments to state
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -93,17 +111,17 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
-    fetchRatesForDate(filterDate);
-  }, [filterDate]);
+    fetchRatesForDate(toDate);
+  }, [toDate]);
 
   const handleSaveRates = async () => {
-    if (!filterDate) return toast.error("Please select a date first");
+    if (!toDate) return toast.error("Please select a date first");
     try {
       setSavingRates(true);
       await axios.post(
         "https://asia-poultry-api.onrender.com/api/daily-rates",
         {
-          date: filterDate,
+          date: toDate,
           bahawalpurRate: Number(dailyRates.bahawalpurRate),
           supplyRate: Number(dailyRates.supplyRate),
         },
@@ -168,9 +186,11 @@ const Sales = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!formData.customer || !formData.weight || !formData.rate)
       return toast.error("Customer, Weight, and Rate are required");
 
+    setIsSubmitting(true);
     try {
       if (editingId) {
         await axios.put(
@@ -180,23 +200,32 @@ const Sales = () => {
         );
         toast.success("Sale updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com/api/sales", formData, {
-          withCredentials: true,
-        });
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/sales",
+          formData,
+          {
+            withCredentials: true,
+          },
+        );
         toast.success("Sale added successfully");
       }
       setIsModalOpen(false);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com/api/sales/${deletingId}`, {
-        withCredentials: true,
-      });
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/sales/${deletingId}`,
+        {
+          withCredentials: true,
+        },
+      );
       toast.success("Sale deleted successfully");
       setIsDeleteModalOpen(false);
       fetchData();
@@ -205,17 +234,42 @@ const Sales = () => {
     }
   };
 
+  // --- FILTERS ---
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
 
     const saleDate = new Date(s.date).toISOString().split("T")[0];
-    const matchDate = filterDate ? saleDate === filterDate : true;
+    const matchFrom = fromDate ? saleDate >= fromDate : true;
+    const matchTo = toDate ? saleDate <= toDate : true;
 
-    return matchName && matchDate;
+    return matchName && matchFrom && matchTo;
   });
 
+  const filteredPurchases = purchases.filter((p) => {
+    const pDate = new Date(p.date).toISOString().split("T")[0];
+    const matchFrom = fromDate ? pDate >= fromDate : true;
+    const matchTo = toDate ? pDate <= toDate : true;
+    return matchFrom && matchTo;
+  });
+
+  // 🔥 NAYA: Date filter lagana Recoveries (Payments) pe jo in (receive) hui hain
+  const filteredRecoveries = payments.filter((p) => {
+    // Sirf Receive wali payments (Customer se aayi hui)
+    if (p.type !== "receive") return false;
+
+    const pDate = new Date(p.date).toISOString().split("T")[0];
+    const matchFrom = fromDate ? pDate >= fromDate : true;
+    const matchTo = toDate ? pDate <= toDate : true;
+    return matchFrom && matchTo;
+  });
+
+  // --- TOTAL CALCULATIONS ---
+  const totalPurchasedWeight = filteredPurchases.reduce(
+    (sum, p) => sum + (Number(p.weight) || 0),
+    0,
+  );
   const totalWeight = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.weight) || 0),
     0,
@@ -224,21 +278,34 @@ const Sales = () => {
     (sum, sale) => sum + (Number(sale.totalAmount) || 0),
     0,
   );
-  const totalPaid = filteredSales.reduce(
+
+  // Sale karte waqt jo cash mila
+  const salesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
     0,
   );
+
+  // Purani recovery jo payments page se aayi
+  const recoveryPaid = filteredRecoveries.reduce(
+    (sum, p) => sum + (Number(p.amount) || 0),
+    0,
+  );
+
+  // 🔥 NAYA: Total Cash = Sales ki amount + Purani wasooli ki amount
+  const totalPaid = salesPaid + recoveryPaid;
+
   const totalOutstanding = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.balanceDue) || 0),
     0,
   );
+
+  const shortageWeight = totalPurchasedWeight - totalWeight;
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    // 🔥 FIX: print:overflow-visible lagaya ta k lamba table bhi theek se print ho aglay page par
     <div className="space-y-6 w-full min-w-0 print:bg-white print:m-0 print:p-0 overflow-hidden print:overflow-visible">
       {/* Print Header */}
       <div className="hidden print:block mb-8 text-center border-b-2 border-gray-800 pb-4">
@@ -246,13 +313,12 @@ const Sales = () => {
           Asia Poultry Business
         </h1>
         <h2 className="text-lg font-bold text-gray-600 mt-1">
-          Daily Sales Report:{" "}
-          {filterDate
-            ? new Date(filterDate).toLocaleDateString("en-GB")
-            : "All Time"}
+          Sales Report:{" "}
+          {fromDate ? new Date(fromDate).toLocaleDateString("en-GB") : "Start"}{" "}
+          TO {toDate ? new Date(toDate).toLocaleDateString("en-GB") : "End"}
         </h2>
 
-        {filterDate && (
+        {toDate && (
           <div className="flex justify-center gap-12 mt-4 bg-gray-100 p-3 rounded-lg border border-gray-300">
             <p className="font-bold text-lg text-gray-800">
               BAHAWALPUR RATE:{" "}
@@ -270,60 +336,85 @@ const Sales = () => {
         )}
       </div>
 
-      {/* Summary Cards Report */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-blue-100 p-3 rounded-full text-blue-600">
-            <ShoppingCart size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Total Sold (KG)</p>
-            <h3 className="text-xl font-bold text-gray-800">
-              {totalWeight} KG
-            </h3>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-green-100 p-3 rounded-full text-green-600">
-            <DollarSign size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 font-medium">
-              Total Sale Amount
+      {/* 6 Summary Cards Report */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1">
+            <Package size={16} className="text-blue-600" />
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              Purchased
             </p>
-            <h3 className="text-xl font-bold text-gray-800">
-              Rs. {totalAmount.toLocaleString()}
-            </h3>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+            {totalPurchasedWeight} KG
+          </h3>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1">
+            <ShoppingCart size={16} className="text-green-600" />
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              Sold (KG)
+            </p>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+            {totalWeight} KG
+          </h3>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-200 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle size={16} className="text-red-500" />
+            <p className="text-[11px] uppercase tracking-wider text-red-500 font-bold">
+              Shortage
+            </p>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-red-600">
+            {shortageWeight} KG
+          </h3>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1">
+            <DollarSign size={16} className="text-purple-600" />
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              Sale Amount
+            </p>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+            Rs. {totalAmount.toLocaleString()}
+          </h3>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center relative group">
+          <div className="flex items-center gap-2 mb-1">
+            <Wallet size={16} className="text-teal-600" />
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              Total Cash Received
+            </p>
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+            Rs. {totalPaid.toLocaleString()}
+          </h3>
+          {/* Tooltip to show details */}
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg">
+            Sales Cash: Rs. {salesPaid.toLocaleString()} <br /> Recovery: Rs.{" "}
+            {recoveryPaid.toLocaleString()}
           </div>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-purple-100 p-3 rounded-full text-purple-600">
-            <Wallet size={24} />
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertCircle size={16} className="text-orange-500" />
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+              Udhaar
+            </p>
           </div>
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Cash Received</p>
-            <h3 className="text-xl font-bold text-gray-800">
-              Rs. {totalPaid.toLocaleString()}
-            </h3>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-red-100 p-3 rounded-full text-red-600">
-            <AlertCircle size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Pending Udhaar</p>
-            <h3 className="text-xl font-bold text-gray-800">
-              Rs. {totalOutstanding.toLocaleString()}
-            </h3>
-          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+            Rs. {totalOutstanding.toLocaleString()}
+          </h3>
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
+      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
         {/* Search aur Date Filter */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="bg-gray-100 p-2 rounded-lg w-full sm:w-64 flex items-center gap-2">
+          <div className="bg-gray-100 p-2 rounded-lg flex-1 min-w-[200px] flex items-center gap-2">
             <Search size={18} className="text-gray-400 shrink-0" />
             <input
               type="text"
@@ -334,18 +425,33 @@ const Sales = () => {
             />
           </div>
 
-          <div className="bg-gray-100 p-2 rounded-lg w-full sm:w-48 flex items-center gap-2 border-2 border-transparent focus-within:border-blue-400 transition-colors">
-            <Calendar size={18} className="text-blue-500 shrink-0" />
-            <input
-              type="date"
-              className="bg-transparent border-none outline-none text-sm w-full text-gray-700 cursor-pointer font-bold"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-            />
-            {filterDate && (
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="bg-gray-100 p-2 rounded-lg flex items-center gap-2 border-2 border-transparent focus-within:border-blue-400 transition-colors flex-1 sm:flex-none">
+              <span className="text-xs text-gray-500 font-bold">From:</span>
+              <input
+                type="date"
+                className="bg-transparent border-none outline-none text-sm w-full text-gray-700 cursor-pointer font-bold"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div className="bg-gray-100 p-2 rounded-lg flex items-center gap-2 border-2 border-transparent focus-within:border-blue-400 transition-colors flex-1 sm:flex-none">
+              <span className="text-xs text-gray-500 font-bold">To:</span>
+              <input
+                type="date"
+                className="bg-transparent border-none outline-none text-sm w-full text-gray-700 cursor-pointer font-bold"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            {(fromDate || toDate) && (
               <button
-                onClick={() => setFilterDate("")}
-                className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                }}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-gray-100 rounded-lg shrink-0"
+                title="Clear Dates"
               >
                 <X size={16} />
               </button>
@@ -353,67 +459,88 @@ const Sales = () => {
           </div>
         </div>
 
-        {filterDate && (
-          <div className="flex flex-row items-center bg-blue-50 px-3 py-2 rounded-lg border border-blue-100 shrink-0 whitespace-nowrap overflow-hidden">
-            <span className="text-xs font-bold text-blue-800 mr-2 shrink-0">
-              BWP Rate:
-            </span>
-            <input
-              type="number"
-              placeholder="0"
-              value={dailyRates.bahawalpurRate}
-              onChange={(e) =>
-                setDailyRates({ ...dailyRates, bahawalpurRate: e.target.value })
-              }
-              className="w-16 px-1.5 py-1 text-sm border border-blue-200 rounded outline-none focus:border-blue-500 font-bold text-center shrink-0"
-            />
+        <div className="flex flex-wrap justify-between items-center gap-4 border-t border-gray-100 pt-4">
+          <div className="flex flex-wrap items-center bg-blue-50 px-3 py-2 rounded-lg border border-blue-100 gap-y-2 max-w-full overflow-hidden text-sm">
+            <div className="flex items-center">
+              <span className="text-xs font-bold text-blue-800 mr-2">
+                BWP Rate:
+              </span>
+              <input
+                type="number"
+                placeholder="0"
+                value={dailyRates.bahawalpurRate}
+                onChange={(e) =>
+                  setDailyRates({
+                    ...dailyRates,
+                    bahawalpurRate: e.target.value,
+                  })
+                }
+                className="w-14 sm:w-16 px-1.5 py-1 text-xs sm:text-sm border border-blue-200 rounded outline-none focus:border-blue-500 font-bold text-center"
+              />
+            </div>
 
-            <div className="w-px h-5 bg-blue-200 mx-3 shrink-0"></div>
+            <div className="w-px h-5 bg-blue-200 mx-2 hidden sm:block"></div>
 
-            <span className="text-xs font-bold text-green-800 mr-2 shrink-0">
-              Supply Rate:
-            </span>
-            <input
-              type="number"
-              placeholder="0"
-              value={dailyRates.supplyRate}
-              onChange={(e) =>
-                setDailyRates({ ...dailyRates, supplyRate: e.target.value })
-              }
-              className="w-16 px-1.5 py-1 text-sm border border-green-200 rounded outline-none focus:border-green-500 font-bold text-center shrink-0"
-            />
+            <div className="flex items-center">
+              <span className="text-xs font-bold text-green-800 mr-2">
+                Supply Rate:
+              </span>
+              <input
+                type="number"
+                placeholder="0"
+                value={dailyRates.supplyRate}
+                onChange={(e) =>
+                  setDailyRates({ ...dailyRates, supplyRate: e.target.value })
+                }
+                className="w-14 sm:w-16 px-1.5 py-1 text-xs sm:text-sm border border-green-200 rounded outline-none focus:border-green-500 font-bold text-center"
+              />
+            </div>
 
             <button
               onClick={handleSaveRates}
               disabled={savingRates}
-              className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded transition-colors ml-3 shrink-0"
+              className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded transition-colors ml-2 mr-3"
               title="Save Daily Rates"
             >
               <Save size={16} />
             </button>
-          </div>
-        )}
 
-        <div className="flex flex-wrap gap-2 shrink-0">
-          <button
-            onClick={handlePrint}
-            className="flex-1 sm:flex-none bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            <Printer size={18} /> Print
-          </button>
-          <button
-            onClick={() => openModal()}
-            className="flex-1 sm:flex-none bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus size={18} /> Add Sale
-          </button>
+            <div className="w-px h-5 bg-blue-200 mx-1 hidden lg:block"></div>
+
+            <div className="flex items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 px-1 border-t lg:border-none border-blue-200 pt-2 lg:pt-0">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-700">
+                Purchased:{" "}
+                <span className="text-blue-700">{totalPurchasedWeight}</span>
+              </span>
+              <span className="text-[11px] sm:text-xs font-bold text-gray-700">
+                Sold: <span className="text-green-700">{totalWeight}</span>
+              </span>
+              <span className="text-[11px] sm:text-xs font-bold text-gray-700">
+                Shortage:{" "}
+                <span className="text-red-600">{shortageWeight} KG</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button
+              onClick={handlePrint}
+              className="flex-1 sm:flex-none bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Printer size={18} /> Print
+            </button>
+            <button
+              onClick={() => openModal()}
+              className="flex-1 sm:flex-none bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus size={18} /> Add Sale
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 🔥 FIX: Yahan print:overflow-visible lagaya hai ta k print mein table gayab na ho */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden print:border-none print:shadow-none print:overflow-visible">
         {/* DESKTOP TABLE VIEW */}
-        {/* 🔥 FIX: Yahan print:block lagaya hai ta k ye print screen par laazmi show ho, beshak mobile size assume kare */}
         <div className="hidden lg:block print:block w-full overflow-x-auto pb-2 print:overflow-visible custom-scrollbar">
           <table className="w-full text-left border-collapse text-sm print:text-xs">
             <thead>
@@ -454,8 +581,8 @@ const Sales = () => {
               ) : filteredSales.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center p-8 text-gray-500">
-                    {filterDate
-                      ? "No sales found for this date."
+                    {fromDate || toDate
+                      ? "No sales found for selected dates."
                       : "No sales records found."}
                   </td>
                 </tr>
@@ -523,7 +650,6 @@ const Sales = () => {
                 ))
               )}
             </tbody>
-            {/* 🔥 FIX: print:table-row-group lagaya ta k footer totals theek se print hon */}
             <tfoot className="hidden print:table-row-group bg-gray-100 font-bold text-black border-t-4 border-gray-800">
               <tr>
                 <td colSpan="2" className="px-3 py-3 text-right">
@@ -534,7 +660,7 @@ const Sales = () => {
                 <td className="px-3 py-3">
                   Rs. {totalAmount.toLocaleString()}
                 </td>
-                <td className="px-3 py-3">Rs. {totalPaid.toLocaleString()}</td>
+                <td className="px-3 py-3">Rs. {salesPaid.toLocaleString()}</td>
                 <td className="px-3 py-3">
                   Rs. {totalOutstanding.toLocaleString()}
                 </td>
@@ -795,6 +921,7 @@ const Sales = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
                 className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
               >
                 Cancel
@@ -802,9 +929,14 @@ const Sales = () => {
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium flex items-center gap-2"
+                disabled={isSubmitting}
+                className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}
               >
-                {editingId ? "Update Sale" : "Save Sale"}
+                {isSubmitting
+                  ? "Saving..."
+                  : editingId
+                    ? "Update Sale"
+                    : "Save Sale"}
               </button>
             </div>
           </div>

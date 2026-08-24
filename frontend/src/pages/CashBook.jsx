@@ -1,7 +1,17 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { Wallet, ArrowRightLeft, Plus, UserPlus } from "lucide-react";
+import {
+  Wallet,
+  ArrowRightLeft,
+  Plus,
+  UserPlus,
+  X,
+  FileText,
+  ArrowDownLeft,
+  ArrowUpRight,
+  History,
+} from "lucide-react";
 
 const CashBook = () => {
   const [accounts, setAccounts] = useState([]);
@@ -16,12 +26,21 @@ const CashBook = () => {
     particulars: "",
   });
 
-  // 🔥 NAYA: Add Account Modal States
+  // Add Account Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAccount, setNewAccount] = useState({
     name: "",
     type: "owner",
     initialBalance: "",
+  });
+
+  // 🔥 NAYA: Ledger History Modal States
+  const [showLedgerModal, setShowLedgerModal] = useState(false);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [selectedAccountLedger, setSelectedAccountLedger] = useState({
+    accountName: "",
+    balance: 0,
+    transactions: [],
   });
 
   const fetchAccounts = async () => {
@@ -44,24 +63,29 @@ const CashBook = () => {
     fetchAccounts();
   }, []);
 
-  // 🔥 NAYA: Naya Account Banane ka function
+  // Naya Account Banane ka function
   const handleAddAccount = async (e) => {
     e.preventDefault();
     if (!newAccount.name) return toast.error("Please enter account name");
 
     try {
-      await axios.post("https://asia-poultry-api.onrender.com/api/cash/accounts", newAccount, {
-        withCredentials: true,
-      });
+      await axios.post(
+        "https://asia-poultry-api.onrender.com/api/cash/accounts",
+        newAccount,
+        {
+          withCredentials: true,
+        },
+      );
       toast.success("Cash Account Created Successfully!");
       setShowAddModal(false);
       setNewAccount({ name: "", type: "owner", initialBalance: "" });
-      fetchAccounts(); // List update karega
+      fetchAccounts();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to create account");
     }
   };
 
+  // Transfer Cash Function
   const handleTransfer = async (e) => {
     e.preventDefault();
     if (
@@ -97,6 +121,46 @@ const CashBook = () => {
     }
   };
 
+  // 🔥 NAYA: Kisi specific account ki history (Ledger) lana
+  const handleOpenLedger = async (account) => {
+    setShowLedgerModal(true);
+    setLedgerLoading(true);
+    setSelectedAccountLedger({
+      accountName: account.name,
+      balance: account.balance,
+      transactions: [],
+    });
+
+    try {
+      // Backend api call
+      const { data } = await axios.get(
+        `https://asia-poultry-api.onrender.com/api/cash/ledger/${account._id}`,
+        { withCredentials: true },
+      );
+
+      // Assume API returns object with transactions array
+      if (data.success && data.ledger) {
+        setSelectedAccountLedger({
+          accountName: account.name,
+          balance: account.balance,
+          transactions: data.ledger.transactions || [],
+        });
+      } else {
+        // Fallback if data structure is different
+        setSelectedAccountLedger({
+          accountName: account.name,
+          balance: account.balance,
+          transactions: data || [],
+        });
+      }
+    } catch (error) {
+      toast.error("Failed to load account details");
+      setShowLedgerModal(false);
+    } finally {
+      setLedgerLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
       {/* Header */}
@@ -110,7 +174,6 @@ const CashBook = () => {
           </p>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
-          {/* 🔥 NAYA: Add Account Button */}
           <button
             onClick={() => setShowAddModal(true)}
             className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
@@ -141,7 +204,9 @@ const CashBook = () => {
             accounts.map((acc) => (
               <div
                 key={acc._id}
-                className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group hover:shadow-md transition-shadow"
+                onClick={() => handleOpenLedger(acc)} // 🔥 FIX: Card par click karne se history khulegi
+                className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
+                title="Click to view history"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div
@@ -149,14 +214,16 @@ const CashBook = () => {
                   >
                     <Wallet size={24} />
                   </div>
-                  <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-50 px-2 py-1 rounded">
+                  <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100">
                     {acc.type}
                   </span>
                 </div>
-                <h3 className="font-bold text-gray-800 text-lg mb-1">
+                <h3 className="font-bold text-gray-800 text-lg mb-1 group-hover:text-blue-600 transition-colors">
                   {acc.name}
                 </h3>
-                <p className="text-xs text-gray-500 mb-3">Current Balance</p>
+                <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
+                  <History size={12} /> View History
+                </p>
                 <h2
                   className={`text-2xl font-black mt-auto ${acc.balance >= 0 ? "text-blue-700" : "text-red-600"}`}
                 >
@@ -168,7 +235,109 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* 🔥 NAYA: Add New Account Modal */}
+      {/* 🔥 NAYA: LEDGER HISTORY MODAL */}
+      {showLedgerModal && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div
+            className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col"
+            style={{ maxHeight: "90vh" }}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FileText className="text-blue-600" />{" "}
+                  {selectedAccountLedger.accountName}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Transaction History & Details
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs text-gray-500 font-bold uppercase">
+                    Current Balance
+                  </p>
+                  <p
+                    className={`text-lg font-black ${selectedAccountLedger.balance >= 0 ? "text-blue-700" : "text-red-600"}`}
+                  >
+                    Rs. {selectedAccountLedger.balance.toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowLedgerModal(false)}
+                  className="bg-white p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-gray-200"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (Transactions List) */}
+            <div className="flex-1 overflow-y-auto p-5 bg-white custom-scrollbar">
+              {ledgerLoading ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : selectedAccountLedger.transactions.length === 0 ? (
+                <div className="text-center p-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <History size={40} className="mx-auto mb-3 text-gray-300" />
+                  No transactions found for this account.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedAccountLedger.transactions.map((tx, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`mt-0.5 p-2 rounded-lg shrink-0 ${tx.type === "in" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}
+                        >
+                          {tx.type === "in" ? (
+                            <ArrowDownLeft size={16} />
+                          ) : (
+                            <ArrowUpRight size={16} />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-800 text-sm">
+                            {tx.particulars || "Transfer / Adjustment"}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(tx.date).toLocaleDateString("en-GB")} •{" "}
+                            {new Date(tx.date).toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right pl-11 sm:pl-0">
+                        <p
+                          className={`font-black ${tx.type === "in" ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {tx.type === "in" ? "+" : "-"} Rs.{" "}
+                          {tx.amount.toLocaleString()}
+                        </p>
+                        {tx.balanceAfter !== undefined && (
+                          <p className="text-[10px] text-gray-500 font-bold mt-1 uppercase tracking-wider">
+                            Bal: Rs. {tx.balanceAfter.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Account Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
@@ -211,7 +380,7 @@ const CashBook = () => {
                   onChange={(e) =>
                     setNewAccount({ ...newAccount, type: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500 bg-white"
                 >
                   <option value="owner">Owner (Main Cash)</option>
                   <option value="shop">Shop / Counter</option>
@@ -258,7 +427,7 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Transfer Modal (Pechla wala same hai) */}
+      {/* Transfer Modal */}
       {showTransferModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
@@ -288,7 +457,7 @@ const CashBook = () => {
                       fromAccountId: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
                   required
                 >
                   <option value="">-- Select Sender --</option>
@@ -312,7 +481,7 @@ const CashBook = () => {
                       toAccountId: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
                   required
                 >
                   <option value="">-- Select Receiver --</option>

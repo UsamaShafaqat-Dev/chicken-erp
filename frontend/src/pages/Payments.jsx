@@ -22,6 +22,7 @@ const Payments = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [cashAccounts, setCashAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 FIX: Double click roknay ke liye
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -117,6 +118,8 @@ const Payments = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // 🔥 FIX: Agar already save ho raha hai toh return kardo
+
     if (formData.type === "receive" && !formData.customer)
       return toast.error("Please select a customer");
     if (formData.type === "pay" && !formData.supplier)
@@ -130,6 +133,8 @@ const Payments = () => {
     if (payload.type === "receive") delete payload.supplier;
     if (payload.type === "pay") delete payload.customer;
 
+    setIsSubmitting(true); // 🔥 FIX: Loading start
+
     try {
       if (editingId) {
         await axios.put(
@@ -139,23 +144,32 @@ const Payments = () => {
         );
         toast.success("Payment updated successfully");
       } else {
-        await axios.post("https://asia-poultry-api.onrender.com/api/payments", payload, {
-          withCredentials: true,
-        });
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/payments",
+          payload,
+          {
+            withCredentials: true,
+          },
+        );
         toast.success("Payment added successfully");
       }
       setIsModalOpen(false);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      setIsSubmitting(false); // 🔥 FIX: Loading end
     }
   };
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com/api/payments/${deletingId}`, {
-        withCredentials: true,
-      });
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/payments/${deletingId}`,
+        {
+          withCredentials: true,
+        },
+      );
       toast.success("Payment deleted successfully");
       setIsDeleteModalOpen(false);
       fetchData();
@@ -175,7 +189,6 @@ const Payments = () => {
   });
 
   return (
-    // 🔥 FIX: w-full max-w-full aur overflow-hidden ta k main screen na hile
     <div className="space-y-6 w-full max-w-full overflow-hidden box-border">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
@@ -294,7 +307,6 @@ const Payments = () => {
                         <CreditCard size={14} /> {payment.method}
                       </span>
                     </td>
-                    {/* 🔥 FIX: Notes ko truncate kar diya ta k ye table ko lamba na kare */}
                     <td className="px-3 py-3 text-gray-600">
                       <div
                         className="flex items-center gap-1 truncate max-w-[120px] xl:max-w-[200px]"
@@ -313,7 +325,6 @@ const Payments = () => {
                         )}
                       </div>
                     </td>
-                    {/* 🔥 FIX: Amount hamesha ek line mein rahega */}
                     <td
                       className={`px-3 py-3 font-bold text-base whitespace-nowrap ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
                     >
@@ -635,15 +646,21 @@ const Payments = () => {
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+                disabled={isSubmitting} // 🔥 FIX: Agar save ho raha hai toh cancel bhi disable ho jaye
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 onClick={handleSubmit}
-                className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium"
+                disabled={isSubmitting} // 🔥 FIX: Double click band
+                className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
               >
-                {editingId ? "Update Payment" : "Save Payment"}
+                {isSubmitting
+                  ? "Saving..."
+                  : editingId
+                    ? "Update Payment"
+                    : "Save Payment"}
               </button>
             </div>
           </div>
