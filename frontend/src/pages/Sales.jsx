@@ -138,17 +138,36 @@ const Sales = () => {
     const { name, value } = e.target;
     let newFormData = { ...formData, [name]: value };
 
-    if (name === "weight" || name === "rate" || name === "paidAmount") {
+    // Agar weight, rate ya payment method change ho raha hai
+    if (name === "weight" || name === "rate" || name === "paymentMethod") {
       const weight = parseFloat(newFormData.weight) || 0;
       const rate = parseFloat(newFormData.rate) || 0;
-      const paidAmount = parseFloat(newFormData.paidAmount) || 0;
 
       const totalAmount = weight * rate;
-      const balanceDue = totalAmount - paidAmount;
-
       newFormData.totalAmount = totalAmount;
-      newFormData.balanceDue = balanceDue;
+
+      // 🔥 AUTO FILL LOGIC: Agar cash/bank hai toh poori amount khud Paid mein aa jayegi
+      if (
+        newFormData.paymentMethod === "cash" ||
+        newFormData.paymentMethod === "bank"
+      ) {
+        newFormData.paidAmount = totalAmount;
+      } else if (newFormData.paymentMethod === "credit") {
+        newFormData.paidAmount = 0; // Udhaar par khud 0 ho jayega
+      }
+
+      newFormData.balanceDue =
+        totalAmount - (parseFloat(newFormData.paidAmount) || 0);
     }
+    // Agar user khud hath se paidAmount type kare ya change kare
+    else if (name === "paidAmount") {
+      const weight = parseFloat(newFormData.weight) || 0;
+      const rate = parseFloat(newFormData.rate) || 0;
+      const totalAmount = weight * rate;
+
+      newFormData.balanceDue = totalAmount - (parseFloat(value) || 0);
+    }
+
     setFormData(newFormData);
   };
 
