@@ -16,6 +16,7 @@ import {
 const Suppliers = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 NAYA: Double click rokne ke liye lock
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,9 +87,11 @@ const Suppliers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // 🔥 FIX: Yahan se 'mobile' ki requirement hata di hai
+    if (isSubmitting) return; // 🔥 FIX: Agar pehle se save ho raha hai toh return kar do
+
     if (!formData.name) return toast.error("Broker Name is required");
 
+    setIsSubmitting(true); // 🔥 FIX: Button Lock ON
     try {
       if (editingId) {
         await axios.put(
@@ -111,6 +114,8 @@ const Suppliers = () => {
       fetchSuppliers();
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      setIsSubmitting(false); // 🔥 FIX: Button Lock OFF
     }
   };
 
@@ -390,7 +395,6 @@ const Suppliers = () => {
                   />
                 </div>
                 <div>
-                  {/* 🔥 FIX: Mobile No se required tag hata diya aur Optional likh diya */}
                   <label className="block text-gray-700 font-medium mb-1">
                     Mobile No
                   </label>
@@ -449,15 +453,21 @@ const Suppliers = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting} // 🔥 FIX
                   className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium"
+                  disabled={isSubmitting} // 🔥 FIX: Double click lock
+                  className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
                 >
-                  {editingId ? "Update Supplier" : "Save Supplier"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingId
+                      ? "Update Supplier"
+                      : "Save Supplier"}
                 </button>
               </div>
             </form>

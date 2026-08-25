@@ -66,7 +66,7 @@ const Customers = () => {
     if (customer) {
       setFormData({
         name: customer.name,
-        mobile: customer.mobile || "", // Fallback empty string if not present
+        mobile: customer.mobile || "",
         whatsapp: customer.whatsapp || "",
         area: customer.area || "",
         address: customer.address || "",
@@ -91,14 +91,13 @@ const Customers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // 🔥 FIX
+    if (isSubmitting) return; // 🔥 FIX: Lock ON check
 
-    // 🔥 FIX: Mobile required condition hata di hai. Sirf name and area zaroori hai.
     if (!formData.name || !formData.area) {
       return toast.error("Name and Area are required");
     }
 
-    setIsSubmitting(true);
+    setIsSubmitting(true); // 🔥 FIX: Lock ON
     try {
       if (editingId) {
         await axios.put(
@@ -122,7 +121,7 @@ const Customers = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // 🔥 FIX: Lock OFF
     }
   };
 
@@ -344,7 +343,6 @@ const Customers = () => {
                   )}
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Purchases</p>
@@ -371,7 +369,6 @@ const Customers = () => {
                   </p>
                 </div>
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() =>
@@ -438,7 +435,6 @@ const Customers = () => {
                   />
                 </div>
                 <div>
-                  {/* 🔥 FIX: Mobile optional kar diya (required or * hata diya) */}
                   <label className="block text-gray-700 font-medium mb-1">
                     Mobile No
                   </label>
@@ -522,7 +518,7 @@ const Customers = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting} // 🔥 FIX: Double click band
+                  disabled={isSubmitting} // 🔥 FIX: Double click lock
                   className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
                 >
                   {isSubmitting
