@@ -20,7 +20,8 @@ const Payments = () => {
   const [payments, setPayments] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [employees, setEmployees] = useState([]); // 🔥 NAYA
+  const [employees, setEmployees] = useState([]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
   const [cashAccounts, setCashAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,14 +32,14 @@ const Payments = () => {
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // 🔥 NAYA: Ye decide karega ke Supplier ko dena hai ya Employee ko
   const [payeeType, setPayeeType] = useState("supplier");
 
   const [formData, setFormData] = useState({
     type: "receive",
     customer: "",
     supplier: "",
-    employee: "", // 🔥 NAYA
+    employee: "",
+    expenseCategory: "",
     cashAccountId: "",
     amount: "",
     method: "cash",
@@ -46,13 +47,13 @@ const Payments = () => {
     notes: "",
   });
 
-  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [paymentsRes, customersRes, suppliersRes, cashRes] =
+      const [paymentsRes, customersRes, suppliersRes, cashRes, expCatRes] =
         await Promise.all([
           axios.get("https://asia-poultry-api.onrender.com/api/payments", {
             withCredentials: true,
@@ -66,9 +67,14 @@ const Payments = () => {
           axios.get("https://asia-poultry-api.onrender.com/api/cash/accounts", {
             withCredentials: true,
           }),
+          axios
+            .get(
+              "https://asia-poultry-api.onrender.com/api/expense-categories",
+              { withCredentials: true },
+            )
+            .catch(() => ({ data: [] })),
         ]);
 
-      // 🔥 Employee api fetch ki koshish karega
       let empData = [];
       try {
         const empRes = await axios.get(
@@ -77,14 +83,32 @@ const Payments = () => {
         );
         empData = empRes.data;
       } catch (err) {
-        console.log("Employees fetch issue or route named differently.");
+        console.error("Employee fetch error:", err);
       }
 
-      setPayments(paymentsRes.data);
-      setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
-      setSuppliers(suppliersRes.data.filter((s) => s.status !== "inactive"));
-      setEmployees(empData);
-      setCashAccounts(cashRes.data);
+      setPayments(paymentsRes.data || []);
+      setCustomers(
+        (customersRes.data || []).filter((c) => c.status !== "inactive"),
+      );
+      setSuppliers(
+        (suppliersRes.data || []).filter((s) => s.status !== "inactive"),
+      );
+      setEmployees(empData || []);
+      setCashAccounts(cashRes.data || []);
+
+      const dbCats = expCatRes.data || [];
+      setExpenseCategories(
+        dbCats.length > 0
+          ? dbCats.map((c) => c.name)
+          : [
+              "Food / Refreshment",
+              "Fuel / Petrol",
+              "Utility Bill",
+              "Staff Salary",
+              "Rent",
+              "Other",
+            ],
+      );
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -105,27 +129,45 @@ const Payments = () => {
         customer: "",
         supplier: "",
         employee: "",
+        expenseCategory: "",
       });
-      if (value === "receive") setPayeeType("supplier"); // Reset toggle
+      if (value === "receive") setPayeeType("supplier");
     } else {
       setFormData({ ...formData, [name]: value });
     }
   };
 
+  const getSafeDate = (dateVal) => {
+    if (!dateVal) return new Date().toISOString().split("T")[0];
+    try {
+      return new Date(dateVal).toISOString().split("T")[0];
+    } catch (e) {
+      return new Date().toISOString().split("T")[0];
+    }
+  };
+
   const openModal = (payment = null) => {
     if (payment) {
-      setPayeeType(payment.employee ? "employee" : "supplier");
+      const isExp = payment.notes && payment.notes.startsWith("[EXPENSE:");
+      let currentPayee = "supplier";
+      if (isExp) currentPayee = "expense";
+      else if (payment.employee) currentPayee = "employee";
+
+      setPayeeType(currentPayee);
       setFormData({
         type: payment.type,
         customer: payment.customer?._id || "",
         supplier: payment.supplier?._id || "",
         employee: payment.employee?._id || "",
+        expenseCategory: "",
         cashAccountId:
           payment.cashAccountId?._id || payment.cashAccountId || "",
-        amount: payment.amount,
-        method: payment.method,
-        date: new Date(payment.date).toISOString().split("T")[0],
-        notes: payment.notes || "",
+        amount: payment.amount || "",
+        method: payment.method || "cash",
+        date: getSafeDate(payment.date),
+        notes: isExp
+          ? payment.notes.replace(/\[EXPENSE:.*?\]\s*/, "")
+          : payment.notes || "",
       });
       setEditingId(payment._id);
     } else {
@@ -135,10 +177,11 @@ const Payments = () => {
         customer: "",
         supplier: "",
         employee: "",
+        expenseCategory: "",
         cashAccountId: "",
         amount: "",
         method: "cash",
-        date: new Date().toISOString().split("T")[0],
+        date: getSafeDate(new Date()),
         notes: "",
       });
       setEditingId(null);
@@ -157,35 +200,47 @@ const Payments = () => {
       payeeType === "supplier" &&
       !formData.supplier
     )
-      return toast.error("Please select a supplier");
+      return toast.error("Please select a broker/supplier");
     if (
       formData.type === "pay" &&
       payeeType === "employee" &&
       !formData.employee
     )
       return toast.error("Please select a staff member");
+    if (
+      formData.type === "pay" &&
+      payeeType === "expense" &&
+      !formData.expenseCategory &&
+      !editingId
+    )
+      return toast.error("Please select an expense category");
+
     if (!formData.cashAccountId)
       return toast.error("Please select a Cash Account");
     if (!formData.amount || formData.amount <= 0)
       return toast.error("Please enter a valid amount");
 
-    const payload = { ...formData };
-    // Cleanup unwanted data
+    const payload = { ...formData, payeeType };
+
     if (payload.type === "receive") {
       delete payload.supplier;
       delete payload.employee;
-    }
-    if (payload.type === "pay" && payeeType === "supplier") {
+      delete payload.expenseCategory;
+    } else if (payload.type === "pay") {
       delete payload.customer;
-      delete payload.employee;
-    }
-    if (payload.type === "pay" && payeeType === "employee") {
-      delete payload.customer;
-      delete payload.supplier;
+      if (payeeType === "supplier") {
+        delete payload.employee;
+        delete payload.expenseCategory;
+      } else if (payeeType === "employee") {
+        delete payload.supplier;
+        delete payload.expenseCategory;
+      } else if (payeeType === "expense") {
+        delete payload.supplier;
+        delete payload.employee;
+      }
     }
 
     setIsSubmitting(true);
-
     try {
       if (editingId) {
         await axios.put(
@@ -225,23 +280,33 @@ const Payments = () => {
     }
   };
 
+  const getCleanNotes = (notes) => {
+    if (!notes) return "-";
+    return notes.startsWith("[EXPENSE:")
+      ? notes.replace(/\[EXPENSE:.*?\]\s*/, "")
+      : notes;
+  };
+
+  const getPartyName = (p) => {
+    if (p.type === "receive") return p.customer?.name;
+    if (p.notes && p.notes.startsWith("[EXPENSE:")) return "General Expense";
+    if (p.employee) return p.employee?.name;
+    return p.supplier?.name;
+  };
+
   const filteredPayments = payments.filter((p) => {
-    const partyName =
-      p.type === "receive"
-        ? p.customer?.name
-        : p.employee
-          ? p.employee?.name
-          : p.supplier?.name;
+    const partyName = getPartyName(p) || "";
+    const cleanNotes = getCleanNotes(p.notes) || "";
+    const accountName = p.cashAccountId?.name || "";
     return (
-      partyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.cashAccountId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      partyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cleanNotes.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      accountName.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden box-border">
-      {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-80 flex items-center gap-2">
@@ -264,7 +329,6 @@ const Payments = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden">
-        {/* DESKTOP TABLE VIEW */}
         <div className="hidden lg:block w-full">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
@@ -276,7 +340,7 @@ const Payments = () => {
                   Type
                 </th>
                 <th className="px-3 py-4 font-medium whitespace-nowrap">
-                  Party Name
+                  Party / Category
                 </th>
                 <th className="px-3 py-4 font-medium whitespace-nowrap">
                   Cash Account
@@ -309,105 +373,102 @@ const Payments = () => {
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((payment) => (
-                  <tr
-                    key={payment._id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
-                      {new Date(payment.date).toLocaleDateString("en-GB")}
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {payment.type === "receive" ? (
-                        <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-100 px-2 py-1 rounded-md text-xs font-bold">
-                          <ArrowDownLeft size={14} /> Received (In)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-orange-700 bg-orange-50 border border-orange-100 px-2 py-1 rounded-md text-xs font-bold">
-                          <ArrowUpRight size={14} /> Paid (Out)
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <p className="font-bold text-gray-800 truncate max-w-[150px]">
-                        {payment.type === "receive"
-                          ? payment.customer?.name || "Unknown"
-                          : payment.employee
-                            ? payment.employee?.name || "Unknown"
-                            : payment.supplier?.name || "Unknown"}
-                      </p>
-                      <p className="text-[11px] text-gray-500 uppercase">
-                        {payment.type === "receive"
-                          ? "Customer"
-                          : payment.employee
-                            ? "Staff / Employee"
-                            : "Broker / Supplier"}
-                      </p>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs font-bold">
-                        <Wallet size={14} />{" "}
-                        {payment.cashAccountId?.name || "N/A"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 text-gray-600 capitalize bg-gray-100 px-2 py-1 rounded text-xs font-medium">
-                        <CreditCard size={14} /> {payment.method}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-gray-600">
-                      <div
-                        className="flex items-center gap-1 truncate max-w-[120px] xl:max-w-[200px]"
-                        title={payment.notes}
-                      >
-                        {payment.notes ? (
-                          <>
-                            <FileText
-                              size={14}
-                              className="text-gray-400 shrink-0"
-                            />
-                            <span className="truncate">{payment.notes}</span>
-                          </>
-                        ) : (
-                          "-"
-                        )}
-                      </div>
-                    </td>
-                    <td
-                      className={`px-3 py-3 font-bold text-base whitespace-nowrap ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
+                filteredPayments.map((payment) => {
+                  const isExp =
+                    payment.notes && payment.notes.startsWith("[EXPENSE:");
+                  const cleanNotes = getCleanNotes(payment.notes);
+                  return (
+                    <tr
+                      key={payment._id}
+                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                     >
-                      {payment.type === "receive" ? "+" : "-"} Rs.{" "}
-                      {payment.amount.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="flex justify-center items-center gap-1.5">
-                        {isOwner ? (
-                          <>
-                            <button
-                              onClick={() => openModal(payment)}
-                              className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
-                            >
-                              <Edit size={14} /> Edit
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeletingId(payment._id);
-                                setIsDeleteModalOpen(true);
-                              }}
-                              className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
-                            >
-                              <Trash2 size={14} /> Del
-                            </button>
-                          </>
+                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
+                        {new Date(payment.date).toLocaleDateString("en-GB")}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {payment.type === "receive" ? (
+                          <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-100 px-2 py-1 rounded-md text-xs font-bold">
+                            <ArrowDownLeft size={14} /> Receive (In)
+                          </span>
                         ) : (
-                          <span className="text-xs text-gray-400">
-                            No Action
+                          <span className="inline-flex items-center gap-1 text-orange-700 bg-orange-50 border border-orange-100 px-2 py-1 rounded-md text-xs font-bold">
+                            <ArrowUpRight size={14} /> Pay (Out)
                           </span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <p className="font-bold text-gray-800 truncate max-w-[150px]">
+                          {getPartyName(payment) || "Unknown"}
+                        </p>
+                        <p className="text-[11px] text-gray-500 uppercase">
+                          {payment.type === "receive"
+                            ? "Customer"
+                            : isExp
+                              ? "Expense Khata"
+                              : payment.employee
+                                ? "Staff"
+                                : "Broker"}
+                        </p>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs font-bold">
+                          <Wallet size={14} />{" "}
+                          {payment.cashAccountId?.name || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-gray-600 capitalize bg-gray-100 px-2 py-1 rounded text-xs font-medium">
+                          <CreditCard size={14} /> {payment.method}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-gray-600">
+                        <div
+                          className="flex items-center gap-1 truncate max-w-[120px] xl:max-w-[200px]"
+                          title={cleanNotes}
+                        >
+                          <FileText
+                            size={14}
+                            className="text-gray-400 shrink-0"
+                          />
+                          <span className="truncate">{cleanNotes}</span>
+                        </div>
+                      </td>
+                      <td
+                        className={`px-3 py-3 font-bold text-base whitespace-nowrap ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
+                      >
+                        {payment.type === "receive" ? "+" : "-"} Rs.{" "}
+                        {payment.amount.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="flex justify-center items-center gap-1.5">
+                          {isOwner ? (
+                            <>
+                              <button
+                                onClick={() => openModal(payment)}
+                                className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                              >
+                                <Edit size={14} /> Edit
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeletingId(payment._id);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                                className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                              >
+                                <Trash2 size={14} /> Del
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              No Action
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -415,102 +476,99 @@ const Payments = () => {
 
         {/* MOBILE CARDS VIEW */}
         <div className="lg:hidden flex flex-col">
-          {filteredPayments.map((payment, index) => (
-            <div
-              key={payment._id}
-              className={`p-4 flex flex-col gap-4 ${index !== filteredPayments.length - 1 ? "border-b border-gray-100" : ""}`}
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {payment.type === "receive" ? (
-                      <span className="flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded text-[10px] font-bold border border-green-100">
-                        IN
+          {filteredPayments.map((payment, index) => {
+            const isExp =
+              payment.notes && payment.notes.startsWith("[EXPENSE:");
+            const cleanNotes = getCleanNotes(payment.notes);
+            return (
+              <div
+                key={payment._id}
+                className={`p-4 flex flex-col gap-4 ${index !== filteredPayments.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      {payment.type === "receive" ? (
+                        <span className="flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded text-[10px] font-bold border border-green-100">
+                          IN
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-orange-700 bg-orange-50 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-100">
+                          OUT
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-500 uppercase">
+                        {payment.type === "receive"
+                          ? "Customer"
+                          : isExp
+                            ? "Expense Khata"
+                            : payment.employee
+                              ? "Staff"
+                              : "Broker"}
                       </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-orange-700 bg-orange-50 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-100">
-                        OUT
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500 uppercase">
-                      {payment.type === "receive"
-                        ? "Customer"
-                        : payment.employee
-                          ? "Staff"
-                          : "Broker"}
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-lg">
+                      {getPartyName(payment) || "Unknown"}
+                    </h3>
+                    <p className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
+                      <Calendar size={14} />{" "}
+                      {new Date(payment.date).toLocaleDateString("en-GB")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">Amount</p>
+                    <p
+                      className={`text-lg font-bold ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
+                    >
+                      {payment.type === "receive" ? "+" : "-"} Rs.{" "}
+                      {payment.amount.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded-lg text-sm border border-gray-100 space-y-2">
+                  <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                    <span className="text-gray-500 text-xs">Cash Account</span>
+                    <span className="font-bold text-blue-700 flex items-center gap-1">
+                      <Wallet size={14} />{" "}
+                      {payment.cashAccountId?.name || "N/A"}
                     </span>
                   </div>
-                  <h3 className="font-bold text-gray-800 text-lg">
-                    {payment.type === "receive"
-                      ? payment.customer?.name || "Unknown"
-                      : payment.employee
-                        ? payment.employee?.name || "Unknown"
-                        : payment.supplier?.name || "Unknown"}
-                  </h3>
-                  <p className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
-                    <Calendar size={14} />{" "}
-                    {new Date(payment.date).toLocaleDateString("en-GB")}
-                  </p>
+                  <div>
+                    <span className="text-gray-500 text-xs block mb-1">
+                      Notes / Details
+                    </span>
+                    <p className="font-medium text-gray-700">
+                      {cleanNotes || "No details provided"}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 mb-0.5">Amount</p>
-                  <p
-                    className={`text-lg font-bold ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
-                  >
-                    {payment.type === "receive" ? "+" : "-"} Rs.{" "}
-                    {payment.amount.toLocaleString()}
-                  </p>
-                </div>
-              </div>
 
-              <div className="bg-gray-50 p-3 rounded-lg text-sm border border-gray-100 space-y-2">
-                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                  <span className="text-gray-500 text-xs">Cash Account</span>
-                  <span className="font-bold text-blue-700 flex items-center gap-1">
-                    <Wallet size={14} /> {payment.cashAccountId?.name || "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                  <span className="text-gray-500 text-xs">Payment Method</span>
-                  <span className="font-medium text-gray-700 capitalize flex items-center gap-1">
-                    <CreditCard size={14} /> {payment.method}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 text-xs block mb-1">
-                    Notes / Details
-                  </span>
-                  <p className="font-medium text-gray-700">
-                    {payment.notes || "No details provided"}
-                  </p>
-                </div>
+                {isOwner && (
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={() => openModal(payment)}
+                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
+                    >
+                      <Edit size={16} /> Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeletingId(payment._id);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
+                    >
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  </div>
+                )}
               </div>
-
-              {isOwner && (
-                <div className="flex gap-2 mt-1">
-                  <button
-                    onClick={() => openModal(payment)}
-                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
-                  >
-                    <Edit size={16} /> Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDeletingId(payment._id);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
-                  >
-                    <Trash2 size={16} /> Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* ADD/EDIT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -519,7 +577,7 @@ const Payments = () => {
           >
             <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
               <h2 className="text-lg font-bold text-gray-800">
-                {editingId ? "Edit Payment" : "Add New Payment"}
+                {editingId ? "Edit Payment" : "Master Payment Voucher"}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -544,7 +602,7 @@ const Payments = () => {
                     checked={formData.type === "receive"}
                     onChange={handleInputChange}
                     className="hidden"
-                    disabled={editingId}
+                    disabled={!!editingId}
                   />
                   <ArrowDownLeft size={18} /> Receive (Cash In)
                 </label>
@@ -558,16 +616,15 @@ const Payments = () => {
                     checked={formData.type === "pay"}
                     onChange={handleInputChange}
                     className="hidden"
-                    disabled={editingId}
+                    disabled={!!editingId}
                   />
                   <ArrowUpRight size={18} /> Send (Cash Out)
                 </label>
               </div>
 
-              {/* 🔥 NAYA: Payee Toggle (Agar type 'pay' hai) */}
               {formData.type === "pay" && !editingId && (
-                <div className="flex gap-4 bg-gray-50 p-2 rounded-lg border border-gray-200 mt-2">
-                  <label className="flex-1 flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 p-1">
+                <div className="flex gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200 mt-2 flex-wrap">
+                  <label className="flex-1 flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700 p-1">
                     <input
                       type="radio"
                       value="supplier"
@@ -575,9 +632,9 @@ const Payments = () => {
                       onChange={(e) => setPayeeType(e.target.value)}
                       className="accent-orange-600"
                     />
-                    Broker / Supplier
+                    Broker
                   </label>
-                  <label className="flex-1 flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 p-1">
+                  <label className="flex-1 flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700 p-1">
                     <input
                       type="radio"
                       value="employee"
@@ -585,7 +642,17 @@ const Payments = () => {
                       onChange={(e) => setPayeeType(e.target.value)}
                       className="accent-orange-600"
                     />
-                    Staff / Employee
+                    Staff
+                  </label>
+                  <label className="flex-1 flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700 p-1">
+                    <input
+                      type="radio"
+                      value="expense"
+                      checked={payeeType === "expense"}
+                      onChange={(e) => setPayeeType(e.target.value)}
+                      className="accent-orange-600"
+                    />
+                    Expense
                   </label>
                 </div>
               )}
@@ -601,7 +668,7 @@ const Payments = () => {
                       value={formData.customer}
                       onChange={handleInputChange}
                       required
-                      disabled={editingId}
+                      disabled={!!editingId}
                       className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-green-500"}`}
                     >
                       <option value="">-- Choose Customer --</option>
@@ -622,7 +689,7 @@ const Payments = () => {
                       value={formData.supplier}
                       onChange={handleInputChange}
                       required
-                      disabled={editingId}
+                      disabled={!!editingId}
                       className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
                     >
                       <option value="">-- Choose Broker --</option>
@@ -633,23 +700,44 @@ const Payments = () => {
                       ))}
                     </select>
                   </div>
-                ) : (
+                ) : payeeType === "employee" ? (
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">
-                      Select Staff / Employee (To Pay To) *
+                      Select Staff / Employee *
                     </label>
                     <select
                       name="employee"
                       value={formData.employee}
                       onChange={handleInputChange}
                       required
-                      disabled={editingId}
+                      disabled={!!editingId}
                       className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
                     >
                       <option value="">-- Choose Staff --</option>
                       {employees.map((emp) => (
                         <option key={emp._id} value={emp._id}>
                           {emp.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-1">
+                      Select Expense Khata *
+                    </label>
+                    <select
+                      name="expenseCategory"
+                      value={formData.expenseCategory}
+                      onChange={handleInputChange}
+                      required
+                      disabled={!!editingId}
+                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
+                    >
+                      <option value="">-- Choose Expense Khata --</option>
+                      {expenseCategories.map((cat, idx) => (
+                        <option key={idx} value={cat}>
+                          {cat}
                         </option>
                       ))}
                     </select>
@@ -668,7 +756,7 @@ const Payments = () => {
                   value={formData.cashAccountId}
                   onChange={handleInputChange}
                   required
-                  disabled={editingId}
+                  disabled={!!editingId}
                   className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-blue-500"}`}
                 >
                   <option value="">-- Choose Cash Account --</option>
@@ -736,11 +824,7 @@ const Payments = () => {
                     value={formData.notes}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder={
-                      payeeType === "employee"
-                        ? "e.g. August Salary"
-                        : "e.g. Cash collected"
-                    }
+                    placeholder="e.g. August Salary"
                   />
                 </div>
               </div>
@@ -772,7 +856,6 @@ const Payments = () => {
         </div>
       )}
 
-      {/* DELETE MODAL HIDDEN */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
@@ -783,8 +866,8 @@ const Payments = () => {
               Delete Payment?
             </h3>
             <p className="text-gray-500 text-sm mb-6">
-              Are you sure? Deleting this will reverse the account balance
-              automatically.
+              Are you sure? Deleting this will reverse the account balance and
+              delete history automatically.
             </p>
             <div className="flex justify-center gap-3">
               <button

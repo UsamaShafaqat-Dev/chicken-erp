@@ -1,11 +1,12 @@
 const Payment = require("../models/Payment");
 const Customer = require("../models/Customer");
 const Supplier = require("../models/Supplier");
-const Employee = require("../models/Employee"); // 🔥 NAYA: Employee Model link kiya
+const Employee = require("../models/Employee");
 const CashAccount = require("../models/CashAccount");
 const CashTransaction = require("../models/CashTransaction");
 const Purchase = require("../models/Purchase");
 const Sale = require("../models/Sale");
+const Expense = require("../models/Expense"); // 🔥 NAYA: Expense model link kiya
 
 // @desc    Get all payments
 // @route   GET /api/payments
@@ -14,7 +15,7 @@ const getPayments = async (req, res) => {
     const payments = await Payment.find()
       .populate("customer", "name mobile")
       .populate("supplier", "name mobile")
-      .populate("employee", "name mobile") // 🔥 NAYA: Employee ka data bhi layega
+      .populate("employee", "name mobile")
       .populate("cashAccountId", "name")
       .sort({ date: -1, createdAt: -1 });
     res.json(payments);
@@ -31,12 +32,14 @@ const createPayment = async (req, res) => {
       type,
       customer,
       supplier,
-      employee, // 🔥 NAYA
+      employee,
       amount,
       method,
       date,
       notes,
       cashAccountId,
+      payeeType, // 🔥 NAYA
+      expenseCategory, // 🔥 NAYA
     } = req.body;
     const paymentAmount = Number(amount);
 
@@ -44,20 +47,56 @@ const createPayment = async (req, res) => {
       return res.status(400).json({ message: "Please select a Cash Account" });
     }
 
-    // 1. Payment Record Save Karein
+    const cashAcc = await CashAccount.findById(cashAccountId);
+
+    // 🔥 NAYA: Agar Payment 'Expense' ke liye hai (Master Voucher Logic)
+    if (type === "pay" && payeeType === "expense" && expenseCategory) {
+      // 1. Expense create karein
+      const expenseDoc = await Expense.create({
+        category: expenseCategory,
+        description: notes || "Direct Expense from Payments",
+        amount: paymentAmount,
+        paymentMethod: method,
+        date: date || Date.now(),
+      });
+
+      // 2. Payment create karein (Expense ki ID notes me chhupa denge taake baad me delete ho sake)
+      const payment = await Payment.create({
+        type,
+        amount: paymentAmount,
+        method,
+        date,
+        notes: `[EXPENSE:${expenseDoc._id}] ${notes || ""}`,
+        cashAccountId,
+      });
+
+      // 3. Cash minus karein aur History banayen
+      if (cashAcc) {
+        cashAcc.balance -= paymentAmount;
+        await cashAcc.save();
+        await CashTransaction.create({
+          fromAccount: cashAccountId,
+          amount: paymentAmount,
+          transactionType: "expense",
+          particulars: `Expense: ${expenseCategory} - ${notes || ""}`,
+          date: date || Date.now(),
+        });
+      }
+      return res.status(201).json(payment);
+    }
+
+    // --- BAKI PURANA LOGIC (Customer, Supplier, Employee) ---
     const payment = await Payment.create({
       type,
       customer,
       supplier,
-      employee, // 🔥 NAYA
+      employee,
       amount: paymentAmount,
       method,
       date,
       notes,
       cashAccountId,
     });
-
-    const cashAcc = await CashAccount.findById(cashAccountId);
 
     if (type === "receive" && customer) {
       const customerRecord = await Customer.findById(customer);
@@ -76,7 +115,7 @@ const createPayment = async (req, res) => {
           transactionType: "customer_recovery",
           referenceId: customer,
           particulars: `Received from ${customerRecord?.name || "Customer"} - ${notes || "Payment"}`,
-          date: date,
+          date: date || Date.now(),
         });
       }
 
@@ -99,12 +138,9 @@ const createPayment = async (req, res) => {
         }
         await sale.save();
       }
-    }
-    // 🔥 NAYA: Agar Employee / Staff ko payment ki hai
-    else if (type === "pay" && employee) {
+    } else if (type === "pay" && employee) {
       const empRecord = await Employee.findById(employee);
       if (empRecord) {
-        // Agar employee ki advance ya balance manage kar rahe hain
         if (empRecord.currentBalance !== undefined) {
           empRecord.currentBalance -= paymentAmount;
         } else if (empRecord.balance !== undefined) {
@@ -122,13 +158,11 @@ const createPayment = async (req, res) => {
           amount: paymentAmount,
           transactionType: "employee_salary",
           referenceId: employee,
-          particulars: `Salary / Advance to Staff: ${empRecord?.name || "Employee"} - ${notes || ""}`,
-          date: date,
+          particulars: `Salary/Advance: ${empRecord?.name || "Employee"} - ${notes || ""}`,
+          date: date || Date.now(),
         });
       }
-    }
-    // Agar Supplier ko payment ki hai
-    else if (type === "pay" && supplier) {
+    } else if (type === "pay" && supplier) {
       const supplierRecord = await Supplier.findById(supplier);
       if (supplierRecord) {
         supplierRecord.currentBalance -= paymentAmount;
@@ -145,7 +179,7 @@ const createPayment = async (req, res) => {
           transactionType: "supplier_payment",
           referenceId: supplier,
           particulars: `Paid to ${supplierRecord?.name || "Supplier"} - ${notes || "Payment"}`,
-          date: date,
+          date: date || Date.now(),
         });
       }
 
@@ -190,9 +224,35 @@ const updatePayment = async (req, res) => {
     payment.amount = newAmount;
     payment.method = req.body.method;
     payment.date = req.body.date || payment.date;
-    payment.notes = req.body.notes;
+
+    const isExpense = payment.notes && payment.notes.startsWith("[EXPENSE:");
+    if (isExpense) {
+      const expId = payment.notes.split("]")[0].replace("[EXPENSE:", "");
+      payment.notes = `[EXPENSE:${expId}] ${req.body.notes || ""}`;
+
+      await Expense.findByIdAndUpdate(expId, {
+        amount: newAmount,
+        description: req.body.notes || "Direct Expense from Payments",
+        paymentMethod: req.body.method,
+        date: req.body.date || payment.date,
+      });
+    } else {
+      payment.notes = req.body.notes;
+    }
 
     await payment.save();
+
+    // 🔥 FIX: CashTransaction History ko bhi update karo!
+    await CashTransaction.updateMany(
+      {
+        amount: oldAmount,
+        $or: [
+          { fromAccount: payment.cashAccountId },
+          { toAccount: payment.cashAccountId },
+        ],
+      },
+      { $set: { amount: newAmount, date: payment.date } },
+    );
 
     if (payment.type === "receive" && payment.customer) {
       const customerRecord = await Customer.findById(payment.customer);
@@ -220,11 +280,8 @@ const updatePayment = async (req, res) => {
     if (payment.cashAccountId) {
       const cashAcc = await CashAccount.findById(payment.cashAccountId);
       if (cashAcc) {
-        if (payment.type === "receive") {
-          cashAcc.balance += difference;
-        } else if (payment.type === "pay") {
-          cashAcc.balance -= difference;
-        }
+        if (payment.type === "receive") cashAcc.balance += difference;
+        else if (payment.type === "pay") cashAcc.balance -= difference;
         await cashAcc.save();
       }
     }
@@ -242,7 +299,20 @@ const deletePayment = async (req, res) => {
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    if (payment.type === "receive" && payment.customer) {
+    // 🔥 FIX GHOST HISTORY: Khate me se original entry ko dhoond kar delete karo
+    await CashTransaction.deleteMany({
+      amount: payment.amount,
+      $or: [
+        { fromAccount: payment.cashAccountId },
+        { toAccount: payment.cashAccountId },
+      ],
+    });
+
+    // 🔥 Agar Expense tha, to usko Expense db se bhi ura do
+    if (payment.notes && payment.notes.startsWith("[EXPENSE:")) {
+      const expId = payment.notes.split("]")[0].replace("[EXPENSE:", "");
+      await Expense.findByIdAndDelete(expId);
+    } else if (payment.type === "receive" && payment.customer) {
       const customerRecord = await Customer.findById(payment.customer);
       if (customerRecord) {
         customerRecord.currentBalance += payment.amount;
@@ -268,17 +338,14 @@ const deletePayment = async (req, res) => {
     if (payment.cashAccountId) {
       const cashAcc = await CashAccount.findById(payment.cashAccountId);
       if (cashAcc) {
-        if (payment.type === "receive") {
-          cashAcc.balance -= payment.amount;
-        } else if (payment.type === "pay") {
-          cashAcc.balance += payment.amount;
-        }
+        if (payment.type === "receive") cashAcc.balance -= payment.amount;
+        else if (payment.type === "pay") cashAcc.balance += payment.amount;
         await cashAcc.save();
       }
     }
 
     await Payment.findByIdAndDelete(req.params.id);
-    res.json({ message: "Payment deleted and balances adjusted successfully" });
+    res.json({ message: "Payment and associated history completely deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
