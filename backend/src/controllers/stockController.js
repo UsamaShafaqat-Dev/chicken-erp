@@ -5,53 +5,54 @@ const Sale = require("../models/Sale");
 // @route   GET /api/stock
 const getStockSummary = async (req, res) => {
   try {
-    // 1. Total Purchased Weight calculate karein
     const purchases = await Purchase.aggregate([
       { $group: { _id: null, totalWeight: { $sum: "$weight" } } },
     ]);
     const totalPurchased = purchases.length > 0 ? purchases[0].totalWeight : 0;
 
-    // 2. Total Sold Weight calculate karein
     const sales = await Sale.aggregate([
       { $group: { _id: null, totalWeight: { $sum: "$weight" } } },
     ]);
     const totalSold = sales.length > 0 ? sales[0].totalWeight : 0;
 
-    // 3. Current Available Stock (In - Out)
     const currentStock = totalPurchased - totalSold;
 
-    // 4. Stock Movements (Puri history taake frontend pe date filter 100% sahi chale)
     const allPurchases = await Purchase.find()
       .populate("supplier", "name")
       .sort({ date: -1 });
-
+      
     const allSales = await Sale.find()
       .populate("customer", "name")
       .sort({ date: -1 });
 
-    // Dono arrays ko mila kar date wise sort kar lein taake combined history ban jaye
     let history = [];
-
+    
     allPurchases.forEach((p) =>
       history.push({
-        _id: p._id, // 🔥 FIX 1: ID bhej di taake Delete ka button show ho aur kaam kare!
+        _id: p._id, 
         type: "IN",
         party: p.supplier?.name,
         weight: p.weight,
-        rate: p.rate,
-        totalAmount: p.totalAmount,
+        rate: p.rate, 
+        totalAmount: p.totalAmount, 
+        paidAmount: p.paidAmount, // 🔥 Added for Edit
+        paymentMethod: p.paymentMethod, // 🔥 Added for Edit
+        notes: p.notes, // 🔥 Added for Edit
         date: p.date,
       }),
     );
 
     allSales.forEach((s) =>
       history.push({
-        _id: s._id, // 🔥 FIX 1: Sales ki ID bhi bhej di
+        _id: s._id,
         type: "OUT",
         party: s.customer?.name,
         weight: s.weight,
-        rate: s.rate,
-        totalAmount: s.totalAmount,
+        rate: s.rate, 
+        totalAmount: s.totalAmount, 
+        paidAmount: s.paidAmount,
+        paymentMethod: s.paymentMethod,
+        notes: s.notes,
         date: s.date,
       }),
     );
@@ -62,7 +63,7 @@ const getStockSummary = async (req, res) => {
       totalPurchased,
       totalSold,
       currentStock,
-      history: history, // 🔥 FIX 2: Limit hata di taake life-time purana data bhi filter ho sakay
+      history: history,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

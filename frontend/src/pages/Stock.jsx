@@ -11,6 +11,7 @@ import {
   Printer,
   Trash2,
   AlertTriangle,
+  Edit,
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -22,13 +23,27 @@ const Stock = () => {
     history: [],
   });
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // 🔥 NAYA: Delete Modal States
+  // Delete Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  // 🔥 NAYA: Edit Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState({
+    partyName: "",
+    weight: "",
+    rate: "",
+    paidAmount: "",
+    paymentMethod: "cash",
+    date: "",
+    notes: "",
+  });
 
   const printRef = useRef(null);
 
@@ -66,7 +81,6 @@ const Stock = () => {
     return record.party || record.supplier || record.customer || "Unknown";
   };
 
-  // 🔥 NAYA: Delete Purchase Record Function
   const confirmDelete = async () => {
     try {
       await axios.delete(
@@ -77,9 +91,51 @@ const Stock = () => {
       );
       toast.success("Purchase deleted and stock reversed!");
       setIsDeleteModalOpen(false);
-      fetchStock(); // Refresh stock data
+      fetchStock();
     } catch (error) {
       toast.error("Failed to delete purchase record");
+    }
+  };
+
+  // 🔥 NAYA: Open Edit Modal
+  const openEditModal = (record) => {
+    setFormData({
+      partyName: getPartyName(record),
+      weight: record.weight || "",
+      rate: record.rate || "",
+      paidAmount: record.paidAmount || 0,
+      paymentMethod: record.paymentMethod || "cash",
+      date: new Date(record.date).toISOString().split("T")[0],
+      notes: record.notes || "",
+    });
+    setEditingId(record._id);
+    setIsEditModalOpen(true);
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // 🔥 NAYA: Submit Edit
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await axios.put(
+        `https://asia-poultry-api.onrender.com/api/purchases/${editingId}`,
+        formData,
+        {
+          withCredentials: true,
+        },
+      );
+      toast.success("Purchase updated successfully!");
+      setIsEditModalOpen(false);
+      fetchStock();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update purchase");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -260,7 +316,7 @@ const Stock = () => {
                     <th className="px-4 py-3 font-bold text-right w-40">
                       Amount (Rs)
                     </th>
-                    <th className="px-4 py-3 font-bold text-center w-20 print:hidden">
+                    <th className="px-4 py-3 font-bold text-center w-24 print:hidden">
                       Action
                     </th>
                   </tr>
@@ -305,16 +361,25 @@ const Stock = () => {
                           </td>
                           <td className="px-4 py-3 text-center print:hidden">
                             {isOwner && record._id ? (
-                              <button
-                                onClick={() => {
-                                  setDeletingId(record._id);
-                                  setIsDeleteModalOpen(true);
-                                }}
-                                className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded transition-colors inline-flex"
-                                title="Delete Entry"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              <div className="flex justify-center items-center gap-1.5">
+                                <button
+                                  onClick={() => openEditModal(record)}
+                                  className="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors inline-flex"
+                                  title="Edit Entry"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeletingId(record._id);
+                                    setIsDeleteModalOpen(true);
+                                  }}
+                                  className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded transition-colors inline-flex"
+                                  title="Delete Entry"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             ) : (
                               <span className="text-gray-400 text-xs">-</span>
                             )}
@@ -365,15 +430,23 @@ const Stock = () => {
                             </p>
                           </div>
                           {isOwner && record._id && (
-                            <button
-                              onClick={() => {
-                                setDeletingId(record._id);
-                                setIsDeleteModalOpen(true);
-                              }}
-                              className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors"
-                            >
-                              Delete
-                            </button>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => openEditModal(record)}
+                                className="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded text-xs font-bold transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeletingId(record._id);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                                className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors"
+                              >
+                                Del
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -395,6 +468,127 @@ const Stock = () => {
           <div className="hidden print:flex mt-10 pt-6 border-t border-gray-300 justify-between items-center text-xs text-gray-500">
             <p className="font-bold">Generated by ASIA POULTRY BUSINESS</p>
             <p>Printed on: {new Date().toLocaleString()}</p>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800">
+                Edit Purchase Record
+              </h2>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-5 space-y-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Broker Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.partyName}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Total Weight (KG) *
+                  </label>
+                  <input
+                    type="number"
+                    name="weight"
+                    value={formData.weight}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Rate per KG (Rs) *
+                  </label>
+                  <input
+                    type="number"
+                    name="rate"
+                    value={formData.rate}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Paid Amount (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    name="paidAmount"
+                    value={formData.paidAmount}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    name="paymentMethod"
+                    value={formData.paymentMethod}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank">Bank / Online</option>
+                  </select>
+                </div>
+              </div>
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
+                >
+                  {isSubmitting ? "Updating..." : "Update Purchase"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
