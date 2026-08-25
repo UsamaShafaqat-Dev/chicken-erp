@@ -20,35 +20,38 @@ const getStockSummary = async (req, res) => {
     // 3. Current Available Stock (In - Out)
     const currentStock = totalPurchased - totalSold;
 
-    // 4. Recent Stock Movements (Aakhri 5 transactions)
-    const recentPurchases = await Purchase.find()
+    // 4. Stock Movements (Puri history taake frontend pe date filter 100% sahi chale)
+    const allPurchases = await Purchase.find()
       .populate("supplier", "name")
-      .sort({ createdAt: -1 })
-      .limit(10);
-    const recentSales = await Sale.find()
+      .sort({ date: -1 });
+
+    const allSales = await Sale.find()
       .populate("customer", "name")
-      .sort({ createdAt: -1 })
-      .limit(10);
+      .sort({ date: -1 });
 
     // Dono arrays ko mila kar date wise sort kar lein taake combined history ban jaye
     let history = [];
-    recentPurchases.forEach((p) =>
+
+    allPurchases.forEach((p) =>
       history.push({
+        _id: p._id, // 🔥 FIX 1: ID bhej di taake Delete ka button show ho aur kaam kare!
         type: "IN",
         party: p.supplier?.name,
         weight: p.weight,
-        rate: p.rate, // 🔥 FIX: Rate add kar diya
-        totalAmount: p.totalAmount, // 🔥 FIX: Total Amount add kar diya
+        rate: p.rate,
+        totalAmount: p.totalAmount,
         date: p.date,
       }),
     );
-    recentSales.forEach((s) =>
+
+    allSales.forEach((s) =>
       history.push({
+        _id: s._id, // 🔥 FIX 1: Sales ki ID bhi bhej di
         type: "OUT",
         party: s.customer?.name,
         weight: s.weight,
-        rate: s.rate, // 🔥 FIX: Rate add kar diya
-        totalAmount: s.totalAmount, // 🔥 FIX: Total Amount add kar diya
+        rate: s.rate,
+        totalAmount: s.totalAmount,
         date: s.date,
       }),
     );
@@ -59,7 +62,7 @@ const getStockSummary = async (req, res) => {
       totalPurchased,
       totalSold,
       currentStock,
-      history: history.slice(0, 15), // Aakhri 15 records
+      history: history, // 🔥 FIX 2: Limit hata di taake life-time purana data bhi filter ho sakay
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
