@@ -12,7 +12,10 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   History,
-  Printer, // 🔥 NAYA: Printer icon import kiya
+  Printer,
+  Edit,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const CashBook = () => {
@@ -28,13 +31,18 @@ const CashBook = () => {
     particulars: "",
   });
 
-  // Add Account Modal States
+  // Add/Edit Account Modal States
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingAccId, setEditingAccId] = useState(null);
   const [newAccount, setNewAccount] = useState({
     name: "",
     type: "owner",
     initialBalance: "",
   });
+
+  // Delete Account Modal States
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Ledger History Modal States
   const [showLedgerModal, setShowLedgerModal] = useState(false);
@@ -45,16 +53,17 @@ const CashBook = () => {
     transactions: [],
   });
 
-  // 🔥 NAYA: Print ke liye reference
   const printRef = useRef(null);
+
+  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const isOwner = userInfo?.role === "owner";
 
   const fetchAccounts = async () => {
     try {
+      setLoading(true);
       const { data } = await axios.get(
         "https://asia-poultry-api.onrender.com/api/cash/accounts",
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
       setAccounts(data);
     } catch (error) {
@@ -68,29 +77,64 @@ const CashBook = () => {
     fetchAccounts();
   }, []);
 
-  // Naya Account Banane ka function
+  // 🔥 NAYA: Edit Account Modal Open Function
+  const openAddEditModal = (acc = null) => {
+    if (acc) {
+      setNewAccount({
+        name: acc.name,
+        type: acc.type,
+        initialBalance: acc.balance, // Editing balance directly
+      });
+      setEditingAccId(acc._id);
+    } else {
+      setNewAccount({ name: "", type: "owner", initialBalance: "" });
+      setEditingAccId(null);
+    }
+    setShowAddModal(true);
+  };
+
   const handleAddAccount = async (e) => {
     e.preventDefault();
     if (!newAccount.name) return toast.error("Please enter account name");
 
     try {
-      await axios.post(
-        "https://asia-poultry-api.onrender.com/api/cash/accounts",
-        newAccount,
-        {
-          withCredentials: true,
-        },
-      );
-      toast.success("Cash Account Created Successfully!");
+      if (editingAccId) {
+        await axios.put(
+          `https://asia-poultry-api.onrender.com/api/cash/accounts/${editingAccId}`,
+          newAccount,
+          { withCredentials: true },
+        );
+        toast.success("Cash Account Updated!");
+      } else {
+        await axios.post(
+          "https://asia-poultry-api.onrender.com/api/cash/accounts",
+          newAccount,
+          { withCredentials: true },
+        );
+        toast.success("Cash Account Created!");
+      }
       setShowAddModal(false);
-      setNewAccount({ name: "", type: "owner", initialBalance: "" });
       fetchAccounts();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to create account");
+      toast.error(error.response?.data?.message || "Failed to save account");
     }
   };
 
-  // Transfer Cash Function
+  // 🔥 NAYA: Delete Account Function
+  const confirmDelete = async () => {
+    try {
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/cash/accounts/${deletingId}`,
+        { withCredentials: true },
+      );
+      toast.success("Account deleted successfully!");
+      setIsDeleteModalOpen(false);
+      fetchAccounts();
+    } catch (error) {
+      toast.error("Failed to delete account");
+    }
+  };
+
   const handleTransfer = async (e) => {
     e.preventDefault();
     if (
@@ -108,9 +152,7 @@ const CashBook = () => {
       await axios.post(
         "https://asia-poultry-api.onrender.com/api/cash/transfer",
         transferData,
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
       toast.success("Cash transferred successfully!");
       setShowTransferModal(false);
@@ -126,7 +168,6 @@ const CashBook = () => {
     }
   };
 
-  // Kisi specific account ki history (Ledger) lana
   const handleOpenLedger = async (account) => {
     setShowLedgerModal(true);
     setLedgerLoading(true);
@@ -141,18 +182,11 @@ const CashBook = () => {
         `https://asia-poultry-api.onrender.com/api/cash/ledger/${account._id}`,
         { withCredentials: true },
       );
-
       if (data.success && data.ledger) {
         setSelectedAccountLedger({
           accountName: account.name,
           balance: account.balance,
           transactions: data.ledger.transactions || [],
-        });
-      } else {
-        setSelectedAccountLedger({
-          accountName: account.name,
-          balance: account.balance,
-          transactions: data || [],
         });
       }
     } catch (error) {
@@ -163,7 +197,6 @@ const CashBook = () => {
     }
   };
 
-  // 🔥 NAYA: Print Function
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Cash_Ledger_${selectedAccountLedger.accountName}_${new Date().toISOString().split("T")[0]}`,
@@ -183,12 +216,11 @@ const CashBook = () => {
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => openAddEditModal()}
             className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
             <UserPlus size={18} /> New Account
           </button>
-
           <button
             onClick={() => setShowTransferModal(true)}
             className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
@@ -222,9 +254,36 @@ const CashBook = () => {
                   >
                     <Wallet size={24} />
                   </div>
-                  <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                    {acc.type}
-                  </span>
+                  {/* 🔥 NAYA: Edit aur Delete button (sirf owner k liye) */}
+                  <div className="flex items-center gap-2">
+                    {isOwner && (
+                      <div
+                        className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => openAddEditModal(acc)}
+                          className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-1.5 rounded"
+                          title="Edit Khata"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeletingId(acc._id);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded"
+                          title="Delete Khata"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                      {acc.type}
+                    </span>
+                  </div>
                 </div>
                 <h3 className="font-bold text-gray-800 text-lg mb-1 group-hover:text-blue-600 transition-colors">
                   {acc.name}
@@ -250,7 +309,6 @@ const CashBook = () => {
             className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col"
             style={{ maxHeight: "90vh" }}
           >
-            {/* Modal Header */}
             <div className="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -272,8 +330,6 @@ const CashBook = () => {
                     Rs. {selectedAccountLedger.balance.toLocaleString()}
                   </p>
                 </div>
-
-                {/* 🔥 NAYA: Print Button */}
                 <button
                   onClick={handlePrint}
                   disabled={ledgerLoading}
@@ -283,7 +339,6 @@ const CashBook = () => {
                   <Printer size={18} />{" "}
                   <span className="hidden sm:inline">Print</span>
                 </button>
-
                 <button
                   onClick={() => setShowLedgerModal(false)}
                   className="bg-white p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-gray-200"
@@ -293,12 +348,10 @@ const CashBook = () => {
               </div>
             </div>
 
-            {/* Modal Body (Printable Area) */}
             <div
               ref={printRef}
               className="flex-1 overflow-y-auto p-5 bg-white custom-scrollbar print:p-8 print:w-full print:h-auto print:overflow-visible"
             >
-              {/* 🔥 NAYA: Print-Only Header (Sirf Print karte waqt show hoga) */}
               <div className="hidden print:block text-center mb-8 border-b-2 border-gray-800 pb-4">
                 <h1 className="text-3xl font-black text-gray-900 mb-1">
                   ASIA POULTRY BUSINESS
@@ -373,7 +426,6 @@ const CashBook = () => {
                           </p>
                         </div>
                       </div>
-
                       <div className="text-right pl-11 sm:pl-0">
                         <p
                           className={`font-black print:text-base ${tx.type === "in" ? "text-green-600" : "text-red-600"}`}
@@ -381,11 +433,6 @@ const CashBook = () => {
                           {tx.type === "in" ? "+" : "-"} Rs.{" "}
                           {tx.amount.toLocaleString()}
                         </p>
-                        {tx.balanceAfter !== undefined && (
-                          <p className="text-[10px] text-gray-500 font-bold mt-1 uppercase tracking-wider">
-                            Bal: Rs. {tx.balanceAfter.toLocaleString()}
-                          </p>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -396,14 +443,14 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Add New Account Modal */}
+      {/* Add/Edit Account Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <UserPlus size={18} className="text-green-600" /> Create Cash
-                Account
+                <UserPlus size={18} className="text-green-600" />{" "}
+                {editingAccId ? "Edit Cash Account" : "Create Cash Account"}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -412,7 +459,6 @@ const CashBook = () => {
                 &times;
               </button>
             </div>
-
             <form onSubmit={handleAddAccount} className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -425,11 +471,10 @@ const CashBook = () => {
                     setNewAccount({ ...newAccount, name: e.target.value })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
-                  placeholder="e.g. Rana Shabbir, Ali Rider, Shop Counter"
+                  placeholder="e.g. Shop Counter"
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Account Type
@@ -447,10 +492,9 @@ const CashBook = () => {
                   <option value="bank">Bank Account</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Opening Balance (Rs)
+                  Opening / Current Balance (Rs)
                 </label>
                 <input
                   type="number"
@@ -465,7 +509,6 @@ const CashBook = () => {
                   placeholder="e.g. 0"
                 />
               </div>
-
               <div className="pt-2 flex gap-3">
                 <button
                   type="button"
@@ -478,10 +521,42 @@ const CashBook = () => {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
                 >
-                  Create Account
+                  {editingAccId ? "Update Account" : "Create Account"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Khata Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Khata?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure? This will permanently delete this account and all
+              its transaction history!
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Yes, Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -502,7 +577,6 @@ const CashBook = () => {
                 &times;
               </button>
             </div>
-
             <form onSubmit={handleTransfer} className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -527,7 +601,6 @@ const CashBook = () => {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   To Account (Receiver)
@@ -551,7 +624,6 @@ const CashBook = () => {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Amount (Rs)
@@ -567,7 +639,6 @@ const CashBook = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Details / Note
@@ -586,7 +657,6 @@ const CashBook = () => {
                   required
                 />
               </div>
-
               <div className="pt-2 flex gap-3">
                 <button
                   type="button"

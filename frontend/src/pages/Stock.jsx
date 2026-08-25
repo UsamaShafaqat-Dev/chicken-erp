@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import toast from "react-hot-toast";
 import {
   Package,
   TrendingUp,
   Calendar,
-  Scale,
   DollarSign,
   Search,
   X,
   Printer,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -24,21 +26,33 @@ const Stock = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // 🔥 NAYA: Delete Modal States
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
   const printRef = useRef(null);
 
-  useEffect(() => {
-    const fetchStock = async () => {
-      try {
-        const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/stock", {
+  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const isOwner = userInfo?.role === "owner";
+
+  const fetchStock = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(
+        "https://asia-poultry-api.onrender.com/api/stock",
+        {
           withCredentials: true,
-        });
-        setStockData(data);
-      } catch (error) {
-        console.error("Failed to fetch stock", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+        },
+      );
+      setStockData(data);
+    } catch (error) {
+      console.error("Failed to fetch stock", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchStock();
   }, []);
 
@@ -50,6 +64,23 @@ const Stock = () => {
     if (record.customer && typeof record.customer === "object")
       return record.customer.name;
     return record.party || record.supplier || record.customer || "Unknown";
+  };
+
+  // 🔥 NAYA: Delete Purchase Record Function
+  const confirmDelete = async () => {
+    try {
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/purchases/${deletingId}`,
+        {
+          withCredentials: true,
+        },
+      );
+      toast.success("Purchase deleted and stock reversed!");
+      setIsDeleteModalOpen(false);
+      fetchStock(); // Refresh stock data
+    } catch (error) {
+      toast.error("Failed to delete purchase record");
+    }
   };
 
   const onlyPurchases = stockData.history.filter(
@@ -79,7 +110,6 @@ const Stock = () => {
     setEndDate("");
   };
 
-  // 🔥 NAYA: Print Functionality
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Purchase_Report_${startDate || "Start"}_to_${endDate || "End"}`,
@@ -150,12 +180,10 @@ const Stock = () => {
           Loading purchase details...
         </div>
       ) : (
-        /* 🔥 PRINTABLE AREA START (Is div ke andar jo hai wo print hoga) */
         <div
           ref={printRef}
           className="print:p-6 print:bg-white print:w-full space-y-6"
         >
-          {/* 🔥 PRINT ONLY HEADER (صرف پرنٹ میں نظر آئے گا) */}
           <div className="hidden print:block text-center mb-8 border-b-2 border-gray-800 pb-4">
             <h1 className="text-3xl font-black text-gray-900 mb-1">
               ASIA POULTRY BUSINESS
@@ -192,7 +220,6 @@ const Stock = () => {
               </h3>
             </div>
 
-            {/* Print mein available stock hide kar dain takay sirf report pe focus ho */}
             <div className="p-5 rounded-xl shadow-sm border flex flex-col relative overflow-hidden bg-[#0a5228] border-green-800 print:hidden">
               <p className="text-green-50 text-sm font-medium mb-1 flex items-center gap-1.5">
                 <Package size={16} /> Current Warehouse Stock
@@ -233,13 +260,16 @@ const Stock = () => {
                     <th className="px-4 py-3 font-bold text-right w-40">
                       Amount (Rs)
                     </th>
+                    <th className="px-4 py-3 font-bold text-center w-20 print:hidden">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPurchases.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="4"
+                        colSpan="5"
                         className="text-center p-8 text-gray-500 border-b print:border-gray-300"
                       >
                         No purchase records found.
@@ -253,7 +283,7 @@ const Stock = () => {
 
                       return (
                         <tr
-                          key={index}
+                          key={record._id || index}
                           className="border-b border-gray-50 hover:bg-gray-50 print:border-gray-200"
                         >
                           <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
@@ -272,6 +302,22 @@ const Stock = () => {
                           </td>
                           <td className="px-4 py-3 font-bold text-right text-gray-800">
                             {amount.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-center print:hidden">
+                            {isOwner && record._id ? (
+                              <button
+                                onClick={() => {
+                                  setDeletingId(record._id);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                                className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded transition-colors inline-flex"
+                                title="Delete Entry"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -295,7 +341,7 @@ const Stock = () => {
 
                   return (
                     <div
-                      key={index}
+                      key={record._id || index}
                       className={`p-4 flex flex-col gap-3 ${index !== filteredPurchases.length - 1 ? "border-b border-gray-100" : ""}`}
                     >
                       <div className="flex justify-between items-start">
@@ -307,13 +353,28 @@ const Stock = () => {
                             ({record.weight} KG * Rs. {rate})
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500 mb-0.5">
-                            {new Date(record.date).toLocaleDateString("en-GB")}
-                          </p>
-                          <p className="font-bold text-blue-600">
-                            {record.weight} KG
-                          </p>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500 mb-0.5">
+                              {new Date(record.date).toLocaleDateString(
+                                "en-GB",
+                              )}
+                            </p>
+                            <p className="font-bold text-blue-600">
+                              {record.weight} KG
+                            </p>
+                          </div>
+                          {isOwner && record._id && (
+                            <button
+                              onClick={() => {
+                                setDeletingId(record._id);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded text-xs font-bold transition-colors"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="bg-gray-50 p-2 rounded border border-gray-100 flex justify-between items-center">
@@ -331,10 +392,41 @@ const Stock = () => {
             </div>
           </div>
 
-          {/* 🔥 PRINT ONLY FOOTER (صرف پرنٹ کے صفحے کے آخر میں نظر آئے گا) */}
           <div className="hidden print:flex mt-10 pt-6 border-t border-gray-300 justify-between items-center text-xs text-gray-500">
             <p className="font-bold">Generated by ASIA POULTRY BUSINESS</p>
             <p>Printed on: {new Date().toLocaleString()}</p>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE MODAL */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Purchase Entry?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure you want to remove this entry? The stock and supplier
+              balance will be reversed automatically.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Delete Entry
+              </button>
+            </div>
           </div>
         </div>
       )}

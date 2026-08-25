@@ -1,7 +1,7 @@
 const CashAccount = require("../models/CashAccount");
 const CashTransaction = require("../models/CashTransaction");
 
-// 1. Naya cash account banayen (Larkay ka ya Owner ka)
+// 1. Naya cash account banayen
 const createAccount = async (req, res) => {
   try {
     const { name, type, initialBalance } = req.body;
@@ -26,7 +26,7 @@ const getAccounts = async (req, res) => {
   }
 };
 
-// 3. Ek account se doosre account mein paise transfer karein (jaise larkay se owner ko)
+// 3. Ek account se doosre account mein paise transfer karein
 const transferCash = async (req, res) => {
   try {
     const { fromAccountId, toAccountId, amount, particulars, date } = req.body;
@@ -35,7 +35,6 @@ const transferCash = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Paise dene wale ke account se raqam kam karein
     const fromAccount = await CashAccount.findById(fromAccountId);
     if (fromAccount.balance < amount) {
       return res
@@ -45,12 +44,10 @@ const transferCash = async (req, res) => {
     fromAccount.balance -= Number(amount);
     await fromAccount.save();
 
-    // Paise lene wale ke account mein raqam jama karein
     const toAccount = await CashAccount.findById(toAccountId);
     toAccount.balance += Number(amount);
     await toAccount.save();
 
-    // Transfer ki history mehfooz karein
     const transaction = await CashTransaction.create({
       fromAccount: fromAccountId,
       toAccount: toAccountId,
@@ -80,7 +77,6 @@ const getAccountLedger = async (req, res) => {
       return res.status(404).json({ message: "Account not found" });
     }
 
-    // 🔥 FIX: Populate ko theek kiya, aur frontend k mutabiq calculations kar k bhejein
     const transactions = await CashTransaction.find({
       $or: [{ fromAccount: id }, { toAccount: id }],
     })
@@ -88,9 +84,7 @@ const getAccountLedger = async (req, res) => {
       .populate("toAccount", "name")
       .sort({ date: -1 });
 
-    // Frontend ko data formatted chahiye (IN / OUT type k sath)
     const formattedTransactions = transactions.map((tx) => {
-      // Check karein k paisa is account me aaya hai (IN) ya yahan se gaya hai (OUT)
       const isReceive = tx.toAccount && tx.toAccount._id.toString() === id;
 
       let otherPartyName = "System / Adjustment";
@@ -114,7 +108,6 @@ const getAccountLedger = async (req, res) => {
       };
     });
 
-    // Hum apna formatted data bhejenge jo frontend handle kar sake
     res.json({
       success: true,
       ledger: {
@@ -129,9 +122,48 @@ const getAccountLedger = async (req, res) => {
   }
 };
 
+// 🔥 5. NAYA: Update Cash Account (Edit)
+const updateAccount = async (req, res) => {
+  try {
+    const { name, type, initialBalance } = req.body;
+    const account = await CashAccount.findById(req.params.id);
+    if (!account) return res.status(404).json({ message: "Account not found" });
+
+    account.name = name || account.name;
+    account.type = type || account.type;
+    if (initialBalance !== undefined && initialBalance !== "") {
+      account.balance = Number(initialBalance);
+    }
+
+    await account.save();
+    res.json(account);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// 🔥 6. NAYA: Delete Cash Account
+const deleteAccount = async (req, res) => {
+  try {
+    const account = await CashAccount.findByIdAndDelete(req.params.id);
+    if (!account) return res.status(404).json({ message: "Account not found" });
+
+    // Is account ki sari transactions bhi delete kar denge
+    await CashTransaction.deleteMany({
+      $or: [{ fromAccount: req.params.id }, { toAccount: req.params.id }],
+    });
+
+    res.json({ message: "Account deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createAccount,
   getAccounts,
   transferCash,
   getAccountLedger,
+  updateAccount,
+  deleteAccount,
 };
