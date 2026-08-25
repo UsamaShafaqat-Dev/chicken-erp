@@ -23,6 +23,7 @@ import {
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [categoryDocs, setCategoryDocs] = useState([]); // Store full category objects for ID
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,9 +31,13 @@ const Expenses = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // Nayi Category add karne ka Modal
+  // Category Modals
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
+    useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [savingCategory, setSavingCategory] = useState(false);
 
   // Khata/Ledger Modal States
@@ -73,8 +78,9 @@ const Expenses = () => {
       ]);
 
       setExpenses(expensesRes.data || []);
-
       const dbCategories = categoriesRes.data || [];
+      setCategoryDocs(dbCategories); // Save docs for ID reference
+
       const defaultCats = [
         "Food / Refreshment",
         "Fuel / Petrol",
@@ -87,7 +93,7 @@ const Expenses = () => {
       let finalCats =
         dbCategories.length > 0 ? dbCategories.map((c) => c.name) : defaultCats;
 
-      // Agar koi aisa kharcha hai jiski category list mein nahi, usay list mein daal do
+      // Agar koi aisa kharcha hai jiski category DB list mein nahi, usay list mein daal do (e.g. Purani entries)
       (expensesRes.data || []).forEach((e) => {
         const catName = e.category || "Other";
         if (!finalCats.includes(catName)) finalCats.push(catName);
@@ -170,38 +176,76 @@ const Expenses = () => {
         `https://asia-poultry-api.onrender.com/api/expenses/${deletingId}`,
         { withCredentials: true },
       );
-      toast.success("Expense deleted");
+      toast.success("Expense entry deleted");
       setIsDeleteModalOpen(false);
+      setShowLedgerModal(false); // Close ledger to refresh accurately
       fetchData();
     } catch (error) {
       toast.error("Failed to delete expense");
     }
   };
 
+  // 🔥 NAYA: Open Edit Category Modal
+  const openEditCategoryModal = (catName) => {
+    const catDoc = categoryDocs.find((c) => c.name === catName);
+    if (!catDoc) {
+      return toast.error(
+        "This is a default category and cannot be edited. Create a new one.",
+      );
+    }
+    setNewCategoryName(catDoc.name);
+    setEditingCategoryId(catDoc._id);
+    setIsCategoryModalOpen(true);
+  };
+
+  // 🔥 NAYA: Add / Update Category
   const handleAddCategory = async (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return toast.error("Name cannot be empty");
 
     setSavingCategory(true);
     try {
-      const { data } = await axios.post(
-        "https://asia-poultry-api.onrender.com/api/expense-categories",
-        { name: newCategoryName.trim() },
-        { withCredentials: true },
-      );
-      toast.success("New Khata Added!");
-      setCategories([...categories, data.name]);
-      setFormData({ ...formData, category: data.name });
+      if (editingCategoryId) {
+        await axios.put(
+          `https://asia-poultry-api.onrender.com/api/expense-categories/${editingCategoryId}`,
+          { name: newCategoryName.trim() },
+          { withCredentials: true },
+        );
+        toast.success("Khata Updated!");
+      } else {
+        const { data } = await axios.post(
+          "https://asia-poultry-api.onrender.com/api/expense-categories",
+          { name: newCategoryName.trim() },
+          { withCredentials: true },
+        );
+        setFormData({ ...formData, category: data.name });
+        toast.success("New Khata Added!");
+      }
       setNewCategoryName("");
       setIsCategoryModalOpen(false);
+      fetchData();
     } catch (error) {
-      toast.error("Failed to add category");
+      toast.error("Failed to save category");
     } finally {
       setSavingCategory(false);
     }
   };
 
-  // 🔥 FIX: Safety Checks added for null/undefined categories and search queries
+  // 🔥 NAYA: Delete Category
+  const confirmDeleteCategory = async () => {
+    try {
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/expense-categories/${deletingCategoryId}`,
+        { withCredentials: true },
+      );
+      toast.success("Khata and all its expenses deleted");
+      setIsCategoryDeleteModalOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to delete khata");
+    }
+  };
+
   const getCategoryStats = () => {
     return categories
       .map((cat) => {
@@ -219,11 +263,12 @@ const Expenses = () => {
         (stat) =>
           (stat.category || "")
             .toLowerCase()
-            .includes((searchQuery || "").toLowerCase()) || stat.total > 0,
+            .includes((searchQuery || "").toLowerCase()) ||
+          stat.total > 0 ||
+          categoryDocs.some((c) => c.name === stat.category),
       );
   };
 
-  // 🔥 FIX: Safe Sorting (Naye array me copy kar ke sort kiya taake React crash na ho)
   const openLedger = (stat) => {
     const sortedTransactions = [...stat.transactions].sort(
       (a, b) => new Date(b.date) - new Date(a.date),
@@ -261,7 +306,11 @@ const Expenses = () => {
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <button
-            onClick={() => setIsCategoryModalOpen(true)}
+            onClick={() => {
+              setNewCategoryName("");
+              setEditingCategoryId(null);
+              setIsCategoryModalOpen(true);
+            }}
             className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Tag size={18} /> Add Khata
@@ -292,9 +341,42 @@ const Expenses = () => {
                 <div className="p-3 rounded-lg bg-orange-50 text-orange-600">
                   <Receipt size={24} />
                 </div>
-                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                  {stat.transactions.length} Entries
-                </span>
+                {/* 🔥 NAYA: Edit and Delete Buttons for Categories on Card */}
+                <div className="flex items-center gap-2">
+                  {isOwner &&
+                    categoryDocs.some((c) => c.name === stat.category) && (
+                      <div
+                        className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => openEditCategoryModal(stat.category)}
+                          className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-1.5 rounded"
+                          title="Edit Khata"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const catDoc = categoryDocs.find(
+                              (c) => c.name === stat.category,
+                            );
+                            if (catDoc) {
+                              setDeletingCategoryId(catDoc._id);
+                              setIsCategoryDeleteModalOpen(true);
+                            }
+                          }}
+                          className="text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded"
+                          title="Delete Khata"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                    {stat.transactions.length} Entries
+                  </span>
+                </div>
               </div>
               <h3 className="font-bold text-gray-800 text-lg mb-1 group-hover:text-blue-600 transition-colors">
                 {stat.category}
@@ -430,7 +512,6 @@ const Expenses = () => {
                             </button>
                             <button
                               onClick={() => {
-                                setShowLedgerModal(false);
                                 setDeletingId(tx._id);
                                 setIsDeleteModalOpen(true);
                               }}
@@ -499,7 +580,11 @@ const Expenses = () => {
                   </select>
                   <button
                     type="button"
-                    onClick={() => setIsCategoryModalOpen(true)}
+                    onClick={() => {
+                      setNewCategoryName("");
+                      setEditingCategoryId(null);
+                      setIsCategoryModalOpen(true);
+                    }}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center"
                     title="Add New Category"
                   >
@@ -573,13 +658,14 @@ const Expenses = () => {
         </div>
       )}
 
-      {/* CATEGORY ADD MODAL */}
+      {/* CATEGORY ADD/EDIT MODAL */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-xl w-full max-w-xs shadow-2xl overflow-hidden transform transition-all">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <Tag size={18} className="text-blue-600" /> New Khata
+                <Tag size={18} className="text-blue-600" />{" "}
+                {editingCategoryId ? "Edit Khata" : "New Khata"}
               </h3>
               <button
                 onClick={() => setIsCategoryModalOpen(false)}
@@ -608,25 +694,29 @@ const Expenses = () => {
                 disabled={savingCategory}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
               >
-                {savingCategory ? "Saving..." : "Add Khata"}
+                {savingCategory
+                  ? "Saving..."
+                  : editingCategoryId
+                    ? "Update Khata"
+                    : "Add Khata"}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* DELETE MODAL */}
+      {/* DELETE EXPENSE ENTRY MODAL */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
             <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={32} />
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">
-              Delete Expense?
+              Delete Entry?
             </h3>
             <p className="text-gray-500 text-sm mb-6">
-              Are you sure you want to remove this expense record?
+              Are you sure you want to remove this expense entry?
             </p>
             <div className="flex justify-center gap-3">
               <button
@@ -640,6 +730,40 @@ const Expenses = () => {
                 className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
               >
                 Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE KHATA MODAL */}
+      {isCategoryDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Khata?
+            </h3>
+            <p className="text-red-500 text-sm font-bold mb-1">WARNING!</p>
+            <p className="text-gray-500 text-xs mb-6">
+              This will permanently delete this Khata and{" "}
+              <span className="font-bold text-gray-800">ALL</span> expenses
+              inside it. This cannot be undone.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsCategoryDeleteModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteCategory}
+                className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Yes, Delete All
               </button>
             </div>
           </div>
