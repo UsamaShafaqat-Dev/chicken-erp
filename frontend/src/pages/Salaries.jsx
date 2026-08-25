@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
+  Calendar,
 } from "lucide-react";
 
 const Salaries = () => {
@@ -27,7 +28,6 @@ const Salaries = () => {
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // 🔥 NAYA: Khate ki single entry delete modal
   const [isDeleteTxnModalOpen, setIsDeleteTxnModalOpen] = useState(false);
   const [deletingTxnId, setDeletingTxnId] = useState(null);
 
@@ -35,6 +35,10 @@ const Salaries = () => {
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [ledgerData, setLedgerData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🔥 NAYA: Ledger Date Filter States
+  const [ledgerStartDate, setLedgerStartDate] = useState("");
+  const [ledgerEndDate, setLedgerEndDate] = useState("");
 
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -171,6 +175,8 @@ const Salaries = () => {
 
   const openLedger = async (emp) => {
     try {
+      setLedgerStartDate(""); // Reset dates on open
+      setLedgerEndDate("");
       setSelectedEmp(emp);
       setIsLedgerModalOpen(true);
       const { data } = await axios.get(
@@ -178,8 +184,6 @@ const Salaries = () => {
         { withCredentials: true },
       );
       setLedgerData(data.transactions);
-
-      // Update employee state inside ledger just in case
       setSelectedEmp(data.employee);
     } catch (error) {
       toast.error("Failed to load ledger");
@@ -187,7 +191,6 @@ const Salaries = () => {
     }
   };
 
-  // 🔥 NAYA: Single transaction delete handler
   const confirmDeleteTxn = async () => {
     try {
       await axios.delete(
@@ -196,8 +199,8 @@ const Salaries = () => {
       );
       toast.success("Entry removed from khata");
       setIsDeleteTxnModalOpen(false);
-      openLedger(selectedEmp); // Ledger refresh karein taake balance update ho jaye
-      fetchEmployees(); // Bahir cards ka balance update ho jaye
+      openLedger(selectedEmp);
+      fetchEmployees();
     } catch (error) {
       toast.error("Failed to remove entry");
     }
@@ -206,6 +209,14 @@ const Salaries = () => {
   const filteredEmployees = employees.filter((emp) =>
     emp.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  // 🔥 NAYA: Filter Ledger Data based on Dates
+  const filteredLedgerData = ledgerData.filter((tx) => {
+    const txDate = new Date(tx.date).toISOString().split("T")[0];
+    if (ledgerStartDate && txDate < ledgerStartDate) return false;
+    if (ledgerEndDate && txDate > ledgerEndDate) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6 w-full">
@@ -561,21 +572,61 @@ const Salaries = () => {
                 </p>
               </div>
               <button
-                onClick={() => setIsLedgerModalOpen(false)}
+                onClick={() => {
+                  setIsLedgerModalOpen(false);
+                  setLedgerStartDate("");
+                  setLedgerEndDate("");
+                }}
                 className="text-gray-400 hover:text-gray-600 bg-white p-1 rounded-full shadow-sm"
               >
                 <X size={20} />
               </button>
             </div>
 
+            {/* 🔥 NAYA: Date Filter Box */}
+            <div className="bg-white px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3 shrink-0 print:hidden">
+              <div className="flex items-center gap-2 text-gray-600 font-medium text-xs">
+                <Calendar size={14} className="text-blue-500" /> Filter Dates:
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">From</span>
+                <input
+                  type="date"
+                  value={ledgerStartDate}
+                  onChange={(e) => setLedgerStartDate(e.target.value)}
+                  className="px-2 py-1.5 border border-gray-200 rounded text-xs outline-none focus:border-blue-400"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">To</span>
+                <input
+                  type="date"
+                  value={ledgerEndDate}
+                  onChange={(e) => setLedgerEndDate(e.target.value)}
+                  className="px-2 py-1.5 border border-gray-200 rounded text-xs outline-none focus:border-blue-400"
+                />
+              </div>
+              {(ledgerStartDate || ledgerEndDate) && (
+                <button
+                  onClick={() => {
+                    setLedgerStartDate("");
+                    setLedgerEndDate("");
+                  }}
+                  className="flex items-center gap-1 text-red-500 hover:bg-red-50 px-2 py-1.5 rounded text-xs font-medium transition-colors ml-auto"
+                >
+                  <X size={14} /> Clear
+                </button>
+              )}
+            </div>
+
             <div className="overflow-y-auto p-4 custom-scrollbar flex-1 bg-white">
-              {ledgerData.length === 0 ? (
+              {filteredLedgerData.length === 0 ? (
                 <div className="text-center text-gray-500 py-10">
                   Koi entry nahi mili...
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {ledgerData.map((tx) => (
+                  {filteredLedgerData.map((tx) => (
                     <div
                       key={tx._id}
                       className="flex justify-between items-center p-3 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-gray-50 transition-colors"
@@ -611,7 +662,6 @@ const Salaries = () => {
                           {tx.type === "salary_added" ? "+" : "-"} Rs.{" "}
                           {tx.amount.toLocaleString()}
                         </p>
-                        {/* 🔥 NAYA: Sirf ek transaction delete karne ka button */}
                         {isOwner && (
                           <button
                             onClick={() => {
@@ -665,7 +715,7 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* 🔥 NAYA: SINGLE TRANSACTION DELETE MODAL */}
+      {/* SINGLE TRANSACTION DELETE MODAL */}
       {isDeleteTxnModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">

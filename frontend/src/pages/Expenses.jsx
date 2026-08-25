@@ -11,19 +11,17 @@ import {
   AlertTriangle,
   Calendar,
   Receipt,
-  Banknote,
   Tag,
   FileText,
   Printer,
   History,
-  ArrowDownLeft,
   ArrowUpRight,
 } from "lucide-react";
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [categoryDocs, setCategoryDocs] = useState([]); // Store full category objects for ID
+  const [categoryDocs, setCategoryDocs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,6 +40,11 @@ const Expenses = () => {
 
   // Khata/Ledger Modal States
   const [showLedgerModal, setShowLedgerModal] = useState(false);
+
+  // 🔥 NAYA: Ledger Date Filter States
+  const [ledgerStartDate, setLedgerStartDate] = useState("");
+  const [ledgerEndDate, setLedgerEndDate] = useState("");
+
   const [selectedCategoryLedger, setSelectedCategoryLedger] = useState({
     category: "",
     total: 0,
@@ -79,7 +82,7 @@ const Expenses = () => {
 
       setExpenses(expensesRes.data || []);
       const dbCategories = categoriesRes.data || [];
-      setCategoryDocs(dbCategories); // Save docs for ID reference
+      setCategoryDocs(dbCategories);
 
       const defaultCats = [
         "Food / Refreshment",
@@ -93,7 +96,6 @@ const Expenses = () => {
       let finalCats =
         dbCategories.length > 0 ? dbCategories.map((c) => c.name) : defaultCats;
 
-      // Agar koi aisa kharcha hai jiski category DB list mein nahi, usay list mein daal do (e.g. Purani entries)
       (expensesRes.data || []).forEach((e) => {
         const catName = e.category || "Other";
         if (!finalCats.includes(catName)) finalCats.push(catName);
@@ -178,14 +180,13 @@ const Expenses = () => {
       );
       toast.success("Expense entry deleted");
       setIsDeleteModalOpen(false);
-      setShowLedgerModal(false); // Close ledger to refresh accurately
+      setShowLedgerModal(false);
       fetchData();
     } catch (error) {
       toast.error("Failed to delete expense");
     }
   };
 
-  // 🔥 NAYA: Open Edit Category Modal
   const openEditCategoryModal = (catName) => {
     const catDoc = categoryDocs.find((c) => c.name === catName);
     if (!catDoc) {
@@ -198,7 +199,6 @@ const Expenses = () => {
     setIsCategoryModalOpen(true);
   };
 
-  // 🔥 NAYA: Add / Update Category
   const handleAddCategory = async (e) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return toast.error("Name cannot be empty");
@@ -231,7 +231,6 @@ const Expenses = () => {
     }
   };
 
-  // 🔥 NAYA: Delete Category
   const confirmDeleteCategory = async () => {
     try {
       await axios.delete(
@@ -270,6 +269,8 @@ const Expenses = () => {
   };
 
   const openLedger = (stat) => {
+    setLedgerStartDate(""); // Reset Dates
+    setLedgerEndDate("");
     const sortedTransactions = [...stat.transactions].sort(
       (a, b) => new Date(b.date) - new Date(a.date),
     );
@@ -288,9 +289,26 @@ const Expenses = () => {
 
   const categoryStats = getCategoryStats();
 
+  // 🔥 NAYA: Filter Ledger Data based on Dates
+  const filteredLedgerData = selectedCategoryLedger.transactions.filter(
+    (tx) => {
+      const txDate = new Date(tx.date || Date.now())
+        .toISOString()
+        .split("T")[0];
+      if (ledgerStartDate && txDate < ledgerStartDate) return false;
+      if (ledgerEndDate && txDate > ledgerEndDate) return false;
+      return true;
+    },
+  );
+
+  // Calculate new total based on filtered dates
+  const filteredTotalAmount = filteredLedgerData.reduce(
+    (sum, tx) => sum + (Number(tx.amount) || 0),
+    0,
+  );
+
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
-      {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-80 flex items-center gap-2">
@@ -324,7 +342,6 @@ const Expenses = () => {
         </div>
       </div>
 
-      {/* Main Container - KHATA CARDS */}
       {loading ? (
         <div className="text-center p-10 text-gray-500">
           Loading Expenses Khatas...
@@ -341,7 +358,6 @@ const Expenses = () => {
                 <div className="p-3 rounded-lg bg-orange-50 text-orange-600">
                   <Receipt size={24} />
                 </div>
-                {/* 🔥 NAYA: Edit and Delete Buttons for Categories on Card */}
                 <div className="flex items-center gap-2">
                   {isOwner &&
                     categoryDocs.some((c) => c.name === stat.category) && (
@@ -412,10 +428,10 @@ const Expenses = () => {
               <div className="flex items-center gap-4">
                 <div className="text-right hidden sm:block print:hidden">
                   <p className="text-xs text-gray-500 font-bold uppercase">
-                    Total Expense
+                    Filtered Expense
                   </p>
                   <p className="text-lg font-black text-red-600">
-                    Rs. {(selectedCategoryLedger.total || 0).toLocaleString()}
+                    Rs. {filteredTotalAmount.toLocaleString()}
                   </p>
                 </div>
                 <button
@@ -426,12 +442,52 @@ const Expenses = () => {
                   <span className="hidden sm:inline">Print</span>
                 </button>
                 <button
-                  onClick={() => setShowLedgerModal(false)}
+                  onClick={() => {
+                    setShowLedgerModal(false);
+                    setLedgerStartDate("");
+                    setLedgerEndDate("");
+                  }}
                   className="bg-white p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-gray-200"
                 >
                   <X size={20} />
                 </button>
               </div>
+            </div>
+
+            {/* 🔥 NAYA: Date Filter Box */}
+            <div className="bg-white px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3 shrink-0 print:hidden">
+              <div className="flex items-center gap-2 text-gray-600 font-medium text-xs">
+                <Calendar size={14} className="text-blue-500" /> Filter Dates:
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">From</span>
+                <input
+                  type="date"
+                  value={ledgerStartDate}
+                  onChange={(e) => setLedgerStartDate(e.target.value)}
+                  className="px-2 py-1.5 border border-gray-200 rounded text-xs outline-none focus:border-blue-400"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">To</span>
+                <input
+                  type="date"
+                  value={ledgerEndDate}
+                  onChange={(e) => setLedgerEndDate(e.target.value)}
+                  className="px-2 py-1.5 border border-gray-200 rounded text-xs outline-none focus:border-blue-400"
+                />
+              </div>
+              {(ledgerStartDate || ledgerEndDate) && (
+                <button
+                  onClick={() => {
+                    setLedgerStartDate("");
+                    setLedgerEndDate("");
+                  }}
+                  className="flex items-center gap-1 text-red-500 hover:bg-red-50 px-2 py-1.5 rounded text-xs font-medium transition-colors ml-auto"
+                >
+                  <X size={14} /> Clear
+                </button>
+              )}
             </div>
 
             <div
@@ -451,8 +507,10 @@ const Expenses = () => {
                     <h2 className="text-xl font-bold text-gray-800">
                       {selectedCategoryLedger.category}
                     </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Printed: {new Date().toLocaleDateString("en-GB")}
+                    <p className="text-xs text-gray-500 mt-1 font-bold bg-gray-100 inline-block px-2 py-1 rounded">
+                      {ledgerStartDate || ledgerEndDate
+                        ? `Filtered: ${ledgerStartDate ? new Date(ledgerStartDate).toLocaleDateString("en-GB") : "Start"} to ${ledgerEndDate ? new Date(ledgerEndDate).toLocaleDateString("en-GB") : "End"}`
+                        : `Printed: ${new Date().toLocaleDateString("en-GB")}`}
                     </p>
                   </div>
                   <div className="text-right">
@@ -460,19 +518,19 @@ const Expenses = () => {
                       Total Spent:
                     </p>
                     <h2 className="text-2xl font-black text-red-600">
-                      Rs. {(selectedCategoryLedger.total || 0).toLocaleString()}
+                      Rs. {filteredTotalAmount.toLocaleString()}
                     </h2>
                   </div>
                 </div>
               </div>
 
-              {selectedCategoryLedger.transactions.length === 0 ? (
+              {filteredLedgerData.length === 0 ? (
                 <div className="text-center p-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200 print:hidden">
                   No entries found.
                 </div>
               ) : (
                 <div className="space-y-3 print:space-y-0 print:border-t print:border-gray-200">
-                  {selectedCategoryLedger.transactions.map((tx, idx) => (
+                  {filteredLedgerData.map((tx, idx) => (
                     <div
                       key={idx}
                       className="p-4 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:border-0 print:border-b print:border-gray-200 print:shadow-none print:rounded-none print:py-3 print:px-1"
