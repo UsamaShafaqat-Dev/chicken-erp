@@ -15,17 +15,24 @@ import {
   Map,
   History,
   Calendar,
-  ArrowDownLeft, // 🔥 FIX: Ye icon import nahi tha jiski wajah se white screen aayi!
+  ArrowDownLeft,
   ArrowUpRight,
   Printer,
   FileText,
+  Activity,
 } from "lucide-react";
 
 const Customers = () => {
   const [customers, setCustomers] = useState([]);
+  const [allSales, setAllSales] = useState([]);
+  const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // 🔥 NAYA: Global Market Date Filters
+  const [globalFromDate, setGlobalFromDate] = useState("");
+  const [globalToDate, setGlobalToDate] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -58,13 +65,23 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(
-        "https://asia-poultry-api.onrender.com/api/customers",
-        { withCredentials: true },
-      );
-      setCustomers(data);
+      // 🔥 NAYA: Customers ke sath Sales aur Payments bhi fetch kar rahe hain taake market calculation ho sake
+      const [custRes, salesRes, payRes] = await Promise.all([
+        axios.get("https://asia-poultry-api.onrender.com/api/customers", {
+          withCredentials: true,
+        }),
+        axios.get("https://asia-poultry-api.onrender.com/api/sales", {
+          withCredentials: true,
+        }),
+        axios.get("https://asia-poultry-api.onrender.com/api/payments", {
+          withCredentials: true,
+        }),
+      ]);
+      setCustomers(custRes.data);
+      setAllSales(salesRes.data);
+      setAllPayments(payRes.data);
     } catch (error) {
-      toast.error("Failed to fetch customers");
+      toast.error("Failed to fetch data");
     } finally {
       setLoading(false);
     }
@@ -168,20 +185,11 @@ const Customers = () => {
     setIsLedgerModalOpen(true);
     setLedgerLoading(true);
     try {
-      const [salesRes, paymentsRes] = await Promise.all([
-        axios.get("https://asia-poultry-api.onrender.com/api/sales", {
-          withCredentials: true,
-        }),
-        axios.get("https://asia-poultry-api.onrender.com/api/payments", {
-          withCredentials: true,
-        }),
-      ]);
-
-      const cSales = salesRes.data
+      const cSales = allSales
         .filter((s) => (s.customer?._id || s.customer) === customer._id)
         .map((s) => ({ ...s, isSale: true, ledgerDate: s.date }));
 
-      const cPayments = paymentsRes.data
+      const cPayments = allPayments
         .filter(
           (p) =>
             p.type === "receive" &&
@@ -201,14 +209,79 @@ const Customers = () => {
     }
   };
 
-  const filteredCustomers = customers.filter(
+  // 🔥 NAYA: Dynamic Calculation based on Global Date Filters
+  const processedCustomers = customers.map((customer) => {
+    let displayPurchases = customer.totalPurchases || 0;
+    let displayPaid = customer.totalPaid || 0;
+    let displayBalance = customer.currentBalance || 0;
+
+    // Agar Date Filter Laga hua hai, to calculation sirf unhi dates ki hogi
+    if (globalFromDate || globalToDate) {
+      const customerSales = allSales.filter((s) => {
+        if ((s.customer?._id || s.customer) !== customer._id) return false;
+        const sDate = new Date(s.date).toISOString().split("T")[0];
+        if (globalFromDate && sDate < globalFromDate) return false;
+        if (globalToDate && sDate > globalToDate) return false;
+        return true;
+      });
+
+      const customerPayments = allPayments.filter((p) => {
+        if (p.type !== "receive") return false;
+        if ((p.customer?._id || p.customer) !== customer._id) return false;
+        const pDate = new Date(p.date).toISOString().split("T")[0];
+        if (globalFromDate && pDate < globalFromDate) return false;
+        if (globalToDate && pDate > globalToDate) return false;
+        return true;
+      });
+
+      const pSalesAmount = customerSales.reduce(
+        (sum, s) => sum + (Number(s.totalAmount) || 0),
+        0,
+      );
+      const pSalesPaid = customerSales.reduce(
+        (sum, s) => sum + (Number(s.paidAmount) || 0),
+        0,
+      );
+      const pRecoveries = customerPayments.reduce(
+        (sum, p) => sum + (Number(p.amount) || 0),
+        0,
+      );
+
+      displayPurchases = pSalesAmount;
+      displayPaid = pSalesPaid + pRecoveries;
+      displayBalance = displayPurchases - displayPaid; // Us period ka remaining udhaar
+    }
+
+    return {
+      ...customer,
+      displayPurchases,
+      displayPaid,
+      displayBalance,
+    };
+  });
+
+  const filteredCustomers = processedCustomers.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (c.mobile && c.mobile.includes(searchQuery)) ||
       (c.area && c.area.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
-  // 🔥 FIX: Safety check for Invalid Dates added
+  // Market Totals
+  const marketTotalPurchases = filteredCustomers.reduce(
+    (sum, c) => sum + c.displayPurchases,
+    0,
+  );
+  const marketTotalPaid = filteredCustomers.reduce(
+    (sum, c) => sum + c.displayPaid,
+    0,
+  );
+  const marketTotalBalance = filteredCustomers.reduce(
+    (sum, c) => sum + c.displayBalance,
+    0,
+  );
+
+  // Individual Ledger Filters
   const filteredLedger = ledgerData.filter((item) => {
     try {
       const dateStr = new Date(item.ledgerDate || Date.now())
@@ -243,18 +316,48 @@ const Customers = () => {
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-72 flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-64 flex items-center gap-2">
             <Search size={18} className="text-gray-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search by name, mobile or area..."
+              placeholder="Search by name, area..."
               className="bg-transparent border-none outline-none text-sm w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
+          {/* 🔥 NAYA: Global Date Filter for Market */}
+          <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg border border-blue-100 w-full sm:w-auto">
+            <Calendar size={18} className="text-blue-600 shrink-0" />
+            <input
+              type="date"
+              value={globalFromDate}
+              onChange={(e) => setGlobalFromDate(e.target.value)}
+              className="bg-transparent text-sm text-blue-800 outline-none w-full sm:w-auto font-medium"
+            />
+            <span className="text-blue-300">-</span>
+            <input
+              type="date"
+              value={globalToDate}
+              onChange={(e) => setGlobalToDate(e.target.value)}
+              className="bg-transparent text-sm text-blue-800 outline-none w-full sm:w-auto font-medium"
+            />
+            {(globalFromDate || globalToDate) && (
+              <button
+                onClick={() => {
+                  setGlobalFromDate("");
+                  setGlobalToDate("");
+                }}
+                className="text-red-500 ml-1"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
+
         <button
           onClick={() => openModal()}
           className="w-full sm:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
@@ -262,6 +365,38 @@ const Customers = () => {
           <Plus size={18} /> Add Customer
         </button>
       </div>
+
+      {/* 🔥 NAYA: Market Summary Ribbon */}
+      {(globalFromDate || globalToDate) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-900 p-4 rounded-xl shadow-lg border border-gray-800 text-center animate-pulse">
+          <div>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+              Market Sales (Period)
+            </p>
+            <h3 className="text-xl font-black text-blue-400">
+              Rs. {marketTotalPurchases.toLocaleString()}
+            </h3>
+          </div>
+          <div className="sm:border-l sm:border-r border-gray-700">
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+              Market Vasooli (Period)
+            </p>
+            <h3 className="text-xl font-black text-green-400">
+              Rs. {marketTotalPaid.toLocaleString()}
+            </h3>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
+              Net Balance (Period)
+            </p>
+            <h3
+              className={`text-xl font-black ${marketTotalBalance > 0 ? "text-red-400" : "text-gray-300"}`}
+            >
+              Rs. {marketTotalBalance.toLocaleString()}
+            </h3>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden">
         {/* DESKTOP TABLE VIEW */}
@@ -274,8 +409,8 @@ const Customers = () => {
                 <th className="px-1.5 py-3 font-medium">WhatsApp</th>
                 <th className="px-1.5 py-3 font-medium">Area</th>
                 <th className="px-1.5 py-3 font-medium">Address</th>
-                <th className="px-1.5 py-3 font-medium">Purchases</th>
-                <th className="px-1.5 py-3 font-medium">Paid</th>
+                <th className="px-1.5 py-3 font-medium">Purchases (Maal)</th>
+                <th className="px-1.5 py-3 font-medium">Paid (Vasooli)</th>
                 <th className="px-1.5 py-3 font-medium">Outstanding</th>
                 <th className="px-1.5 py-3 font-medium text-center">Action</th>
               </tr>
@@ -331,17 +466,19 @@ const Customers = () => {
                     >
                       {customer.address || "-"}
                     </td>
+
+                    {/* 🔥 Updated Table Data based on filters */}
                     <td className="px-1.5 py-3 text-blue-600 font-medium whitespace-nowrap">
-                      Rs. {customer.totalPurchases?.toLocaleString() || 0}
+                      Rs. {customer.displayPurchases.toLocaleString() || 0}
                     </td>
                     <td className="px-1.5 py-3 text-green-600 font-medium whitespace-nowrap">
-                      Rs. {customer.totalPaid?.toLocaleString() || 0}
+                      Rs. {customer.displayPaid.toLocaleString() || 0}
                     </td>
                     <td
-                      className={`px-1.5 py-3 font-bold whitespace-nowrap ${customer.currentBalance > 0 ? "text-red-500" : "text-gray-600"}`}
+                      className={`px-1.5 py-3 font-bold whitespace-nowrap ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                     >
-                      {customer.currentBalance > 0
-                        ? `Rs. ${customer.currentBalance.toLocaleString()}`
+                      {customer.displayBalance > 0
+                        ? `Rs. ${customer.displayBalance.toLocaleString()}`
                         : "Nil"}
                     </td>
 
@@ -432,15 +569,15 @@ const Customers = () => {
               </div>
               <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
                 <div>
-                  <p className="text-gray-500 text-xs mb-1">Purchases</p>
+                  <p className="text-gray-500 text-xs mb-1">Purchases (Maal)</p>
                   <p className="font-medium text-blue-600">
-                    Rs. {customer.totalPurchases?.toLocaleString() || 0}
+                    Rs. {customer.displayPurchases.toLocaleString() || 0}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs mb-1">Paid</p>
+                  <p className="text-gray-500 text-xs mb-1">Paid (Vasooli)</p>
                   <p className="font-medium text-green-600">
-                    Rs. {customer.totalPaid?.toLocaleString() || 0}
+                    Rs. {customer.displayPaid.toLocaleString() || 0}
                   </p>
                 </div>
                 <div className="col-span-2 pt-2 border-t border-gray-200">
@@ -448,10 +585,10 @@ const Customers = () => {
                     Outstanding Balance
                   </p>
                   <p
-                    className={`text-base font-bold ${customer.currentBalance > 0 ? "text-red-500" : "text-gray-600"}`}
+                    className={`text-base font-bold ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                   >
-                    {customer.currentBalance > 0
-                      ? `Rs. ${customer.currentBalance.toLocaleString()}`
+                    {customer.displayBalance > 0
+                      ? `Rs. ${customer.displayBalance.toLocaleString()}`
                       : "Nil"}
                   </p>
                 </div>
@@ -664,9 +801,9 @@ const Customers = () => {
                               : "Maal Diya (Sale)"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(
-                              tx.ledgerDate || Date.now(),
-                            ).toLocaleDateString("en-GB")}
+                            {new Date(tx.ledgerDate).toLocaleDateString(
+                              "en-GB",
+                            )}
                             {tx.isSale && (
                               <span className="ml-2 font-bold text-gray-600">
                                 ({tx.weight} KG)
