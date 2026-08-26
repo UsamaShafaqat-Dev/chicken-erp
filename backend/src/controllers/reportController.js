@@ -39,7 +39,7 @@ const getReports = async (req, res) => {
       0,
     );
 
-    // 🔥 FIX: Expense Breakdown Logic
+    // 🔥 Expense Breakdown Logic
     let expenseDetails = {};
 
     // Normal Expenses
@@ -73,7 +73,7 @@ const getReports = async (req, res) => {
       sales: { weight: totalSalesWeight, amount: totalSalesAmount },
       purchases: { weight: totalPurchaseWeight, amount: totalPurchaseAmount },
       expenses: totalExpenses,
-      expenseDetails: expenseDetails, // 🔥 NAYA: Detail Bhej di
+      expenseDetails: expenseDetails, // 🔥 Yahan se detail frontend pe jayegi
       payments: { received: totalReceived, paid: totalPaid },
     });
   } catch (error) {

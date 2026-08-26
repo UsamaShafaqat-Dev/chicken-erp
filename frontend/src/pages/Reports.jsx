@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useReactToPrint } from "react-to-print";
 import {
   Calendar,
   TrendingUp,
@@ -21,6 +22,8 @@ const Reports = () => {
     startDate: "",
     endDate: "",
   });
+
+  const printRef = useRef(null);
 
   const fetchReports = async (start = "", end = "") => {
     try {
@@ -94,9 +97,10 @@ const Reports = () => {
     return "";
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Business_Report_${getReportDateText().replace(/ /g, "_")}`,
+  });
 
   const netProfit = reportData
     ? reportData.sales.amount -
@@ -107,19 +111,6 @@ const Reports = () => {
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden print:bg-white print:m-0 print:p-0">
-      {/* PRINT HEADER */}
-      <div className="hidden print:block mb-6 text-center border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-black text-gray-900 uppercase">
-          Asia Poultry Business
-        </h1>
-        <h2 className="text-xl font-bold text-gray-700 mt-2">
-          Financial Summary Report
-        </h2>
-        <p className="text-md font-medium text-gray-500 mt-1 uppercase">
-          Period: <span className="text-blue-600">{getReportDateText()}</span>
-        </p>
-      </div>
-
       <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 print:hidden">
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -187,9 +178,27 @@ const Reports = () => {
           Generating report...
         </div>
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+        <div
+          ref={printRef}
+          className="print:p-6 print:bg-white print:w-full space-y-6"
+        >
+          {/* PRINT ONLY HEADER */}
+          <div className="hidden print:block mb-8 text-center border-b-2 border-gray-800 pb-4">
+            <h1 className="text-3xl font-black text-gray-900 uppercase">
+              Asia Poultry Business
+            </h1>
+            <h2 className="text-xl font-bold text-gray-700 mt-2">
+              Financial Summary Report
+            </h2>
+            <p className="text-md font-medium text-gray-500 mt-1 uppercase">
+              Period:{" "}
+              <span className="text-blue-600">{getReportDateText()}</span>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Sales Card */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden print:border-gray-300">
               <div className="absolute -right-4 -bottom-4 opacity-5">
                 <TrendingUp size={100} />
               </div>
@@ -210,7 +219,8 @@ const Reports = () => {
               </p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+            {/* Purchases Card */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden print:border-gray-300">
               <div className="absolute -right-4 -bottom-4 opacity-5">
                 <TrendingDown size={100} />
               </div>
@@ -231,7 +241,8 @@ const Reports = () => {
               </p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden border-b-4 border-b-green-500">
+            {/* Cash IN */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 border-b-4 border-b-green-500 print:border-gray-300">
               <div className="flex items-center gap-2 mb-2">
                 <div className="bg-green-50 p-2 rounded-lg text-green-600">
                   <ArrowDownLeft size={20} />
@@ -244,7 +255,8 @@ const Reports = () => {
               <p className="text-sm text-gray-500 mt-1">From Customers</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden border-b-4 border-b-red-500">
+            {/* Cash OUT */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 border-b-4 border-b-red-500 print:border-gray-300">
               <div className="flex items-center gap-2 mb-2">
                 <div className="bg-red-50 p-2 rounded-lg text-red-600">
                   <ArrowUpRight size={20} />
@@ -259,25 +271,25 @@ const Reports = () => {
               </p>
             </div>
 
-            {/* 🔥 FIX: Expenses Card with Breakdown */}
-            <div className="bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-700 relative overflow-hidden md:col-span-1 lg:col-span-2">
-              <div className="flex flex-col h-full">
+            {/* 🔥 UPDATED: Expenses Card with Breakdown */}
+            <div className="bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-700 md:col-span-1 lg:col-span-2 print:border-gray-300 print:bg-white">
+              <div className="flex flex-col">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="bg-gray-700 p-2 rounded-lg text-white">
+                  <div className="bg-gray-700 p-2 rounded-lg text-white print:text-black print:bg-gray-100">
                     <CreditCard size={20} />
                   </div>
-                  <h3 className="font-bold text-gray-300 text-lg">
+                  <h3 className="font-bold text-gray-300 text-lg print:text-gray-800">
                     Total Expenses
                   </h3>
                 </div>
-                <p className="text-3xl font-black text-white mb-4">
+                <p className="text-3xl font-black text-white mb-4 print:text-gray-900">
                   Rs. {reportData.expenses.toLocaleString()}
                 </p>
 
-                {reportData.expenseDetails &&
-                  Object.keys(reportData.expenseDetails).length > 0 && (
-                    <div className="mt-auto pt-4 border-t border-gray-700 space-y-2">
-                      <p className="text-xs text-gray-400 font-bold uppercase mb-2">
+                {reportData.expenseDetails ? (
+                  Object.keys(reportData.expenseDetails).length > 0 ? (
+                    <div className="pt-4 border-t border-gray-700 print:border-gray-300 space-y-2 mt-2">
+                      <p className="text-xs text-gray-400 font-bold uppercase mb-2 print:text-gray-600">
                         Category Breakdown:
                       </p>
                       {Object.entries(reportData.expenseDetails).map(
@@ -286,41 +298,57 @@ const Reports = () => {
                             key={cat}
                             className="flex justify-between items-center text-sm"
                           >
-                            <span className="text-gray-300">{cat}</span>
-                            <span className="text-white font-medium">
+                            <span className="text-gray-300 print:text-gray-700">
+                              {cat}
+                            </span>
+                            <span className="text-white font-medium print:text-black">
                               Rs. {amt.toLocaleString()}
                             </span>
                           </div>
                         ),
                       )}
                     </div>
-                  )}
+                  ) : (
+                    <div className="pt-4 border-t border-gray-700 print:border-gray-300">
+                      <p className="text-sm text-gray-400 print:text-gray-500">
+                        No specific breakdown found.
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <div className="pt-4 border-t border-gray-700">
+                    <p className="text-xs text-orange-400 animate-pulse print:hidden">
+                      Server is updating... Please wait 2 mins and refresh page.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Net Profit Card */}
             <div
-              className={`p-5 rounded-xl shadow-sm border relative overflow-hidden md:col-span-1 lg:col-span-2 ${isProfit ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200" : "bg-gradient-to-r from-red-50 to-red-100 border-red-200"}`}
+              className={`p-5 rounded-xl shadow-sm border md:col-span-1 lg:col-span-2 print:border-gray-300 ${isProfit ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200 print:bg-white" : "bg-gradient-to-r from-red-50 to-red-100 border-red-200 print:bg-white"}`}
             >
               <div className="flex flex-col justify-center h-full">
                 <div className="flex items-center gap-2 mb-1">
                   <div
-                    className={`p-2 rounded-lg text-white ${isProfit ? "bg-green-600" : "bg-red-600"}`}
+                    className={`p-2 rounded-lg text-white print:text-black print:bg-gray-100 ${isProfit ? "bg-green-600" : "bg-red-600"}`}
                   >
                     <DollarSign size={20} />
                   </div>
                   <h3
-                    className={`font-bold text-lg ${isProfit ? "text-green-800" : "text-red-800"}`}
+                    className={`font-bold text-lg print:text-gray-800 ${isProfit ? "text-green-800" : "text-red-800"}`}
                   >
                     {isProfit ? "Net Profit" : "Net Loss"}
                   </h3>
                 </div>
                 <p
-                  className={`text-sm mt-1 mb-3 ${isProfit ? "text-green-700" : "text-red-700"}`}
+                  className={`text-sm mt-1 mb-3 print:text-gray-600 ${isProfit ? "text-green-700" : "text-red-700"}`}
                 >
                   (Sales - Purchases - Expenses)
                 </p>
                 <p
-                  className={`text-3xl font-black ${isProfit ? "text-green-700" : "text-red-700"}`}
+                  className={`text-3xl font-black print:text-gray-900 ${isProfit ? "text-green-700" : "text-red-700"}`}
                 >
                   {isProfit ? "+" : "-"} Rs.{" "}
                   {Math.abs(netProfit).toLocaleString()}
@@ -329,127 +357,19 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* 2. PRINT VIEW */}
-          <div className="hidden print:block w-full">
-            <table className="w-full text-left border-collapse">
-              <tbody>
-                <tr className="border-b-2 border-gray-200">
-                  <td className="py-4 px-2 font-bold text-gray-800 text-lg flex items-center gap-2">
-                    Total Sales
-                  </td>
-                  <td className="py-4 px-2 text-gray-600 font-medium">
-                    Weight Sold: {reportData.sales.weight} KG
-                  </td>
-                  <td className="py-4 px-2 font-black text-right text-gray-900 text-xl">
-                    Rs. {reportData.sales.amount.toLocaleString()}
-                  </td>
-                </tr>
-
-                <tr className="border-b-2 border-gray-200">
-                  <td className="py-4 px-2 font-bold text-gray-800 text-lg flex items-center gap-2">
-                    Total Purchases
-                  </td>
-                  <td className="py-4 px-2 text-gray-600 font-medium">
-                    Weight Bought: {reportData.purchases.weight} KG
-                  </td>
-                  <td className="py-4 px-2 font-black text-right text-gray-900 text-xl">
-                    Rs. {reportData.purchases.amount.toLocaleString()}
-                  </td>
-                </tr>
-
-                <tr className="border-b-2 border-gray-200">
-                  <td className="py-4 px-2 font-bold text-gray-800 text-lg flex items-center gap-2">
-                    Cash Received (IN)
-                  </td>
-                  <td className="py-4 px-2 text-gray-600 font-medium">
-                    From Customers
-                  </td>
-                  <td className="py-4 px-2 font-black text-right text-green-700 text-xl">
-                    Rs. {reportData.payments.received.toLocaleString()}
-                  </td>
-                </tr>
-
-                <tr className="border-b-2 border-gray-200">
-                  <td className="py-4 px-2 font-bold text-gray-800 text-lg flex items-center gap-2">
-                    Cash Paid (OUT)
-                  </td>
-                  <td className="py-4 px-2 text-gray-600 font-medium">
-                    To Suppliers / Brokers
-                  </td>
-                  <td className="py-4 px-2 font-black text-right text-red-700 text-xl">
-                    Rs. {reportData.payments.paid.toLocaleString()}
-                  </td>
-                </tr>
-
-                <tr className="bg-gray-50 border-t-2 border-gray-300">
-                  <td className="py-4 px-2 font-bold text-gray-800 text-lg flex items-center gap-2">
-                    Total Expenses
-                  </td>
-                  <td className="py-4 px-2 text-gray-600 font-medium">
-                    Utility, Salary, Fuel, etc.
-                  </td>
-                  <td className="py-4 px-2 font-black text-right text-gray-900 text-xl">
-                    Rs. {reportData.expenses.toLocaleString()}
-                  </td>
-                </tr>
-
-                {/* 🔥 NAYA: Expense Details in Print */}
-                {reportData.expenseDetails &&
-                  Object.entries(reportData.expenseDetails).map(
-                    ([cat, amt]) => (
-                      <tr
-                        key={cat}
-                        className="border-b border-gray-100 bg-gray-50/50"
-                      >
-                        <td className="py-2 px-2 pl-8 text-gray-600 font-medium text-sm">
-                          ↳ {cat}
-                        </td>
-                        <td className="py-2 px-2 text-gray-500 text-sm">
-                          Category Total
-                        </td>
-                        <td className="py-2 px-2 text-right text-gray-800 font-bold text-sm">
-                          Rs. {amt.toLocaleString()}
-                        </td>
-                      </tr>
-                    ),
-                  )}
-
-                <tr
-                  className={`border-t-4 ${isProfit ? "border-green-600 bg-green-50" : "border-red-600 bg-red-50"}`}
-                >
-                  <td
-                    className={`py-6 px-4 font-bold text-xl flex items-center gap-2 ${isProfit ? "text-green-800" : "text-red-800"}`}
-                  >
-                    {isProfit ? "NET PROFIT" : "NET LOSS"}
-                  </td>
-                  <td
-                    className={`py-6 px-4 font-medium ${isProfit ? "text-green-700" : "text-red-700"}`}
-                  >
-                    (Sales - Purchases - Expenses)
-                  </td>
-                  <td
-                    className={`py-6 px-4 font-black text-right text-2xl ${isProfit ? "text-green-700" : "text-red-700"}`}
-                  >
-                    {isProfit ? "+" : "-"} Rs.{" "}
-                    {Math.abs(netProfit).toLocaleString()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div className="mt-20 flex justify-between items-center border-t border-gray-300 pt-4">
-              <p className="text-gray-500 text-sm">
-                System Generated Report - Asia Poultry Business
+          {/* Print Footer */}
+          <div className="hidden print:flex mt-20 justify-between items-center border-t border-gray-300 pt-4">
+            <p className="text-gray-500 text-sm">
+              System Generated Report - Asia Poultry Business
+            </p>
+            <div className="text-center w-48">
+              <div className="border-b border-gray-800 pb-8"></div>
+              <p className="text-gray-800 font-bold mt-2">
+                Authorized Signature
               </p>
-              <div className="text-center w-48">
-                <div className="border-b border-gray-800 pb-8"></div>
-                <p className="text-gray-800 font-bold mt-2">
-                  Authorized Signature
-                </p>
-              </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
