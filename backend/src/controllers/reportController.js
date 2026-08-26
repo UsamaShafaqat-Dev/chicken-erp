@@ -2,6 +2,11 @@ const Sale = require("../models/Sale");
 const Purchase = require("../models/Purchase");
 const Expense = require("../models/Expense");
 const Payment = require("../models/Payment");
+const CashTransaction = require("../models/CashTransaction");
+const CashAccount = require("../models/CashAccount");
+const Customer = require("../models/Customer");
+const Supplier = require("../models/Supplier");
+const Employee = require("../models/Employee");
 
 // @desc    Get Business Reports / Summary
 // @route   GET /api/reports
@@ -39,7 +44,7 @@ const getReports = async (req, res) => {
       0,
     );
 
-    // 🔥 Expense Breakdown Logic
+    // Expense Breakdown Logic
     let expenseDetails = {};
 
     // Normal Expenses
@@ -48,7 +53,7 @@ const getReports = async (req, res) => {
       expenseDetails[cat] = (expenseDetails[cat] || 0) + e.amount;
     });
 
-    // Staff Salaries (jo Payments se direct aayi hain)
+    // Staff Salaries
     payments.forEach((p) => {
       if (p.type === "pay" && p.employee) {
         expenseDetails["Staff Salary"] =
@@ -73,7 +78,7 @@ const getReports = async (req, res) => {
       sales: { weight: totalSalesWeight, amount: totalSalesAmount },
       purchases: { weight: totalPurchaseWeight, amount: totalPurchaseAmount },
       expenses: totalExpenses,
-      expenseDetails: expenseDetails, // 🔥 Yahan se detail frontend pe jayegi
+      expenseDetails: expenseDetails,
       payments: { received: totalReceived, paid: totalPaid },
     });
   } catch (error) {
@@ -81,4 +86,35 @@ const getReports = async (req, res) => {
   }
 };
 
-module.exports = { getReports };
+// 🔥 NAYA: Factory Reset Database (Testing data clean karne ke liye)
+const resetData = async (req, res) => {
+  try {
+    // 1. Delete all transactions (Bills, Payments, Expenses)
+    await Sale.deleteMany({});
+    await Purchase.deleteMany({});
+    await Expense.deleteMany({});
+    await Payment.deleteMany({});
+    await CashTransaction.deleteMany({});
+
+    // 2. Reset all Balances to 0
+    await CashAccount.updateMany({}, { balance: 0 });
+    await Customer.updateMany(
+      {},
+      { currentBalance: 0, totalPurchases: 0, totalPaid: 0 },
+    );
+    await Supplier.updateMany(
+      {},
+      { currentBalance: 0, totalPurchases: 0, totalPaid: 0 },
+    );
+    await Employee.updateMany(
+      {},
+      { currentBalance: 0, balance: 0, monthlySalary: 0 },
+    );
+
+    res.json({ message: "Software Reset Successful! All totals are now 0." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { getReports, resetData };

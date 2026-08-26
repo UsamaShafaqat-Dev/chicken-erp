@@ -12,6 +12,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Printer,
+  AlertTriangle, // 🔥 NAYA
 } from "lucide-react";
 
 const Reports = () => {
@@ -23,7 +24,13 @@ const Reports = () => {
     endDate: "",
   });
 
+  // 🔥 NAYA: Reset Database States
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
   const printRef = useRef(null);
+  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const isOwner = userInfo?.role === "owner";
 
   const fetchReports = async (start = "", end = "") => {
     try {
@@ -41,6 +48,24 @@ const Reports = () => {
       toast.error("Failed to load reports");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔥 NAYA: Handle Factory Reset
+  const handleResetDatabase = async () => {
+    try {
+      setIsResetting(true);
+      await axios.delete(
+        "https://asia-poultry-api.onrender.com/api/reports/reset",
+        { withCredentials: true },
+      );
+      toast.success("Software Reset Successfully! All totals are 0.");
+      setIsResetModalOpen(false);
+      window.location.reload(); // Page reload to clear all states
+    } catch (e) {
+      toast.error("Failed to reset database");
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -170,6 +195,16 @@ const Reports = () => {
           >
             <Printer size={18} /> Print PDF
           </button>
+
+          {/* 🔥 NAYA: Factory Reset Button */}
+          {isOwner && (
+            <button
+              onClick={() => setIsResetModalOpen(true)}
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-sm shadow-red-200"
+            >
+              <AlertTriangle size={18} /> Clear Data
+            </button>
+          )}
         </div>
       </div>
 
@@ -182,7 +217,6 @@ const Reports = () => {
           ref={printRef}
           className="print:p-6 print:bg-white print:w-full space-y-6"
         >
-          {/* PRINT ONLY HEADER */}
           <div className="hidden print:block mb-8 text-center border-b-2 border-gray-800 pb-4">
             <h1 className="text-3xl font-black text-gray-900 uppercase">
               Asia Poultry Business
@@ -271,7 +305,7 @@ const Reports = () => {
               </p>
             </div>
 
-            {/* 🔥 UPDATED: Expenses Card with Breakdown */}
+            {/* Expenses Card with Breakdown */}
             <div className="bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-700 md:col-span-1 lg:col-span-2 print:border-gray-300 print:bg-white">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2 mb-4">
@@ -318,7 +352,7 @@ const Reports = () => {
                 ) : (
                   <div className="pt-4 border-t border-gray-700">
                     <p className="text-xs text-orange-400 animate-pulse print:hidden">
-                      Server is updating... Please wait 2 mins and refresh page.
+                      Server is updating... Please wait.
                     </p>
                   </div>
                 )}
@@ -356,17 +390,41 @@ const Reports = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Print Footer */}
-          <div className="hidden print:flex mt-20 justify-between items-center border-t border-gray-300 pt-4">
-            <p className="text-gray-500 text-sm">
-              System Generated Report - Asia Poultry Business
+      {/* 🔥 NAYA: Reset Database Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-gray-800 mb-2">
+              Factory Reset Software?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              <strong className="text-red-500 block mb-2">WARNING!</strong>
+              This will permanently delete ALL Sales, Purchases, Payments, and
+              Expenses testing data. Your stock and balances will become 0.{" "}
+              <br />
+              <br />
+              (Customers, Suppliers, and Accounts will remain safe).
             </p>
-            <div className="text-center w-48">
-              <div className="border-b border-gray-800 pb-8"></div>
-              <p className="text-gray-800 font-bold mt-2">
-                Authorized Signature
-              </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsResetModalOpen(false)}
+                className="px-4 py-2.5 flex-1 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetDatabase}
+                disabled={isResetting}
+                className="px-4 py-2.5 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors flex justify-center items-center gap-2"
+              >
+                {isResetting ? "Cleaning..." : "Yes, Reset Data"}
+              </button>
             </div>
           </div>
         </div>
