@@ -98,7 +98,6 @@ const Reports = () => {
     window.print();
   };
 
-  // 🔥 NAYA: Profit Calculation
   const netProfit = reportData
     ? reportData.sales.amount -
       reportData.purchases.amount -
@@ -121,7 +120,6 @@ const Reports = () => {
         </p>
       </div>
 
-      {/* Header & Filter Section (SCREEN ONLY) */}
       <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 print:hidden">
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -190,9 +188,6 @@ const Reports = () => {
         </div>
       ) : (
         <>
-          {/* ======================================= */}
-          {/* 1. SCREEN VIEW (Cards) - Hidden on Print */}
-          {/* ======================================= */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
               <div className="absolute -right-4 -bottom-4 opacity-5">
@@ -264,10 +259,10 @@ const Reports = () => {
               </p>
             </div>
 
-            {/* Expenses Card */}
+            {/* 🔥 FIX: Expenses Card with Breakdown */}
             <div className="bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-700 relative overflow-hidden md:col-span-1 lg:col-span-2">
-              <div className="flex flex-col justify-center h-full">
-                <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-4">
                   <div className="bg-gray-700 p-2 rounded-lg text-white">
                     <CreditCard size={20} />
                   </div>
@@ -275,16 +270,34 @@ const Reports = () => {
                     Total Expenses
                   </h3>
                 </div>
-                <p className="text-sm text-gray-400 mt-1 mb-3">
-                  Utility, Salary, Fuel, etc.
-                </p>
-                <p className="text-3xl font-black text-white">
+                <p className="text-3xl font-black text-white mb-4">
                   Rs. {reportData.expenses.toLocaleString()}
                 </p>
+
+                {reportData.expenseDetails &&
+                  Object.keys(reportData.expenseDetails).length > 0 && (
+                    <div className="mt-auto pt-4 border-t border-gray-700 space-y-2">
+                      <p className="text-xs text-gray-400 font-bold uppercase mb-2">
+                        Category Breakdown:
+                      </p>
+                      {Object.entries(reportData.expenseDetails).map(
+                        ([cat, amt]) => (
+                          <div
+                            key={cat}
+                            className="flex justify-between items-center text-sm"
+                          >
+                            <span className="text-gray-300">{cat}</span>
+                            <span className="text-white font-medium">
+                              Rs. {amt.toLocaleString()}
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  )}
               </div>
             </div>
 
-            {/* 🔥 NAYA: Net Profit Card */}
             <div
               className={`p-5 rounded-xl shadow-sm border relative overflow-hidden md:col-span-1 lg:col-span-2 ${isProfit ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200" : "bg-gradient-to-r from-red-50 to-red-100 border-red-200"}`}
             >
@@ -316,9 +329,7 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* ======================================= */}
-          {/* 2. PRINT VIEW (List/Table) - Hidden on Screen */}
-          {/* ======================================= */}
+          {/* 2. PRINT VIEW */}
           <div className="hidden print:block w-full">
             <table className="w-full text-left border-collapse">
               <tbody>
@@ -382,7 +393,27 @@ const Reports = () => {
                   </td>
                 </tr>
 
-                {/* 🔥 NAYA: Profit Row in Print */}
+                {/* 🔥 NAYA: Expense Details in Print */}
+                {reportData.expenseDetails &&
+                  Object.entries(reportData.expenseDetails).map(
+                    ([cat, amt]) => (
+                      <tr
+                        key={cat}
+                        className="border-b border-gray-100 bg-gray-50/50"
+                      >
+                        <td className="py-2 px-2 pl-8 text-gray-600 font-medium text-sm">
+                          ↳ {cat}
+                        </td>
+                        <td className="py-2 px-2 text-gray-500 text-sm">
+                          Category Total
+                        </td>
+                        <td className="py-2 px-2 text-right text-gray-800 font-bold text-sm">
+                          Rs. {amt.toLocaleString()}
+                        </td>
+                      </tr>
+                    ),
+                  )}
+
                 <tr
                   className={`border-t-4 ${isProfit ? "border-green-600 bg-green-50" : "border-red-600 bg-red-50"}`}
                 >
@@ -406,7 +437,6 @@ const Reports = () => {
               </tbody>
             </table>
 
-            {/* Footer Signature Area */}
             <div className="mt-20 flex justify-between items-center border-t border-gray-300 pt-4">
               <p className="text-gray-500 text-sm">
                 System Generated Report - Asia Poultry Business

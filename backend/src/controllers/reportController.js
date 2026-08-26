@@ -10,23 +10,20 @@ const getReports = async (req, res) => {
     const { startDate, endDate } = req.query;
     let query = {};
 
-    // Date Filter Logic (Agar user ne date select ki hai)
+    // Date Filter Logic
     if (startDate && endDate) {
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0); // Din ka start
+      start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Din ka end
-
+      end.setHours(23, 59, 59, 999);
       query.date = { $gte: start, $lte: end };
     }
 
-    // Database se data uthana
     const sales = await Sale.find(query);
     const purchases = await Purchase.find(query);
     const expenses = await Expense.find(query);
-    const payments = await Payment.find(query);
+    const payments = await Payment.find(query).populate("employee", "name");
 
-    // Calculations
     const totalSalesWeight = sales.reduce((acc, curr) => acc + curr.weight, 0);
     const totalSalesAmount = sales.reduce(
       (acc, curr) => acc + curr.totalAmount,
@@ -42,11 +39,32 @@ const getReports = async (req, res) => {
       0,
     );
 
-    const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+    // 🔥 FIX: Expense Breakdown Logic
+    let expenseDetails = {};
+
+    // Normal Expenses
+    expenses.forEach((e) => {
+      const cat = e.category || "Other";
+      expenseDetails[cat] = (expenseDetails[cat] || 0) + e.amount;
+    });
+
+    // Staff Salaries (jo Payments se direct aayi hain)
+    payments.forEach((p) => {
+      if (p.type === "pay" && p.employee) {
+        expenseDetails["Staff Salary"] =
+          (expenseDetails["Staff Salary"] || 0) + p.amount;
+      }
+    });
+
+    const totalExpenses = Object.values(expenseDetails).reduce(
+      (acc, curr) => acc + curr,
+      0,
+    );
 
     const totalReceived = payments
       .filter((p) => p.type === "receive")
       .reduce((acc, curr) => acc + curr.amount, 0);
+
     const totalPaid = payments
       .filter((p) => p.type === "pay")
       .reduce((acc, curr) => acc + curr.amount, 0);
@@ -55,6 +73,7 @@ const getReports = async (req, res) => {
       sales: { weight: totalSalesWeight, amount: totalSalesAmount },
       purchases: { weight: totalPurchaseWeight, amount: totalPurchaseAmount },
       expenses: totalExpenses,
+      expenseDetails: expenseDetails, // 🔥 NAYA: Detail Bhej di
       payments: { received: totalReceived, paid: totalPaid },
     });
   } catch (error) {

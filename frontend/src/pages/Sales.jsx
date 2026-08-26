@@ -138,7 +138,6 @@ const Sales = () => {
     const { name, value } = e.target;
     let newFormData = { ...formData, [name]: value };
 
-    // Agar weight ya rate change ho raha hai
     if (name === "weight" || name === "rate") {
       const weight = parseFloat(newFormData.weight) || 0;
       const rate = parseFloat(newFormData.rate) || 0;
@@ -146,19 +145,14 @@ const Sales = () => {
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
 
-      // 🔥 FIX: Auto Fill nikal diya gaya hai. Ab Paid amount wahi rahegi jo user ne likhi hai
       newFormData.balanceDue =
         totalAmount - (parseFloat(newFormData.paidAmount) || 0);
-    }
-    // Agar payment method change ho
-    else if (name === "paymentMethod") {
+    } else if (name === "paymentMethod") {
       if (value === "credit") {
-        newFormData.paidAmount = ""; // Udhaar select karne par paid amount 0 ho jaye
+        newFormData.paidAmount = "";
         newFormData.balanceDue = parseFloat(newFormData.totalAmount) || 0;
       }
-    }
-    // Agar user khud hath se paidAmount type kare ya change kare
-    else if (name === "paidAmount") {
+    } else if (name === "paidAmount") {
       const totalAmount = parseFloat(newFormData.totalAmount) || 0;
       newFormData.balanceDue = totalAmount - (parseFloat(value) || 0);
     }
@@ -260,36 +254,12 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 MAGIC TRICK: Sales k table k andar Payments ko auto-add karna
+  // 🔥 FIX: Double Calculation removed. Using DB values directly.
   const enhancedSales = filteredSales.map((sale) => {
-    const saleDateStr = new Date(sale.date).toISOString().split("T")[0];
-    const customerId = sale.customer?._id;
-
-    // Is customer ki aaj k din aayi hui recovery dhundhein
-    const customerRecoveriesToday = payments.filter((p) => {
-      const pDateStr = new Date(p.date).toISOString().split("T")[0];
-      const pCustomerId = p.customer?._id || p.customer;
-      return (
-        p.type === "receive" &&
-        pCustomerId === customerId &&
-        pDateStr === saleDateStr
-      );
-    });
-
-    // Total extra cash jo aaj payments me add hua hai
-    const extraCashToday = customerRecoveriesToday.reduce(
-      (sum, p) => sum + (Number(p.amount) || 0),
-      0,
-    );
-
-    // Bill ki dynamic amount
-    const displayPaid = (Number(sale.paidAmount) || 0) + extraCashToday;
-    const displayBalance = (Number(sale.totalAmount) || 0) - displayPaid;
-
     return {
       ...sale,
-      displayPaid,
-      displayBalance,
+      displayPaid: Number(sale.paidAmount) || 0,
+      displayBalance: Number(sale.balanceDue) || 0,
     };
   });
 
@@ -335,7 +305,6 @@ const Sales = () => {
   const totalPaid = salesPaid + recoveryPaid;
   const netUdhaar = totalAmount - totalPaid;
 
-  // Table k neechay wala hisaab ab dynamic table data pe chale ga
   const tablePaidAmount = enhancedSales.reduce(
     (sum, sale) => sum + (Number(sale.displayPaid) || 0),
     0,
@@ -345,7 +314,10 @@ const Sales = () => {
     0,
   );
 
-  const shortageWeight = totalPurchasedWeight - totalWeight;
+  // 🔥 FIX: Shortage bug resolved using toFixed(2)
+  const shortageWeight = Number(
+    (totalPurchasedWeight - totalWeight).toFixed(2),
+  );
 
   const handlePrint = () => {
     window.print();
@@ -353,7 +325,6 @@ const Sales = () => {
 
   return (
     <div className="space-y-6 w-full min-w-0 print:bg-white print:m-0 print:p-0 overflow-hidden print:overflow-visible">
-      {/* Print Header */}
       <div className="hidden print:block mb-8 text-center border-b-2 border-gray-800 pb-4">
         <h1 className="text-3xl font-black text-gray-900 uppercase">
           Asia Poultry Business
@@ -382,7 +353,6 @@ const Sales = () => {
         )}
       </div>
 
-      {/* 6 Summary Cards Report */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-1">
@@ -438,7 +408,6 @@ const Sales = () => {
           <h3 className="text-lg sm:text-xl font-bold text-gray-800">
             Rs. {totalPaid.toLocaleString()}
           </h3>
-          {/* Hover Tooltip Breakdown */}
           <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-2 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg border border-gray-700">
             Sale Cash: Rs. {salesPaid.toLocaleString()} <br /> Payment Recovery:
             Rs. {recoveryPaid.toLocaleString()}
@@ -460,7 +429,6 @@ const Sales = () => {
       </div>
 
       <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
-        {/* Search aur Date Filter */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="bg-gray-100 p-2 rounded-lg flex-1 min-w-[200px] flex items-center gap-2">
             <Search size={18} className="text-gray-400 shrink-0" />
@@ -588,7 +556,6 @@ const Sales = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden print:border-none print:shadow-none print:overflow-visible">
-        {/* DESKTOP TABLE VIEW */}
         <div className="hidden lg:block print:block w-full overflow-x-auto pb-2 print:overflow-visible custom-scrollbar">
           <table className="w-full text-left border-collapse text-sm print:text-xs">
             <thead>
@@ -719,7 +686,6 @@ const Sales = () => {
           </table>
         </div>
 
-        {/* MOBILE CARDS VIEW */}
         <div className="lg:hidden flex flex-col print:hidden">
           {enhancedSales.map((sale, index) => (
             <div
@@ -801,7 +767,6 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* ADD/EDIT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -993,7 +958,6 @@ const Sales = () => {
         </div>
       )}
 
-      {/* DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
