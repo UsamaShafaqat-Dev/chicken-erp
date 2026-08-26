@@ -19,7 +19,6 @@ import {
   ArrowUpRight,
   Printer,
   FileText,
-  Activity,
 } from "lucide-react";
 
 const Customers = () => {
@@ -30,7 +29,6 @@ const Customers = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 🔥 NAYA: Global Market Date Filters
   const [globalFromDate, setGlobalFromDate] = useState("");
   const [globalToDate, setGlobalToDate] = useState("");
 
@@ -39,7 +37,6 @@ const Customers = () => {
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // Khata / Ledger States
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [ledgerData, setLedgerData] = useState([]);
@@ -47,7 +44,9 @@ const Customers = () => {
   const [ledgerStartDate, setLedgerStartDate] = useState("");
   const [ledgerEndDate, setLedgerEndDate] = useState("");
 
+  // 🔥 NAYA: Do alag refs print ke liye (1 Ledger ke liye, 1 Main Page ke liye)
   const printRef = useRef(null);
+  const mainPrintRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -65,7 +64,6 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      // 🔥 NAYA: Customers ke sath Sales aur Payments bhi fetch kar rahe hain taake market calculation ho sake
       const [custRes, salesRes, payRes] = await Promise.all([
         axios.get("https://asia-poultry-api.onrender.com/api/customers", {
           withCredentials: true,
@@ -209,13 +207,11 @@ const Customers = () => {
     }
   };
 
-  // 🔥 NAYA: Dynamic Calculation based on Global Date Filters
   const processedCustomers = customers.map((customer) => {
     let displayPurchases = customer.totalPurchases || 0;
     let displayPaid = customer.totalPaid || 0;
     let displayBalance = customer.currentBalance || 0;
 
-    // Agar Date Filter Laga hua hai, to calculation sirf unhi dates ki hogi
     if (globalFromDate || globalToDate) {
       const customerSales = allSales.filter((s) => {
         if ((s.customer?._id || s.customer) !== customer._id) return false;
@@ -249,7 +245,7 @@ const Customers = () => {
 
       displayPurchases = pSalesAmount;
       displayPaid = pSalesPaid + pRecoveries;
-      displayBalance = displayPurchases - displayPaid; // Us period ka remaining udhaar
+      displayBalance = displayPurchases - displayPaid;
     }
 
     return {
@@ -267,7 +263,6 @@ const Customers = () => {
       (c.area && c.area.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
-  // Market Totals
   const marketTotalPurchases = filteredCustomers.reduce(
     (sum, c) => sum + c.displayPurchases,
     0,
@@ -281,7 +276,6 @@ const Customers = () => {
     0,
   );
 
-  // Individual Ledger Filters
   const filteredLedger = ledgerData.filter((item) => {
     try {
       const dateStr = new Date(item.ledgerDate || Date.now())
@@ -308,16 +302,24 @@ const Customers = () => {
   const totalPeriodPaid = periodPaidFromSales + periodRecoveries;
   const periodRemaining = periodSales - totalPeriodPaid;
 
-  const handlePrint = useReactToPrint({
+  // 🔥 NAYA: Ledger Print Handler
+  const handlePrintLedger = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Customer_Ledger_${selectedCustomer?.name}_${new Date().toISOString().split("T")[0]}`,
   });
 
+  // 🔥 NAYA: Main Page (Market Summary) Print Handler
+  const handleMainPrint = useReactToPrint({
+    contentRef: mainPrintRef,
+    documentTitle: `Market_Summary_${new Date().toISOString().split("T")[0]}`,
+  });
+
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-64 flex items-center gap-2">
+      {/* HEADER (Hidden in Print) */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
+        <div className="flex flex-col xl:flex-row items-start xl:items-center gap-3 w-full xl:w-auto">
+          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-64 flex items-center gap-2 w-full xl:w-auto">
             <Search size={18} className="text-gray-400 shrink-0" />
             <input
               type="text"
@@ -328,21 +330,20 @@ const Customers = () => {
             />
           </div>
 
-          {/* 🔥 NAYA: Global Date Filter for Market */}
           <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-lg border border-blue-100 w-full sm:w-auto">
             <Calendar size={18} className="text-blue-600 shrink-0" />
             <input
               type="date"
               value={globalFromDate}
               onChange={(e) => setGlobalFromDate(e.target.value)}
-              className="bg-transparent text-sm text-blue-800 outline-none w-full sm:w-auto font-medium"
+              className="bg-transparent text-sm text-blue-800 outline-none w-full sm:w-auto font-medium cursor-pointer"
             />
             <span className="text-blue-300">-</span>
             <input
               type="date"
               value={globalToDate}
               onChange={(e) => setGlobalToDate(e.target.value)}
-              className="bg-transparent text-sm text-blue-800 outline-none w-full sm:w-auto font-medium"
+              className="bg-transparent text-sm text-blue-800 outline-none w-full sm:w-auto font-medium cursor-pointer"
             />
             {(globalFromDate || globalToDate) && (
               <button
@@ -358,284 +359,349 @@ const Customers = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => openModal()}
-          className="w-full sm:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
-        >
-          <Plus size={18} /> Add Customer
-        </button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+          <button
+            onClick={handleMainPrint}
+            className="flex-1 sm:flex-none w-full sm:w-auto bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+          >
+            <Printer size={18} /> Print
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex-1 sm:flex-none w-full sm:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+          >
+            <Plus size={18} /> Add Customer
+          </button>
+        </div>
       </div>
 
-      {/* 🔥 NAYA: Market Summary Ribbon */}
-      {(globalFromDate || globalToDate) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-900 p-4 rounded-xl shadow-lg border border-gray-800 text-center animate-pulse">
-          <div>
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
-              Market Sales (Period)
+      {/* 🔥 NAYA: Container Jiska Print Nikalna hai */}
+      <div
+        ref={mainPrintRef}
+        className="print:p-6 print:bg-white print:w-full space-y-6"
+      >
+        {/* PRINT ONLY HEADER */}
+        <div className="hidden print:block text-center border-b-2 border-gray-800 pb-4 mb-4">
+          <h1 className="text-3xl font-black text-gray-900 uppercase">
+            Asia Poultry Business
+          </h1>
+          <h2 className="text-xl font-bold text-gray-700 mt-2">
+            Market Summary & Customer Balances
+          </h2>
+          {globalFromDate || globalToDate ? (
+            <p className="text-md font-medium text-gray-600 mt-1 uppercase bg-gray-100 inline-block px-3 py-1 rounded">
+              Period:{" "}
+              <span className="text-blue-700 font-bold">
+                {globalFromDate
+                  ? new Date(globalFromDate).toLocaleDateString("en-GB")
+                  : "Start"}
+              </span>{" "}
+              TO{" "}
+              <span className="text-blue-700 font-bold">
+                {globalToDate
+                  ? new Date(globalToDate).toLocaleDateString("en-GB")
+                  : "End"}
+              </span>
             </p>
-            <h3 className="text-xl font-black text-blue-400">
-              Rs. {marketTotalPurchases.toLocaleString()}
-            </h3>
-          </div>
-          <div className="sm:border-l sm:border-r border-gray-700">
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
-              Market Vasooli (Period)
+          ) : (
+            <p className="text-md font-bold text-gray-500 mt-1 uppercase bg-gray-100 inline-block px-3 py-1 rounded">
+              All Time / Lifetime Balances
             </p>
-            <h3 className="text-xl font-black text-green-400">
-              Rs. {marketTotalPaid.toLocaleString()}
-            </h3>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
-              Net Balance (Period)
-            </p>
-            <h3
-              className={`text-xl font-black ${marketTotalBalance > 0 ? "text-red-400" : "text-gray-300"}`}
-            >
-              Rs. {marketTotalBalance.toLocaleString()}
-            </h3>
-          </div>
+          )}
         </div>
-      )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden">
-        {/* DESKTOP TABLE VIEW */}
-        <div className="hidden lg:block w-full">
-          <table className="w-full text-left border-collapse text-xs table-auto">
-            <thead className="bg-gray-50 border-b border-gray-100 text-gray-600">
-              <tr>
-                <th className="px-1.5 py-3 font-medium">Name</th>
-                <th className="px-1.5 py-3 font-medium">Mobile</th>
-                <th className="px-1.5 py-3 font-medium">WhatsApp</th>
-                <th className="px-1.5 py-3 font-medium">Area</th>
-                <th className="px-1.5 py-3 font-medium">Address</th>
-                <th className="px-1.5 py-3 font-medium">Purchases (Maal)</th>
-                <th className="px-1.5 py-3 font-medium">Paid (Vasooli)</th>
-                <th className="px-1.5 py-3 font-medium">Outstanding</th>
-                <th className="px-1.5 py-3 font-medium text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+        {/* Market Summary Ribbon */}
+        {(globalFromDate || globalToDate) && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-900 print:bg-gray-100 p-4 rounded-xl shadow-lg border border-gray-800 print:border-gray-300 text-center animate-pulse print:animate-none">
+            <div>
+              <p className="text-xs text-gray-400 print:text-gray-600 font-bold uppercase tracking-widest mb-1">
+                Market Sales (Period)
+              </p>
+              <h3 className="text-xl font-black text-blue-400 print:text-blue-700">
+                Rs. {marketTotalPurchases.toLocaleString()}
+              </h3>
+            </div>
+            <div className="sm:border-l sm:border-r border-gray-700 print:border-gray-300">
+              <p className="text-xs text-gray-400 print:text-gray-600 font-bold uppercase tracking-widest mb-1">
+                Market Vasooli (Period)
+              </p>
+              <h3 className="text-xl font-black text-green-400 print:text-green-700">
+                Rs. {marketTotalPaid.toLocaleString()}
+              </h3>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 print:text-gray-600 font-bold uppercase tracking-widest mb-1">
+                Net Balance (Period)
+              </p>
+              <h3
+                className={`text-xl font-black ${marketTotalBalance > 0 ? "text-red-400 print:text-red-600" : "text-gray-300 print:text-gray-800"}`}
+              >
+                Rs. {marketTotalBalance.toLocaleString()}
+              </h3>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden print:border-none print:shadow-none">
+          {/* DESKTOP TABLE VIEW */}
+          <div className="hidden lg:block print:block w-full">
+            <table className="w-full text-left border-collapse text-xs table-auto print:text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 print:bg-gray-200 print:text-black">
                 <tr>
-                  <td
-                    colSpan="9"
-                    className="text-center p-8 text-gray-500 text-sm"
-                  >
-                    Loading customers...
-                  </td>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">Name</th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">Mobile</th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">Area</th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">
+                    Purchases (Maal)
+                  </th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">
+                    Paid (Vasooli)
+                  </th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">
+                    Outstanding
+                  </th>
+                  <th className="px-1.5 py-3 font-medium text-center print:hidden">
+                    Action
+                  </th>
                 </tr>
-              ) : filteredCustomers.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="9"
-                    className="text-center p-8 text-gray-500 text-sm"
-                  >
-                    No customers found.
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((customer) => (
-                  <tr
-                    key={customer._id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-1.5 py-3 font-bold text-gray-800 break-words max-w-[120px]">
-                      {customer.name}
-                    </td>
-                    <td className="px-1.5 py-3 text-gray-800 whitespace-nowrap">
-                      {customer.mobile || "-"}
-                    </td>
-                    <td className="px-1.5 py-3 whitespace-nowrap">
-                      {customer.whatsapp ? (
-                        <span className="text-[10px] bg-green-50 border border-green-200 text-green-700 px-1.5 py-1 rounded-full font-medium inline-flex items-center gap-1">
-                          <MessageCircle size={10} /> {customer.whatsapp}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-1.5 py-3 break-words max-w-[100px]">
-                      <span className="inline-flex items-center gap-1 text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-1 rounded-md text-[10px] font-bold">
-                        <Map size={10} /> {customer.area || "-"}
-                      </span>
-                    </td>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
                     <td
-                      className="px-1.5 py-3 text-gray-600 truncate max-w-[100px]"
-                      title={customer.address}
+                      colSpan="7"
+                      className="text-center p-8 text-gray-500 text-sm"
                     >
-                      {customer.address || "-"}
+                      Loading customers...
                     </td>
-
-                    {/* 🔥 Updated Table Data based on filters */}
-                    <td className="px-1.5 py-3 text-blue-600 font-medium whitespace-nowrap">
-                      Rs. {customer.displayPurchases.toLocaleString() || 0}
-                    </td>
-                    <td className="px-1.5 py-3 text-green-600 font-medium whitespace-nowrap">
-                      Rs. {customer.displayPaid.toLocaleString() || 0}
-                    </td>
+                  </tr>
+                ) : filteredCustomers.length === 0 ? (
+                  <tr>
                     <td
-                      className={`px-1.5 py-3 font-bold whitespace-nowrap ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
+                      colSpan="7"
+                      className="text-center p-8 text-gray-500 text-sm"
+                    >
+                      No customers found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCustomers.map((customer) => (
+                    <tr
+                      key={customer._id}
+                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors print:border-b print:border-gray-300"
+                    >
+                      <td className="px-1.5 py-3 print:py-2 font-bold text-gray-800 break-words max-w-[120px] print:max-w-none">
+                        {customer.name}
+                      </td>
+                      <td className="px-1.5 py-3 print:py-2 text-gray-800 whitespace-nowrap">
+                        {customer.mobile || "-"}
+                      </td>
+                      <td className="px-1.5 py-3 print:py-2 break-words max-w-[100px] print:max-w-none">
+                        <span className="inline-flex items-center gap-1 text-purple-700 bg-purple-50 border border-purple-100 px-1.5 py-1 rounded-md text-[10px] print:text-sm print:bg-transparent print:border-none print:p-0 font-bold">
+                          <Map size={10} className="print:hidden" />{" "}
+                          {customer.area || "-"}
+                        </span>
+                      </td>
+
+                      <td className="px-1.5 py-3 print:py-2 text-blue-600 font-medium whitespace-nowrap">
+                        Rs. {customer.displayPurchases.toLocaleString() || 0}
+                      </td>
+                      <td className="px-1.5 py-3 print:py-2 text-green-600 font-medium whitespace-nowrap">
+                        Rs. {customer.displayPaid.toLocaleString() || 0}
+                      </td>
+                      <td
+                        className={`px-1.5 py-3 print:py-2 font-bold whitespace-nowrap ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
+                      >
+                        {customer.displayBalance > 0
+                          ? `Rs. ${customer.displayBalance.toLocaleString()}`
+                          : "Nil"}
+                      </td>
+
+                      <td className="px-1.5 py-3 flex justify-center items-center gap-1 whitespace-nowrap print:hidden">
+                        <button
+                          onClick={() => openLedger(customer)}
+                          className="flex items-center gap-1 text-teal-600 bg-teal-50 hover:bg-teal-100 border border-teal-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
+                          title="View Khata"
+                        >
+                          <History size={12} /> Khata
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleWhatsAppClick(
+                              customer.whatsapp || customer.mobile,
+                            )
+                          }
+                          className="flex items-center gap-1 text-green-600 bg-green-50 hover:bg-green-100 border border-green-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle size={12} /> WA
+                        </button>
+                        {isOwner && (
+                          <>
+                            <button
+                              onClick={() => openModal(customer)}
+                              className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
+                              title="Edit"
+                            >
+                              <Edit size={12} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingId(customer._id);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot className="table-row-group bg-gray-100 print:bg-gray-200 font-bold text-black border-t-2 border-gray-300">
+                <tr>
+                  <td colSpan="3" className="px-1.5 py-3 text-right">
+                    TOTAL MARKET:
+                  </td>
+                  <td className="px-1.5 py-3 text-blue-700">
+                    Rs. {marketTotalPurchases.toLocaleString()}
+                  </td>
+                  <td className="px-1.5 py-3 text-green-700">
+                    Rs. {marketTotalPaid.toLocaleString()}
+                  </td>
+                  <td className="px-1.5 py-3 text-red-600">
+                    Rs. {marketTotalBalance.toLocaleString()}
+                  </td>
+                  <td className="print:hidden"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* MOBILE CARDS VIEW (Hidden in Print) */}
+          <div className="lg:hidden flex flex-col print:hidden">
+            {filteredCustomers.map((customer, index) => (
+              <div
+                key={customer._id}
+                className={`p-4 flex flex-col gap-4 ${index !== filteredCustomers.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-1">
+                    <h3 className="font-bold text-gray-800 text-lg">
+                      {customer.name}
+                    </h3>
+                    <span className="flex items-center gap-1 text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                      <Map size={12} /> {customer.area || "-"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
+                    <p className="flex items-center gap-2">
+                      <Phone size={14} className="text-gray-400" />{" "}
+                      <span className="font-medium text-gray-700">
+                        {customer.mobile || "N/A"}
+                      </span>
+                    </p>
+                    {customer.whatsapp && (
+                      <p className="flex items-center gap-2 text-green-600">
+                        <MessageCircle size={14} />{" "}
+                        <span className="font-medium">{customer.whatsapp}</span>
+                      </p>
+                    )}
+                    {customer.address && (
+                      <p className="flex items-center gap-2">
+                        <MapPin size={14} className="text-gray-400" />{" "}
+                        {customer.address}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
+                  <div>
+                    <p className="text-gray-500 text-xs mb-1">
+                      Purchases (Maal)
+                    </p>
+                    <p className="font-medium text-blue-600">
+                      Rs. {customer.displayPurchases.toLocaleString() || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs mb-1">Paid (Vasooli)</p>
+                    <p className="font-medium text-green-600">
+                      Rs. {customer.displayPaid.toLocaleString() || 0}
+                    </p>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-gray-200">
+                    <p className="text-gray-500 text-xs mb-1">
+                      Outstanding Balance
+                    </p>
+                    <p
+                      className={`text-base font-bold ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
                     >
                       {customer.displayBalance > 0
                         ? `Rs. ${customer.displayBalance.toLocaleString()}`
                         : "Nil"}
-                    </td>
-
-                    <td className="px-1.5 py-3 flex justify-center items-center gap-1 whitespace-nowrap">
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => openLedger(customer)}
+                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-2 rounded-lg font-medium transition-colors border border-teal-100"
+                  >
+                    <History size={16} /> Khata
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleWhatsAppClick(customer.whatsapp || customer.mobile)
+                    }
+                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-lg font-medium transition-colors border border-green-100"
+                  >
+                    <MessageCircle size={16} /> WA
+                  </button>
+                  {isOwner && (
+                    <>
                       <button
-                        onClick={() => openLedger(customer)}
-                        className="flex items-center gap-1 text-teal-600 bg-teal-50 hover:bg-teal-100 border border-teal-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                        title="View Khata"
+                        onClick={() => openModal(customer)}
+                        className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-lg font-medium transition-colors border border-blue-100"
                       >
-                        <History size={12} /> Khata
+                        <Edit size={16} />
                       </button>
                       <button
-                        onClick={() =>
-                          handleWhatsAppClick(
-                            customer.whatsapp || customer.mobile,
-                          )
-                        }
-                        className="flex items-center gap-1 text-green-600 bg-green-50 hover:bg-green-100 border border-green-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                        title="WhatsApp"
+                        onClick={() => {
+                          setDeletingId(customer._id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded-lg font-medium transition-colors border border-red-100"
                       >
-                        <MessageCircle size={12} /> WA
+                        <Trash2 size={16} />
                       </button>
-                      {isOwner && (
-                        <>
-                          <button
-                            onClick={() => openModal(customer)}
-                            className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                            title="Edit"
-                          >
-                            <Edit size={12} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeletingId(customer._id);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* MOBILE CARDS VIEW */}
-        <div className="lg:hidden flex flex-col">
-          {filteredCustomers.map((customer, index) => (
-            <div
-              key={customer._id}
-              className={`p-4 flex flex-col gap-4 ${index !== filteredCustomers.length - 1 ? "border-b border-gray-100" : ""}`}
-            >
-              <div>
-                <div className="flex justify-between items-start mb-1">
-                  <h3 className="font-bold text-gray-800 text-lg">
-                    {customer.name}
-                  </h3>
-                  <span className="flex items-center gap-1 text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-md text-[10px] font-bold">
-                    <Map size={12} /> {customer.area || "-"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
-                  <p className="flex items-center gap-2">
-                    <Phone size={14} className="text-gray-400" />{" "}
-                    <span className="font-medium text-gray-700">
-                      {customer.mobile || "N/A"}
-                    </span>
-                  </p>
-                  {customer.whatsapp && (
-                    <p className="flex items-center gap-2 text-green-600">
-                      <MessageCircle size={14} />{" "}
-                      <span className="font-medium">{customer.whatsapp}</span>
-                    </p>
-                  )}
-                  {customer.address && (
-                    <p className="flex items-center gap-2">
-                      <MapPin size={14} className="text-gray-400" />{" "}
-                      {customer.address}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Purchases (Maal)</p>
-                  <p className="font-medium text-blue-600">
-                    Rs. {customer.displayPurchases.toLocaleString() || 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Paid (Vasooli)</p>
-                  <p className="font-medium text-green-600">
-                    Rs. {customer.displayPaid.toLocaleString() || 0}
-                  </p>
-                </div>
-                <div className="col-span-2 pt-2 border-t border-gray-200">
-                  <p className="text-gray-500 text-xs mb-1">
-                    Outstanding Balance
-                  </p>
-                  <p
-                    className={`text-base font-bold ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
-                  >
-                    {customer.displayBalance > 0
-                      ? `Rs. ${customer.displayBalance.toLocaleString()}`
-                      : "Nil"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => openLedger(customer)}
-                  className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-2 rounded-lg font-medium transition-colors border border-teal-100"
-                >
-                  <History size={16} /> Khata
-                </button>
-                <button
-                  onClick={() =>
-                    handleWhatsAppClick(customer.whatsapp || customer.mobile)
-                  }
-                  className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-lg font-medium transition-colors border border-green-100"
-                >
-                  <MessageCircle size={16} /> WA
-                </button>
-                {isOwner && (
-                  <>
-                    <button
-                      onClick={() => openModal(customer)}
-                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-lg font-medium transition-colors border border-blue-100"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeletingId(customer._id);
-                        setIsDeleteModalOpen(true);
-                      }}
-                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded-lg font-medium transition-colors border border-red-100"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+        {/* Footer Signature Area Print */}
+        <div className="hidden print:flex mt-20 justify-between items-center border-t border-gray-300 pt-4">
+          <p className="text-gray-500 text-sm">
+            System Generated Report - Asia Poultry Business
+          </p>
+          <div className="text-center w-48">
+            <div className="border-b border-gray-800 pb-8"></div>
+            <p className="text-gray-800 font-bold mt-2">Authorized Signature</p>
+          </div>
         </div>
       </div>
 
       {/* LEDGER (KHATA) MODAL WITH DATE FILTER */}
       {isLedgerModalOpen && selectedCustomer && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
             className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col"
             style={{ maxHeight: "90vh" }}
@@ -652,7 +718,7 @@ const Customers = () => {
               </div>
               <div className="flex items-center gap-4">
                 <button
-                  onClick={handlePrint}
+                  onClick={handlePrintLedger}
                   disabled={ledgerLoading}
                   className="bg-blue-100 hover:bg-blue-200 text-blue-700 p-2 rounded-lg transition-colors flex items-center gap-1.5 font-bold text-sm shadow-sm"
                   title="Print Khata"
@@ -669,7 +735,6 @@ const Customers = () => {
               </div>
             </div>
 
-            {/* Date Filter Box */}
             <div className="bg-white px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3 shrink-0 print:hidden">
               <div className="flex items-center gap-2 text-gray-600 font-medium text-xs">
                 <Calendar size={14} className="text-blue-500" /> Filter Dates:
@@ -705,7 +770,6 @@ const Customers = () => {
               )}
             </div>
 
-            {/* Summaries based on Dates */}
             <div className="grid grid-cols-3 gap-2 px-5 py-3 bg-gray-50 border-b border-gray-100 text-center shrink-0">
               <div className="bg-white p-2 rounded border border-gray-200">
                 <p className="text-[10px] text-gray-500 uppercase font-bold">
@@ -801,9 +865,9 @@ const Customers = () => {
                               : "Maal Diya (Sale)"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(tx.ledgerDate).toLocaleDateString(
-                              "en-GB",
-                            )}
+                            {new Date(
+                              tx.ledgerDate || Date.now(),
+                            ).toLocaleDateString("en-GB")}
                             {tx.isSale && (
                               <span className="ml-2 font-bold text-gray-600">
                                 ({tx.weight} KG)
@@ -843,7 +907,7 @@ const Customers = () => {
 
       {/* ADD/EDIT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
             className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col"
             style={{ maxHeight: "90vh" }}
@@ -977,7 +1041,7 @@ const Customers = () => {
 
       {/* DELETE MODAL */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
             <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={32} />
