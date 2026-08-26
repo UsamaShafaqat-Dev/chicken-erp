@@ -111,6 +111,7 @@ const getAccountLedger = async (req, res) => {
     res.json({
       success: true,
       ledger: {
+        accountId: account._id,
         accountName: account.name,
         balance: account.balance,
         transactions: formattedTransactions,
@@ -122,7 +123,6 @@ const getAccountLedger = async (req, res) => {
   }
 };
 
-// 🔥 5. NAYA: Update Cash Account (Edit)
 const updateAccount = async (req, res) => {
   try {
     const { name, type, initialBalance } = req.body;
@@ -142,18 +142,59 @@ const updateAccount = async (req, res) => {
   }
 };
 
-// 🔥 6. NAYA: Delete Cash Account
 const deleteAccount = async (req, res) => {
   try {
     const account = await CashAccount.findByIdAndDelete(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found" });
 
-    // Is account ki sari transactions bhi delete kar denge
     await CashTransaction.deleteMany({
       $or: [{ fromAccount: req.params.id }, { toAccount: req.params.id }],
     });
 
     res.json({ message: "Account deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🔥 NAYA: Specific Cash Transaction (Transfer) ko Delete karke Balance Wapas karna
+const deleteTransaction = async (req, res) => {
+  try {
+    const tx = await CashTransaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ message: "Transaction not found" });
+
+    // Sirf Internal Transfer wali entry direct delete ho sakti hai
+    if (tx.transactionType === "internal_transfer") {
+      // Jahan se paise gaye the, usko wapas karo
+      if (tx.fromAccount) {
+        const fromAcc = await CashAccount.findById(tx.fromAccount);
+        if (fromAcc) {
+          fromAcc.balance += tx.amount;
+          await fromAcc.save();
+        }
+      }
+      // Jisko paise mile the, uske kat lo
+      if (tx.toAccount) {
+        const toAcc = await CashAccount.findById(tx.toAccount);
+        if (toAcc) {
+          toAcc.balance -= tx.amount;
+          await toAcc.save();
+        }
+      }
+
+      await CashTransaction.findByIdAndDelete(req.params.id);
+      return res.json({
+        message: "Transfer deleted and balances reverted successfully",
+      });
+    } else {
+      // Agar wo koi aur payment hai (jaise customer recovery) to error do
+      return res
+        .status(400)
+        .json({
+          message:
+            "Please delete this entry from its original page (Sales, Payments, or Expenses) to ensure correct account balances.",
+        });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -166,4 +207,5 @@ module.exports = {
   getAccountLedger,
   updateAccount,
   deleteAccount,
+  deleteTransaction, // 🔥 NAYA
 };

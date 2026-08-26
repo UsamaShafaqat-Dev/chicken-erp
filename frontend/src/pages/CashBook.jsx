@@ -22,7 +22,6 @@ const CashBook = () => {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Transfer Modal States
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferData, setTransferData] = useState({
     fromAccountId: "",
@@ -31,7 +30,6 @@ const CashBook = () => {
     particulars: "",
   });
 
-  // Add/Edit Account Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAccId, setEditingAccId] = useState(null);
   const [newAccount, setNewAccount] = useState({
@@ -40,21 +38,23 @@ const CashBook = () => {
     initialBalance: "",
   });
 
-  // Delete Account Modal States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  // Ledger History Modal States
+  // 🔥 NAYA: Delete Transaction Modal
+  const [isDeleteTxnModalOpen, setIsDeleteTxnModalOpen] = useState(false);
+  const [deletingTxnId, setDeletingTxnId] = useState(null);
+
   const [showLedgerModal, setShowLedgerModal] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [selectedAccountLedger, setSelectedAccountLedger] = useState({
+    accountId: "",
     accountName: "",
     balance: 0,
     transactions: [],
   });
 
   const printRef = useRef(null);
-
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
   const isOwner = userInfo?.role === "owner";
 
@@ -77,13 +77,12 @@ const CashBook = () => {
     fetchAccounts();
   }, []);
 
-  // 🔥 NAYA: Edit Account Modal Open Function
   const openAddEditModal = (acc = null) => {
     if (acc) {
       setNewAccount({
         name: acc.name,
         type: acc.type,
-        initialBalance: acc.balance, // Editing balance directly
+        initialBalance: acc.balance,
       });
       setEditingAccId(acc._id);
     } else {
@@ -96,7 +95,6 @@ const CashBook = () => {
   const handleAddAccount = async (e) => {
     e.preventDefault();
     if (!newAccount.name) return toast.error("Please enter account name");
-
     try {
       if (editingAccId) {
         await axios.put(
@@ -120,7 +118,6 @@ const CashBook = () => {
     }
   };
 
-  // 🔥 NAYA: Delete Account Function
   const confirmDelete = async () => {
     try {
       await axios.delete(
@@ -168,24 +165,20 @@ const CashBook = () => {
     }
   };
 
-  const handleOpenLedger = async (account) => {
+  const handleOpenLedger = async (accountId) => {
     setShowLedgerModal(true);
     setLedgerLoading(true);
-    setSelectedAccountLedger({
-      accountName: account.name,
-      balance: account.balance,
-      transactions: [],
-    });
 
     try {
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com/api/cash/ledger/${account._id}`,
+        `https://asia-poultry-api.onrender.com/api/cash/ledger/${accountId}`,
         { withCredentials: true },
       );
       if (data.success && data.ledger) {
         setSelectedAccountLedger({
-          accountName: account.name,
-          balance: account.balance,
+          accountId: data.ledger.accountId,
+          accountName: data.ledger.accountName,
+          balance: data.ledger.balance,
           transactions: data.ledger.transactions || [],
         });
       }
@@ -197,6 +190,24 @@ const CashBook = () => {
     }
   };
 
+  // 🔥 NAYA: Delete Transaction Handler
+  const confirmDeleteTxn = async () => {
+    try {
+      await axios.delete(
+        `https://asia-poultry-api.onrender.com/api/cash/transaction/${deletingTxnId}`,
+        { withCredentials: true },
+      );
+      toast.success("Transfer deleted and balances reverted!");
+      setIsDeleteTxnModalOpen(false);
+
+      // Refresh background accounts AND open ledger with new data
+      fetchAccounts();
+      handleOpenLedger(selectedAccountLedger.accountId);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete entry");
+    }
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Cash_Ledger_${selectedAccountLedger.accountName}_${new Date().toISOString().split("T")[0]}`,
@@ -204,7 +215,6 @@ const CashBook = () => {
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
-      {/* Header */}
       <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-800">
@@ -244,7 +254,7 @@ const CashBook = () => {
             accounts.map((acc) => (
               <div
                 key={acc._id}
-                onClick={() => handleOpenLedger(acc)}
+                onClick={() => handleOpenLedger(acc._id)}
                 className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group hover:shadow-lg transition-all cursor-pointer hover:-translate-y-1"
                 title="Click to view history"
               >
@@ -254,7 +264,6 @@ const CashBook = () => {
                   >
                     <Wallet size={24} />
                   </div>
-                  {/* 🔥 NAYA: Edit aur Delete button (sirf owner k liye) */}
                   <div className="flex items-center gap-2">
                     {isOwner && (
                       <div
@@ -426,18 +435,63 @@ const CashBook = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right pl-11 sm:pl-0">
+                      <div className="flex flex-col items-end gap-1.5 pl-11 sm:pl-0">
                         <p
                           className={`font-black print:text-base ${tx.type === "in" ? "text-green-600" : "text-red-600"}`}
                         >
                           {tx.type === "in" ? "+" : "-"} Rs.{" "}
                           {tx.amount.toLocaleString()}
                         </p>
+                        {/* 🔥 NAYA: Delete Button sirf Internal Transfers ke liye */}
+                        {isOwner &&
+                          tx.transactionType === "internal_transfer" && (
+                            <button
+                              onClick={() => {
+                                setDeletingTxnId(tx._id);
+                                setIsDeleteTxnModalOpen(true);
+                              }}
+                              className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded text-[10px] font-bold border border-red-100 transition-colors print:hidden"
+                            >
+                              Del
+                            </button>
+                          )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Txn Modal */}
+      {isDeleteTxnModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Transfer?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure? This will delete the transfer and return the money
+              to the original account automatically.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteTxnModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteTxn}
+                className="px-4 py-2 flex-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium"
+              >
+                Yes, Delete
+              </button>
             </div>
           </div>
         </div>

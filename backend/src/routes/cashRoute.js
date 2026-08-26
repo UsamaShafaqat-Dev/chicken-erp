@@ -6,8 +6,9 @@ const {
   getAccounts,
   transferCash,
   getAccountLedger,
-  updateAccount, // 🔥 NAYA
-  deleteAccount, // 🔥 NAYA
+  updateAccount,
+  deleteAccount,
+  deleteTransaction, 
 } = require("../controllers/cashController");
 
 router
@@ -15,7 +16,6 @@ router
   .post(protect, createAccount)
   .get(protect, getAccounts);
 
-// 🔥 NAYA: Edit اور Delete کے روٹس
 router
   .route("/accounts/:id")
   .put(protect, updateAccount)
@@ -23,5 +23,8 @@ router
 
 router.post("/transfer", protect, transferCash);
 router.get("/ledger/:id", protect, getAccountLedger);
+
+// 🔥 NAYA: Transaction delete route
+router.delete("/transaction/:id", protect, deleteTransaction);
 
 module.exports = router;
