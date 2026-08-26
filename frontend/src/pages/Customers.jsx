@@ -15,7 +15,7 @@ import {
   Map,
   History,
   Calendar,
-  ArrowDownRight,
+  ArrowDownLeft, // 🔥 FIX: Ye icon import nahi tha jiski wajah se white screen aayi!
   ArrowUpRight,
   Printer,
   FileText,
@@ -32,7 +32,7 @@ const Customers = () => {
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  // 🔥 NAYA: Khata / Ledger States
+  // Khata / Ledger States
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [ledgerData, setLedgerData] = useState([]);
@@ -52,7 +52,7 @@ const Customers = () => {
     notes: "",
   });
 
-  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
 
   const fetchCustomers = async () => {
@@ -161,7 +161,6 @@ const Customers = () => {
     window.open(`https://wa.me/${cleanNumber}`, "_blank");
   };
 
-  // 🔥 NAYA: Open Khata / Ledger with specific data
   const openLedger = async (customer) => {
     setSelectedCustomer(customer);
     setLedgerStartDate("");
@@ -169,7 +168,6 @@ const Customers = () => {
     setIsLedgerModalOpen(true);
     setLedgerLoading(true);
     try {
-      // Fetch both Sales and Payments to build the ledger
       const [salesRes, paymentsRes] = await Promise.all([
         axios.get("https://asia-poultry-api.onrender.com/api/sales", {
           withCredentials: true,
@@ -179,12 +177,10 @@ const Customers = () => {
         }),
       ]);
 
-      // Extract this customer's sales
       const cSales = salesRes.data
         .filter((s) => (s.customer?._id || s.customer) === customer._id)
         .map((s) => ({ ...s, isSale: true, ledgerDate: s.date }));
 
-      // Extract this customer's payments
       const cPayments = paymentsRes.data
         .filter(
           (p) =>
@@ -212,12 +208,18 @@ const Customers = () => {
       (c.area && c.area.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
-  // 🔥 NAYA: Filtered Khata based on Dates
+  // 🔥 FIX: Safety check for Invalid Dates added
   const filteredLedger = ledgerData.filter((item) => {
-    const dateStr = new Date(item.ledgerDate).toISOString().split("T")[0];
-    if (ledgerStartDate && dateStr < ledgerStartDate) return false;
-    if (ledgerEndDate && dateStr > ledgerEndDate) return false;
-    return true;
+    try {
+      const dateStr = new Date(item.ledgerDate || Date.now())
+        .toISOString()
+        .split("T")[0];
+      if (ledgerStartDate && dateStr < ledgerStartDate) return false;
+      if (ledgerEndDate && dateStr > ledgerEndDate) return false;
+      return true;
+    } catch (e) {
+      return true;
+    }
   });
 
   const periodSales = filteredLedger
@@ -494,7 +496,7 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* 🔥 NAYA: LEDGER (KHATA) MODAL WITH DATE FILTER */}
+      {/* LEDGER (KHATA) MODAL WITH DATE FILTER */}
       {isLedgerModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -662,9 +664,9 @@ const Customers = () => {
                               : "Maal Diya (Sale)"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(tx.ledgerDate).toLocaleDateString(
-                              "en-GB",
-                            )}
+                            {new Date(
+                              tx.ledgerDate || Date.now(),
+                            ).toLocaleDateString("en-GB")}
                             {tx.isSale && (
                               <span className="ml-2 font-bold text-gray-600">
                                 ({tx.weight} KG)
