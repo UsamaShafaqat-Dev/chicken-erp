@@ -59,7 +59,7 @@ const Sales = () => {
 
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
   const isOwner = userInfo?.role === "owner";
-  // 🔥 NAYA: Aaj ki date nikali, taake purani entry ko lock kar sakein
+
   const todayDateStr = new Date().toISOString().split("T")[0];
 
   const fetchData = async () => {
@@ -260,7 +260,6 @@ const Sales = () => {
       ...sale,
       displayPaid: Number(sale.paidAmount) || 0,
       displayBalance: Number(sale.balanceDue) || 0,
-      // 🔥 NAYA: Hum entry ki date bhi store kar rahy hain lock k liye
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
@@ -636,8 +635,8 @@ const Sales = () => {
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
-                        {/* 🔥 FIX: Date-Based Lock Logic. Agar owner hai ya entry ki date aaj ki hai, tabhi edit/delete dikhao */}
-                        {isOwner || sale.entryDateStr === todayDateStr ? (
+                        {/* 🔥 FIX: Owner ko Edit+Delete dikhega. Staff ko Edit dikhega (agar date aaj ki hai). */}
+                        {isOwner ? (
                           <>
                             <button
                               onClick={() => openModal(sale)}
@@ -655,6 +654,13 @@ const Sales = () => {
                               <Trash2 size={14} /> Del
                             </button>
                           </>
+                        ) : sale.entryDateStr === todayDateStr ? (
+                          <button
+                            onClick={() => openModal(sale)}
+                            className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                          >
+                            <Edit size={14} /> Edit
+                          </button>
                         ) : (
                           <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
                             Locked
@@ -745,7 +751,8 @@ const Sales = () => {
               </div>
 
               <div className="flex gap-2">
-                {isOwner || sale.entryDateStr === todayDateStr ? (
+                {/* 🔥 FIX: Mobile view logic */}
+                {isOwner ? (
                   <>
                     <button
                       onClick={() => openModal(sale)}
@@ -763,6 +770,13 @@ const Sales = () => {
                       <Trash2 size={16} /> Delete
                     </button>
                   </>
+                ) : sale.entryDateStr === todayDateStr ? (
+                  <button
+                    onClick={() => openModal(sale)}
+                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
+                  >
+                    <Edit size={16} /> Edit
+                  </button>
                 ) : (
                   <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
                     🔒 Locked (Old Entry)
