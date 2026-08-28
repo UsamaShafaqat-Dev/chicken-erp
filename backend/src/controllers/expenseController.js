@@ -1,4 +1,5 @@
 const Expense = require("../models/Expense");
+const ExpenseCategory = require("../models/ExpenseCategory"); // Category Model add kiya gaya hai backend mein
 
 // @desc    Get all expenses
 // @route   GET /api/expenses
@@ -59,4 +60,35 @@ const deleteExpense = async (req, res) => {
   }
 };
 
-module.exports = { getExpenses, createExpense, updateExpense, deleteExpense };
+// 🔥 NAYA: Expense Category banate waqt Opening Balance dalne ki logic
+const createCategory = async (req, res) => {
+  try {
+    const { name, openingBalance } = req.body;
+
+    // Save the category
+    const newCat = await ExpenseCategory.create({ name });
+
+    // Agar opening balance bheja gaya hai, to usey ek 'Expense' ke tor par add kar dein
+    if (openingBalance && Number(openingBalance) > 0) {
+      await Expense.create({
+        category: name,
+        description: "Opening Balance / Previous Record",
+        amount: Number(openingBalance),
+        paymentMethod: "cash",
+        date: Date.now(),
+      });
+    }
+
+    res.status(201).json(newCat);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  getExpenses,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  createCategory,
+};

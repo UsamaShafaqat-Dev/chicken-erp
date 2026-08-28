@@ -12,15 +12,21 @@ const getEmployees = async (req, res) => {
   }
 };
 
-// 2. Add new employee
+// 2. Add new employee (With Opening Balance)
 const createEmployee = async (req, res) => {
   try {
-    const { name, mobile, designation, monthlySalary } = req.body;
+    const { name, mobile, designation, monthlySalary, openingBalance } =
+      req.body;
+
+    // NAYA: Opening balance handle karna
+    let initialBalance = Number(openingBalance) || 0;
+
     const employee = await Employee.create({
       name,
       mobile: mobile || null,
       designation,
       monthlySalary,
+      currentBalance: initialBalance, // Set Opening Balance
     });
     res.status(201).json(employee);
   } catch (error) {
@@ -32,14 +38,23 @@ const createEmployee = async (req, res) => {
 const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, mobile, designation, monthlySalary } = req.body;
-    const employee = await Employee.findByIdAndUpdate(
-      id,
-      { name, mobile: mobile || null, designation, monthlySalary },
-      { new: true },
-    );
+    const { name, mobile, designation, monthlySalary, openingBalance } =
+      req.body;
+
+    const employee = await Employee.findById(id);
     if (!employee)
       return res.status(404).json({ message: "Employee not found" });
+
+    employee.name = name;
+    employee.mobile = mobile || null;
+    employee.designation = designation;
+    employee.monthlySalary = monthlySalary;
+
+    if (openingBalance !== undefined && openingBalance !== "") {
+      employee.currentBalance = Number(openingBalance);
+    }
+
+    await employee.save();
     res.json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -114,7 +129,7 @@ const getEmployeeLedger = async (req, res) => {
   }
 };
 
-// 🔥 7. NAYA: Sirf ek Transaction (Entry) Delete karna
+// 🔥 7. NAYA: Sirf ek Transaction (Entry) Delete karna aur Ghost Balance Fix karna!
 const deleteTransaction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -124,7 +139,7 @@ const deleteTransaction = async (req, res) => {
 
     const employee = await Employee.findById(transaction.employee);
     if (employee) {
-      // Balance ko reverse karna
+      // 🔥 FIX: Balance ko accurate tareeqay se reverse karna
       if (transaction.type === "salary_added") {
         employee.currentBalance -= Number(transaction.amount);
       } else if (transaction.type === "payment_given") {

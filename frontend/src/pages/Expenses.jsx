@@ -33,15 +33,19 @@ const Expenses = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
     useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
+
+  // 🔥 NAYA: Form for New Khata (Category) + Opening Balance
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    openingBalance: "",
+  });
+
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [deletingCategoryId, setDeletingCategoryId] = useState(null);
   const [savingCategory, setSavingCategory] = useState(false);
 
   // Khata/Ledger Modal States
   const [showLedgerModal, setShowLedgerModal] = useState(false);
-
-  // 🔥 NAYA: Ledger Date Filter States
   const [ledgerStartDate, setLedgerStartDate] = useState("");
   const [ledgerEndDate, setLedgerEndDate] = useState("");
 
@@ -194,34 +198,37 @@ const Expenses = () => {
         "This is a default category and cannot be edited. Create a new one.",
       );
     }
-    setNewCategoryName(catDoc.name);
+    setCategoryForm({ name: catDoc.name, openingBalance: "" });
     setEditingCategoryId(catDoc._id);
     setIsCategoryModalOpen(true);
   };
 
   const handleAddCategory = async (e) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return toast.error("Name cannot be empty");
+    if (!categoryForm.name.trim()) return toast.error("Name cannot be empty");
 
     setSavingCategory(true);
     try {
       if (editingCategoryId) {
         await axios.put(
           `https://asia-poultry-api.onrender.com/api/expense-categories/${editingCategoryId}`,
-          { name: newCategoryName.trim() },
+          { name: categoryForm.name.trim() },
           { withCredentials: true },
         );
         toast.success("Khata Updated!");
       } else {
         const { data } = await axios.post(
           "https://asia-poultry-api.onrender.com/api/expense-categories",
-          { name: newCategoryName.trim() },
+          {
+            name: categoryForm.name.trim(),
+            openingBalance: categoryForm.openingBalance,
+          }, // 🔥 NAYA
           { withCredentials: true },
         );
         setFormData({ ...formData, category: data.name });
         toast.success("New Khata Added!");
       }
-      setNewCategoryName("");
+      setCategoryForm({ name: "", openingBalance: "" });
       setIsCategoryModalOpen(false);
       fetchData();
     } catch (error) {
@@ -269,7 +276,7 @@ const Expenses = () => {
   };
 
   const openLedger = (stat) => {
-    setLedgerStartDate(""); // Reset Dates
+    setLedgerStartDate("");
     setLedgerEndDate("");
     const sortedTransactions = [...stat.transactions].sort(
       (a, b) => new Date(b.date) - new Date(a.date),
@@ -289,7 +296,6 @@ const Expenses = () => {
 
   const categoryStats = getCategoryStats();
 
-  // 🔥 NAYA: Filter Ledger Data based on Dates
   const filteredLedgerData = selectedCategoryLedger.transactions.filter(
     (tx) => {
       const txDate = new Date(tx.date || Date.now())
@@ -301,7 +307,6 @@ const Expenses = () => {
     },
   );
 
-  // Calculate new total based on filtered dates
   const filteredTotalAmount = filteredLedgerData.reduce(
     (sum, tx) => sum + (Number(tx.amount) || 0),
     0,
@@ -325,7 +330,7 @@ const Expenses = () => {
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
-              setNewCategoryName("");
+              setCategoryForm({ name: "", openingBalance: "" });
               setEditingCategoryId(null);
               setIsCategoryModalOpen(true);
             }}
@@ -454,7 +459,6 @@ const Expenses = () => {
               </div>
             </div>
 
-            {/* 🔥 NAYA: Date Filter Box */}
             <div className="bg-white px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3 shrink-0 print:hidden">
               <div className="flex items-center gap-2 text-gray-600 font-medium text-xs">
                 <Calendar size={14} className="text-blue-500" /> Filter Dates:
@@ -639,7 +643,7 @@ const Expenses = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setNewCategoryName("");
+                      setCategoryForm({ name: "", openingBalance: "" });
                       setEditingCategoryId(null);
                       setIsCategoryModalOpen(true);
                     }}
@@ -735,18 +739,43 @@ const Expenses = () => {
             <form onSubmit={handleAddCategory} className="p-5 space-y-4">
               <div>
                 <label className="block text-gray-700 text-sm font-medium mb-1">
-                  Khata Name
+                  Khata Name *
                 </label>
                 <input
                   type="text"
                   required
                   autoFocus
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  value={categoryForm.name}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, name: e.target.value })
+                  }
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="e.g. Vehicle 9093"
                 />
               </div>
+              {/* 🔥 NAYA: Expense Khata Opening Balance Field */}
+              {!editingCategoryId && (
+                <div>
+                  <label className="block text-gray-700 text-sm font-medium mb-1">
+                    Opening Balance (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    value={categoryForm.openingBalance}
+                    onChange={(e) =>
+                      setCategoryForm({
+                        ...categoryForm,
+                        openingBalance: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="e.g. 5000"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Is khate ka pichla kharcha agar record mein add karna hai.
+                  </p>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={savingCategory}

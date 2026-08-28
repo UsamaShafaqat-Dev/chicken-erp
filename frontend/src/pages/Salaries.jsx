@@ -22,7 +22,6 @@ const Salaries = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modals State
   const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
   const [isTxnModalOpen, setIsTxnModalOpen] = useState(false);
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
@@ -31,12 +30,10 @@ const Salaries = () => {
   const [isDeleteTxnModalOpen, setIsDeleteTxnModalOpen] = useState(false);
   const [deletingTxnId, setDeletingTxnId] = useState(null);
 
-  // Data States
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [ledgerData, setLedgerData] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔥 NAYA: Ledger Date Filter States
   const [ledgerStartDate, setLedgerStartDate] = useState("");
   const [ledgerEndDate, setLedgerEndDate] = useState("");
 
@@ -46,12 +43,13 @@ const Salaries = () => {
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
   const isOwner = userInfo?.role === "owner";
 
-  // Forms
+  // 🔥 NAYA: Form mein openingBalance add kiya
   const [empForm, setEmpForm] = useState({
     name: "",
     mobile: "",
     designation: "Staff",
     monthlySalary: "",
+    openingBalance: 0,
   });
 
   const [txnForm, setTxnForm] = useState({
@@ -89,6 +87,7 @@ const Salaries = () => {
         mobile: emp.mobile || "",
         designation: emp.designation || "Staff",
         monthlySalary: emp.monthlySalary,
+        openingBalance: emp.currentBalance, // 🔥 Load existing balance
       });
       setEditingId(emp._id);
     } else {
@@ -97,6 +96,7 @@ const Salaries = () => {
         mobile: "",
         designation: "Staff",
         monthlySalary: "",
+        openingBalance: 0, // 🔥 Default is 0
       });
       setEditingId(null);
     }
@@ -124,12 +124,6 @@ const Salaries = () => {
         toast.success("Employee added successfully!");
       }
       setIsEmpModalOpen(false);
-      setEmpForm({
-        name: "",
-        mobile: "",
-        designation: "Staff",
-        monthlySalary: "",
-      });
       fetchEmployees();
     } catch (error) {
       toast.error("Failed to save employee");
@@ -175,7 +169,7 @@ const Salaries = () => {
 
   const openLedger = async (emp) => {
     try {
-      setLedgerStartDate(""); // Reset dates on open
+      setLedgerStartDate("");
       setLedgerEndDate("");
       setSelectedEmp(emp);
       setIsLedgerModalOpen(true);
@@ -210,7 +204,6 @@ const Salaries = () => {
     emp.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // 🔥 NAYA: Filter Ledger Data based on Dates
   const filteredLedgerData = ledgerData.filter((tx) => {
     const txDate = new Date(tx.date).toISOString().split("T")[0];
     if (ledgerStartDate && txDate < ledgerStartDate) return false;
@@ -400,20 +393,37 @@ const Salaries = () => {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-gray-700 font-medium mb-1">
-                  Fixed Monthly Salary (Rs) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={empForm.monthlySalary}
-                  onChange={(e) =>
-                    setEmpForm({ ...empForm, monthlySalary: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
-                  placeholder="0"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Fixed Salary (Rs) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={empForm.monthlySalary}
+                    onChange={(e) =>
+                      setEmpForm({ ...empForm, monthlySalary: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
+                    placeholder="0"
+                  />
+                </div>
+                {/* 🔥 NAYA: Opening Balance Field */}
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Opening Balance
+                  </label>
+                  <input
+                    type="number"
+                    value={empForm.openingBalance}
+                    onChange={(e) =>
+                      setEmpForm({ ...empForm, openingBalance: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
+                    placeholder="e.g. 2000 ya -5000"
+                  />
+                </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button
@@ -583,7 +593,6 @@ const Salaries = () => {
               </button>
             </div>
 
-            {/* 🔥 NAYA: Date Filter Box */}
             <div className="bg-white px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3 shrink-0 print:hidden">
               <div className="flex items-center gap-2 text-gray-600 font-medium text-xs">
                 <Calendar size={14} className="text-blue-500" /> Filter Dates:
