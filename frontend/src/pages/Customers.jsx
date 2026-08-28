@@ -44,7 +44,6 @@ const Customers = () => {
   const [ledgerStartDate, setLedgerStartDate] = useState("");
   const [ledgerEndDate, setLedgerEndDate] = useState("");
 
-  // 🔥 NAYA: Do alag refs print ke liye (1 Ledger ke liye, 1 Main Page ke liye)
   const printRef = useRef(null);
   const mainPrintRef = useRef(null);
 
@@ -207,46 +206,52 @@ const Customers = () => {
     }
   };
 
+  // 🔥 FIX: Recalculate accurately to avoid any Double Counting in Database!
   const processedCustomers = customers.map((customer) => {
-    let displayPurchases = customer.totalPurchases || 0;
-    let displayPaid = customer.totalPaid || 0;
-    let displayBalance = customer.currentBalance || 0;
+    const cSales = allSales.filter(
+      (s) => (s.customer?._id || s.customer) === customer._id,
+    );
+    const cPayments = allPayments.filter(
+      (p) =>
+        p.type === "receive" &&
+        (p.customer?._id || p.customer) === customer._id,
+    );
+
+    let displayPurchases = cSales.reduce(
+      (sum, s) => sum + (Number(s.totalAmount) || 0),
+      0,
+    );
+    let displayPaid = cPayments.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0,
+    ); // 🔥 FIX: Sirf Payments uthayen, bill ki paid amount nahi
 
     if (globalFromDate || globalToDate) {
-      const customerSales = allSales.filter((s) => {
-        if ((s.customer?._id || s.customer) !== customer._id) return false;
+      const filteredSales = cSales.filter((s) => {
         const sDate = new Date(s.date).toISOString().split("T")[0];
         if (globalFromDate && sDate < globalFromDate) return false;
         if (globalToDate && sDate > globalToDate) return false;
         return true;
       });
 
-      const customerPayments = allPayments.filter((p) => {
-        if (p.type !== "receive") return false;
-        if ((p.customer?._id || p.customer) !== customer._id) return false;
+      const filteredPayments = cPayments.filter((p) => {
         const pDate = new Date(p.date).toISOString().split("T")[0];
         if (globalFromDate && pDate < globalFromDate) return false;
         if (globalToDate && pDate > globalToDate) return false;
         return true;
       });
 
-      const pSalesAmount = customerSales.reduce(
+      displayPurchases = filteredSales.reduce(
         (sum, s) => sum + (Number(s.totalAmount) || 0),
         0,
       );
-      const pSalesPaid = customerSales.reduce(
-        (sum, s) => sum + (Number(s.paidAmount) || 0),
-        0,
-      );
-      const pRecoveries = customerPayments.reduce(
+      displayPaid = filteredPayments.reduce(
         (sum, p) => sum + (Number(p.amount) || 0),
         0,
-      );
-
-      displayPurchases = pSalesAmount;
-      displayPaid = pSalesPaid + pRecoveries;
-      displayBalance = displayPurchases - displayPaid;
+      ); // 🔥 FIX
     }
+
+    let displayBalance = displayPurchases - displayPaid;
 
     return {
       ...customer,
@@ -292,23 +297,19 @@ const Customers = () => {
   const periodSales = filteredLedger
     .filter((x) => x.isSale)
     .reduce((sum, x) => sum + (Number(x.totalAmount) || 0), 0);
-  const periodPaidFromSales = filteredLedger
-    .filter((x) => x.isSale)
-    .reduce((sum, x) => sum + (Number(x.paidAmount) || 0), 0);
+  // 🔥 FIX: Khata mein bhi double count khatam kiya
   const periodRecoveries = filteredLedger
     .filter((x) => x.isPayment)
     .reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
 
-  const totalPeriodPaid = periodPaidFromSales + periodRecoveries;
+  const totalPeriodPaid = periodRecoveries;
   const periodRemaining = periodSales - totalPeriodPaid;
 
-  // 🔥 NAYA: Ledger Print Handler
   const handlePrintLedger = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Customer_Ledger_${selectedCustomer?.name}_${new Date().toISOString().split("T")[0]}`,
   });
 
-  // 🔥 NAYA: Main Page (Market Summary) Print Handler
   const handleMainPrint = useReactToPrint({
     contentRef: mainPrintRef,
     documentTitle: `Market_Summary_${new Date().toISOString().split("T")[0]}`,
@@ -316,7 +317,6 @@ const Customers = () => {
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
-      {/* HEADER (Hidden in Print) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
         <div className="flex flex-col xl:flex-row items-start xl:items-center gap-3 w-full xl:w-auto">
           <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-64 flex items-center gap-2 w-full xl:w-auto">
@@ -375,12 +375,10 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* 🔥 NAYA: Container Jiska Print Nikalna hai */}
       <div
         ref={mainPrintRef}
         className="print:p-6 print:bg-white print:w-full space-y-6"
       >
-        {/* PRINT ONLY HEADER */}
         <div className="hidden print:block text-center border-b-2 border-gray-800 pb-4 mb-4">
           <h1 className="text-3xl font-black text-gray-900 uppercase">
             Asia Poultry Business
@@ -410,7 +408,6 @@ const Customers = () => {
           )}
         </div>
 
-        {/* Market Summary Ribbon */}
         {(globalFromDate || globalToDate) && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-900 print:bg-gray-100 p-4 rounded-xl shadow-lg border border-gray-800 print:border-gray-300 text-center animate-pulse print:animate-none">
             <div>
@@ -443,7 +440,6 @@ const Customers = () => {
         )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden print:border-none print:shadow-none">
-          {/* DESKTOP TABLE VIEW */}
           <div className="hidden lg:block print:block w-full">
             <table className="w-full text-left border-collapse text-xs table-auto print:text-sm">
               <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 print:bg-gray-200 print:text-black">
@@ -582,7 +578,6 @@ const Customers = () => {
             </table>
           </div>
 
-          {/* MOBILE CARDS VIEW (Hidden in Print) */}
           <div className="lg:hidden flex flex-col print:hidden">
             {filteredCustomers.map((customer, index) => (
               <div
@@ -687,7 +682,6 @@ const Customers = () => {
           </div>
         </div>
 
-        {/* Footer Signature Area Print */}
         <div className="hidden print:flex mt-20 justify-between items-center border-t border-gray-300 pt-4">
           <p className="text-gray-500 text-sm">
             System Generated Report - Asia Poultry Business
@@ -699,7 +693,6 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* LEDGER (KHATA) MODAL WITH DATE FILTER */}
       {isLedgerModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -883,12 +876,7 @@ const Customers = () => {
                               Rs.{" "}
                               {(Number(tx.totalAmount) || 0).toLocaleString()}
                             </p>
-                            {Number(tx.paidAmount) > 0 && (
-                              <p className="text-[10px] text-green-600 font-bold mt-1 uppercase tracking-wider">
-                                Paid: Rs.{" "}
-                                {Number(tx.paidAmount).toLocaleString()}
-                              </p>
-                            )}
+                            {/* 🔥 FIX: UI se Paid amount nikaal di taake client double confuse na ho */}
                           </>
                         ) : (
                           <p className="font-black text-green-600 print:text-base">

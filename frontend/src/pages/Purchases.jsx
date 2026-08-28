@@ -16,6 +16,7 @@ const Purchases = () => {
   const [purchases, setPurchases] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 FIX: Double click lock state
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,7 +67,6 @@ const Purchases = () => {
     const { name, value } = e.target;
     let newFormData = { ...formData, [name]: value };
 
-    // Agar weight ya rate change ho raha hai
     if (name === "weight" || name === "rate") {
       const weight = parseFloat(newFormData.weight) || 0;
       const rate = parseFloat(newFormData.rate) || 0;
@@ -74,19 +74,14 @@ const Purchases = () => {
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
 
-      // 🔥 FIX: Auto Fill nikal diya gaya hai. Ab Paid amount wahi rahegi jo user ne likhi hai
       newFormData.balanceDue =
         totalAmount - (parseFloat(newFormData.paidAmount) || 0);
-    }
-    // Agar payment method change ho
-    else if (name === "paymentMethod") {
+    } else if (name === "paymentMethod") {
       if (value === "credit") {
-        newFormData.paidAmount = ""; // Udhaar select karne par paid amount 0 ho jaye
+        newFormData.paidAmount = "";
         newFormData.balanceDue = parseFloat(newFormData.totalAmount) || 0;
       }
-    }
-    // Agar user khud hath se paidAmount type kare
-    else if (name === "paidAmount") {
+    } else if (name === "paidAmount") {
       const totalAmount = parseFloat(newFormData.totalAmount) || 0;
       newFormData.balanceDue = totalAmount - (parseFloat(value) || 0);
     }
@@ -127,9 +122,12 @@ const Purchases = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // 🔥 FIX: Prevent double click
+
     if (!formData.supplier || !formData.weight || !formData.rate)
       return toast.error("Supplier, Weight, and Rate are required");
 
+    setIsSubmitting(true); // 🔥 FIX: Lock ON
     try {
       if (editingId) {
         await axios.put(
@@ -152,6 +150,8 @@ const Purchases = () => {
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
+    } finally {
+      setIsSubmitting(false); // 🔥 FIX: Lock OFF
     }
   };
 
@@ -527,15 +527,21 @@ const Purchases = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSubmitting} // 🔥 FIX
                   className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium flex items-center gap-2"
+                  disabled={isSubmitting} // 🔥 FIX
+                  className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
                 >
-                  {editingId ? "Update Purchase" : "Save Purchase"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingId
+                      ? "Update Purchase"
+                      : "Save Purchase"}
                 </button>
               </div>
             </form>

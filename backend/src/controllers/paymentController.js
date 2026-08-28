@@ -6,7 +6,7 @@ const CashAccount = require("../models/CashAccount");
 const CashTransaction = require("../models/CashTransaction");
 const Purchase = require("../models/Purchase");
 const Sale = require("../models/Sale");
-const Expense = require("../models/Expense"); // 🔥 NAYA: Expense model link kiya
+const Expense = require("../models/Expense");
 
 // @desc    Get all payments
 // @route   GET /api/payments
@@ -38,8 +38,8 @@ const createPayment = async (req, res) => {
       date,
       notes,
       cashAccountId,
-      payeeType, // 🔥 NAYA
-      expenseCategory, // 🔥 NAYA
+      payeeType,
+      expenseCategory,
     } = req.body;
     const paymentAmount = Number(amount);
 
@@ -49,9 +49,7 @@ const createPayment = async (req, res) => {
 
     const cashAcc = await CashAccount.findById(cashAccountId);
 
-    // 🔥 NAYA: Agar Payment 'Expense' ke liye hai (Master Voucher Logic)
     if (type === "pay" && payeeType === "expense" && expenseCategory) {
-      // 1. Expense create karein
       const expenseDoc = await Expense.create({
         category: expenseCategory,
         description: notes || "Direct Expense from Payments",
@@ -60,7 +58,6 @@ const createPayment = async (req, res) => {
         date: date || Date.now(),
       });
 
-      // 2. Payment create karein (Expense ki ID notes me chhupa denge taake baad me delete ho sake)
       const payment = await Payment.create({
         type,
         amount: paymentAmount,
@@ -70,7 +67,6 @@ const createPayment = async (req, res) => {
         cashAccountId,
       });
 
-      // 3. Cash minus karein aur History banayen
       if (cashAcc) {
         cashAcc.balance -= paymentAmount;
         await cashAcc.save();
@@ -85,7 +81,6 @@ const createPayment = async (req, res) => {
       return res.status(201).json(payment);
     }
 
-    // --- BAKI PURANA LOGIC (Customer, Supplier, Employee) ---
     const payment = await Payment.create({
       type,
       customer,
@@ -223,7 +218,20 @@ const updatePayment = async (req, res) => {
 
     payment.amount = newAmount;
     payment.method = req.body.method;
-    payment.date = req.body.date || payment.date;
+
+    // 🔥 FIX: Keep the original Time intact when Date is updated
+    if (req.body.date) {
+      const oldDate = new Date(payment.date);
+      const newDate = new Date(req.body.date);
+      // Set the hours, minutes, seconds from the old date to the new date
+      newDate.setUTCHours(
+        oldDate.getUTCHours(),
+        oldDate.getUTCMinutes(),
+        oldDate.getUTCSeconds(),
+        oldDate.getUTCMilliseconds(),
+      );
+      payment.date = newDate;
+    }
 
     const isExpense = payment.notes && payment.notes.startsWith("[EXPENSE:");
     if (isExpense) {
@@ -234,7 +242,7 @@ const updatePayment = async (req, res) => {
         amount: newAmount,
         description: req.body.notes || "Direct Expense from Payments",
         paymentMethod: req.body.method,
-        date: req.body.date || payment.date,
+        date: payment.date,
       });
     } else {
       payment.notes = req.body.notes;
@@ -242,7 +250,6 @@ const updatePayment = async (req, res) => {
 
     await payment.save();
 
-    // 🔥 FIX: CashTransaction History ko bhi update karo!
     await CashTransaction.updateMany(
       {
         amount: oldAmount,
@@ -251,7 +258,7 @@ const updatePayment = async (req, res) => {
           { toAccount: payment.cashAccountId },
         ],
       },
-      { $set: { amount: newAmount, date: payment.date } },
+      { $set: { amount: newAmount, date: payment.date } }, // 🔥 Time will be preserved here too
     );
 
     if (payment.type === "receive" && payment.customer) {
@@ -299,7 +306,6 @@ const deletePayment = async (req, res) => {
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    // 🔥 FIX GHOST HISTORY: Khate me se original entry ko dhoond kar delete karo
     await CashTransaction.deleteMany({
       amount: payment.amount,
       $or: [
@@ -308,7 +314,6 @@ const deletePayment = async (req, res) => {
       ],
     });
 
-    // 🔥 Agar Expense tha, to usko Expense db se bhi ura do
     if (payment.notes && payment.notes.startsWith("[EXPENSE:")) {
       const expId = payment.notes.split("]")[0].replace("[EXPENSE:", "");
       await Expense.findByIdAndDelete(expId);
