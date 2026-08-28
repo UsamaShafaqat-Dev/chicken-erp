@@ -17,14 +17,17 @@ import {
   Settings,
   X,
   Wallet,
-  Briefcase, // 🔥 NAYA: Salaries page k liye icon
+  Briefcase,
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
   const [liveStock, setLiveStock] = useState(0);
 
-  // 🔥 Live Stock Fetching Logic
+  // 🔥 NAYA: User Info nikali taake Owner aur Staff mein farq pata chale
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+  const isOwner = userInfo?.role === "owner";
+
   useEffect(() => {
     axios
       .get("https://asia-poultry-api.onrender.com/api/stock", {
@@ -49,9 +52,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: "Cash Book", icon: Wallet, path: "/cashbook" },
     { name: "Reports", icon: BarChart3, path: "/reports" },
     { name: "WhatsApp Reminder", icon: MessageCircle, path: "/whatsapp" },
-    { name: "Users / Staff", icon: UserCog, path: "/users" },
-    { name: "Staff / Salaries", icon: Briefcase, path: "/salaries" }, // 🔥 FIX: Yahan add ho gaya
-    { name: "Settings", icon: Settings, path: "/settings" },
+    { name: "Staff / Salaries", icon: Briefcase, path: "/salaries" },
+
+    // 🔥 FIX: Ye 2 buttons sirf Owner (Admin) ko nazar ayenge!
+    ...(isOwner
+      ? [{ name: "Users / Staff", icon: UserCog, path: "/users" }]
+      : []),
+    ...(isOwner
+      ? [{ name: "Settings", icon: Settings, path: "/settings" }]
+      : []),
   ];
 
   return (

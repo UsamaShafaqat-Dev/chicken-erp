@@ -59,6 +59,8 @@ const Sales = () => {
 
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
   const isOwner = userInfo?.role === "owner";
+  // 🔥 NAYA: Aaj ki date nikali, taake purani entry ko lock kar sakein
+  const todayDateStr = new Date().toISOString().split("T")[0];
 
   const fetchData = async () => {
     try {
@@ -241,7 +243,6 @@ const Sales = () => {
     }
   };
 
-  // --- FILTERS ---
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -254,12 +255,13 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 FIX: Double Calculation removed. Using DB values directly.
   const enhancedSales = filteredSales.map((sale) => {
     return {
       ...sale,
       displayPaid: Number(sale.paidAmount) || 0,
       displayBalance: Number(sale.balanceDue) || 0,
+      // 🔥 NAYA: Hum entry ki date bhi store kar rahy hain lock k liye
+      entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
 
@@ -278,7 +280,6 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  // --- TOTAL CALCULATIONS ---
   const totalPurchasedWeight = filteredPurchases.reduce(
     (sum, p) => sum + (Number(p.weight) || 0),
     0,
@@ -314,7 +315,6 @@ const Sales = () => {
     0,
   );
 
-  // 🔥 FIX: Shortage bug resolved using toFixed(2)
   const shortageWeight = Number(
     (totalPurchasedWeight - totalWeight).toFixed(2),
   );
@@ -636,7 +636,8 @@ const Sales = () => {
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
-                        {isOwner ? (
+                        {/* 🔥 FIX: Date-Based Lock Logic. Agar owner hai ya entry ki date aaj ki hai, tabhi edit/delete dikhao */}
+                        {isOwner || sale.entryDateStr === todayDateStr ? (
                           <>
                             <button
                               onClick={() => openModal(sale)}
@@ -655,8 +656,8 @@ const Sales = () => {
                             </button>
                           </>
                         ) : (
-                          <span className="text-xs text-gray-400">
-                            No Action
+                          <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
+                            Locked
                           </span>
                         )}
                       </div>
@@ -743,25 +744,31 @@ const Sales = () => {
                 </div>
               </div>
 
-              {isOwner && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openModal(sale)}
-                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
-                  >
-                    <Edit size={16} /> Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDeletingId(sale._id);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
-                  >
-                    <Trash2 size={16} /> Delete
-                  </button>
-                </div>
-              )}
+              <div className="flex gap-2">
+                {isOwner || sale.entryDateStr === todayDateStr ? (
+                  <>
+                    <button
+                      onClick={() => openModal(sale)}
+                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
+                    >
+                      <Edit size={16} /> Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeletingId(sale._id);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
+                    >
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
+                    🔒 Locked (Old Entry)
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

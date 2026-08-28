@@ -49,6 +49,8 @@ const Payments = () => {
 
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
+  // 🔥 NAYA: Aaj ki date nikali, taake purani entry ko lock kar sakein
+  const todayDateStr = new Date().toISOString().split("T")[0];
 
   const fetchData = async () => {
     try {
@@ -377,6 +379,11 @@ const Payments = () => {
                   const isExp =
                     payment.notes && payment.notes.startsWith("[EXPENSE:");
                   const cleanNotes = getCleanNotes(payment.notes);
+                  // 🔥 NAYA: Payment Date Lock k liye extract ki
+                  const entryDateStr = new Date(payment.date)
+                    .toISOString()
+                    .split("T")[0];
+
                   return (
                     <tr
                       key={payment._id}
@@ -441,7 +448,8 @@ const Payments = () => {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         <div className="flex justify-center items-center gap-1.5">
-                          {isOwner ? (
+                          {/* 🔥 FIX: Agar owner hai ya entry aaj ki hai tabhi button dikhao */}
+                          {isOwner || entryDateStr === todayDateStr ? (
                             <>
                               <button
                                 onClick={() => openModal(payment)}
@@ -460,8 +468,8 @@ const Payments = () => {
                               </button>
                             </>
                           ) : (
-                            <span className="text-xs text-gray-400">
-                              No Action
+                            <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
+                              Locked
                             </span>
                           )}
                         </div>
@@ -480,6 +488,10 @@ const Payments = () => {
             const isExp =
               payment.notes && payment.notes.startsWith("[EXPENSE:");
             const cleanNotes = getCleanNotes(payment.notes);
+            const entryDateStr = new Date(payment.date)
+              .toISOString()
+              .split("T")[0];
+
             return (
               <div
                 key={payment._id}
@@ -544,25 +556,31 @@ const Payments = () => {
                   </div>
                 </div>
 
-                {isOwner && (
-                  <div className="flex gap-2 mt-1">
-                    <button
-                      onClick={() => openModal(payment)}
-                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
-                    >
-                      <Edit size={16} /> Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeletingId(payment._id);
-                        setIsDeleteModalOpen(true);
-                      }}
-                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
-                    >
-                      <Trash2 size={16} /> Delete
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2 mt-1">
+                  {isOwner || entryDateStr === todayDateStr ? (
+                    <>
+                      <button
+                        onClick={() => openModal(payment)}
+                        className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
+                      >
+                        <Edit size={16} /> Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingId(payment._id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
+                      >
+                        <Trash2 size={16} /> Delete
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
+                      🔒 Locked (Old Entry)
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -843,7 +861,7 @@ const Payments = () => {
                 type="submit"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
+                className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
               >
                 {isSubmitting
                   ? "Saving..."

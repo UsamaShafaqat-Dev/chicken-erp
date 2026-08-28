@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom"; // 🔥 NAYA
 import axios from "axios";
 import toast from "react-hot-toast";
 import {
@@ -14,7 +15,8 @@ import {
 } from "lucide-react";
 
 const Settings = () => {
-  // 🔥 profilePic ko formData mein add kiya
+  const navigate = useNavigate(); // 🔥 NAYA
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -31,6 +33,13 @@ const Settings = () => {
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
 
   useEffect(() => {
+    // 🔥 FIX: Agar owner nahi hai, to direct Dashboard par phaink do!
+    if (userInfo?.role !== "owner") {
+      toast.error("Access Denied! Only Owner can access settings.");
+      navigate("/");
+      return;
+    }
+
     if (userInfo) {
       setFormData({
         name: userInfo.name || "",
@@ -41,20 +50,19 @@ const Settings = () => {
       });
       if (userInfo.profilePic) setImagePreview(userInfo.profilePic);
     }
-  }, []);
+  }, [navigate]);
 
   const handleInputChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // 🔥 NAYA: Image ko text (Base64) mein convert kar ke attach karega
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.readAsDataURL(file); // Picture ko read kar raha hai
+      reader.readAsDataURL(file);
       reader.onloadend = () => {
-        setImagePreview(reader.result); // Screen par show karne ke liye
-        setFormData({ ...formData, profilePic: reader.result }); // Backend ko bhejne ke liye
+        setImagePreview(reader.result);
+        setFormData({ ...formData, profilePic: reader.result });
       };
     }
   };
@@ -89,6 +97,9 @@ const Settings = () => {
       setLoading(false);
     }
   };
+
+  // Agar staff ghalti se yahan tak poanch gaya hai, to screen par kuch na dikhao jab tak redirect na ho jaye
+  if (userInfo?.role !== "owner") return null;
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
