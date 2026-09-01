@@ -5,7 +5,6 @@ const Supplier = require("../models/Supplier");
 // @route   GET /api/purchases
 const getPurchases = async (req, res) => {
   try {
-    // Populate se humein Supplier ka naam mil jayega uski ID ke bajaye
     const purchases = await Purchase.find()
       .populate("supplier", "name mobile")
       .sort({ createdAt: -1 });
@@ -22,25 +21,28 @@ const createPurchase = async (req, res) => {
     const { supplier, weight, rate, paidAmount, paymentMethod, date, notes } =
       req.body;
 
-    // Total aur Due automatically calculate karna (Ghalti ki koi gunjaish nahi)
-    const totalAmount = Number(weight) * Number(rate);
-    const dueAmount = totalAmount - Number(paidAmount || 0);
+    // Rate agar khali aaye toh usay 0 maan lein
+    const finalRate = Number(rate) || 0;
+    const finalPaidAmount = Number(paidAmount) || 0;
+
+    const totalAmount = Number(weight) * finalRate;
+    const dueAmount = totalAmount - finalPaidAmount;
 
     // 1. Purchase Record Create Karein
     const purchase = await Purchase.create({
       supplier,
       weight,
-      rate,
+      rate: finalRate,
       totalAmount,
-      paidAmount: paidAmount || 0,
+      paidAmount: finalPaidAmount,
       balanceDue: dueAmount,
       paymentMethod,
       date: date || Date.now(),
       notes,
     });
 
-    // 2. Supplier ka Payable Balance Update Karein (Agar udhaar hai)
-    if (dueAmount > 0 || dueAmount < 0) {
+    // 2. Supplier ka Payable Balance Update Karein
+    if (dueAmount !== 0) {
       const supplierRecord = await Supplier.findById(supplier);
       if (supplierRecord) {
         supplierRecord.currentBalance += dueAmount;
@@ -48,15 +50,13 @@ const createPurchase = async (req, res) => {
       }
     }
 
-    // Note: Stock update ka logic hum next phase mein Sales ke sath lagayenge (taake Plus/Minus easily manage ho)
-
     res.status(201).json(purchase);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
 
-// @desc    Delete a purchase (Owner Only - Adjusts Supplier Balance)
+// @desc    Delete a purchase
 // @route   DELETE /api/purchases/:id
 const deletePurchase = async (req, res) => {
   try {
@@ -64,7 +64,6 @@ const deletePurchase = async (req, res) => {
     if (!purchase)
       return res.status(404).json({ message: "Purchase not found" });
 
-    // Jab purchase delete ho toh Supplier ka udhaar wapis reverse karein
     if (purchase.balanceDue !== 0) {
       const supplierRecord = await Supplier.findById(purchase.supplier);
       if (supplierRecord) {
@@ -80,7 +79,7 @@ const deletePurchase = async (req, res) => {
   }
 };
 
-// @desc    Update a purchase (Owner Only)
+// @desc    Update a purchase
 // @route   PUT /api/purchases/:id
 const updatePurchase = async (req, res) => {
   try {
@@ -90,19 +89,19 @@ const updatePurchase = async (req, res) => {
 
     const { weight, rate, paidAmount, paymentMethod, date, notes } = req.body;
 
-    // Auto-Calculate new totals
-    const totalAmount = Number(weight) * Number(rate);
-    const newDueAmount = totalAmount - Number(paidAmount || 0);
+    // Rate agar khali aaye toh usay 0 maan lein
+    const finalRate = Number(rate) || 0;
+    const finalPaidAmount = Number(paidAmount) || 0;
 
-    // Purane due aur naye due ka farq (Difference) nikalein
+    const totalAmount = Number(weight) * finalRate;
+    const newDueAmount = totalAmount - finalPaidAmount;
     const oldDueAmount = purchase.balanceDue;
     const dueDifference = newDueAmount - oldDueAmount;
 
-    // Purchase update karein
     purchase.weight = weight;
-    purchase.rate = rate;
+    purchase.rate = finalRate;
     purchase.totalAmount = totalAmount;
-    purchase.paidAmount = paidAmount || 0;
+    purchase.paidAmount = finalPaidAmount;
     purchase.balanceDue = newDueAmount;
     purchase.paymentMethod = paymentMethod;
     purchase.date = date || purchase.date;
@@ -110,7 +109,6 @@ const updatePurchase = async (req, res) => {
 
     await purchase.save();
 
-    // Supplier ka Payable Balance automatically adjust karein
     if (dueDifference !== 0) {
       const supplierRecord = await Supplier.findById(purchase.supplier);
       if (supplierRecord) {

@@ -7,9 +7,9 @@ const saleSchema = new mongoose.Schema(
       required: true,
       ref: "Customer",
     },
-    weight: { type: Number, required: true }, // KG mein
-    rate: { type: Number, required: true }, // Per KG rate
-    totalAmount: { type: Number, required: true },
+    weight: { type: Number, required: true }, // KG mein (Yeh lazmi hai)
+    rate: { type: Number, default: 0 }, // Per KG rate (Ab required nahi)
+    totalAmount: { type: Number, default: 0 }, // (Ab required nahi)
     paidAmount: { type: Number, default: 0 },
     balanceDue: { type: Number, default: 0 },
     paymentMethod: {

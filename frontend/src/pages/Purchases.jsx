@@ -16,7 +16,7 @@ const Purchases = () => {
   const [purchases, setPurchases] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 FIX: Double click lock state
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,12 +122,13 @@ const Purchases = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // 🔥 FIX: Prevent double click
+    if (isSubmitting) return;
 
-    if (!formData.supplier || !formData.weight || !formData.rate)
-      return toast.error("Supplier, Weight, and Rate are required");
+    // Yahan rate ki condition hata di gayi hai
+    if (!formData.supplier || !formData.weight)
+      return toast.error("Supplier and Weight are required");
 
-    setIsSubmitting(true); // 🔥 FIX: Lock ON
+    setIsSubmitting(true);
     try {
       if (editingId) {
         await axios.put(
@@ -151,7 +152,7 @@ const Purchases = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
-      setIsSubmitting(false); // 🔥 FIX: Lock OFF
+      setIsSubmitting(false);
     }
   };
 
@@ -199,7 +200,6 @@ const Purchases = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
-        {/* DESKTOP TABLE */}
         <div className="hidden lg:block w-full">
           <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
             <thead>
@@ -288,7 +288,6 @@ const Purchases = () => {
           </table>
         </div>
 
-        {/* MOBILE CARDS */}
         <div className="lg:hidden flex flex-col">
           {filteredPurchases.map((purchase, index) => (
             <div
@@ -369,7 +368,6 @@ const Purchases = () => {
         </div>
       </div>
 
-      {/* ADD/EDIT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-xl shadow-xl overflow-hidden">
@@ -439,15 +437,15 @@ const Purchases = () => {
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
-                    Rate per KG (Rs) *
+                    Rate per KG (Rs) (Optional)
                   </label>
+                  {/* Yahan se required nikal diya gaya hai */}
                   <input
                     type="number"
                     step="any"
                     name="rate"
                     value={formData.rate}
                     onChange={handleInputChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
                     placeholder="0"
                   />
@@ -510,7 +508,9 @@ const Purchases = () => {
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
-                    Notes / Vehicle No
+                    {formData.paymentMethod === "bank"
+                      ? "Bank Details / Slip No"
+                      : "Notes / Vehicle No"}
                   </label>
                   <input
                     type="text"
@@ -518,7 +518,11 @@ const Purchases = () => {
                     value={formData.notes}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="Optional notes..."
+                    placeholder={
+                      formData.paymentMethod === "bank"
+                        ? "e.g. Meezan Bank TXN-123"
+                        : "Optional notes..."
+                    }
                   />
                 </div>
               </div>
@@ -527,14 +531,14 @@ const Purchases = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  disabled={isSubmitting} // 🔥 FIX
+                  disabled={isSubmitting}
                   className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting} // 🔥 FIX
+                  disabled={isSubmitting}
                   className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
                 >
                   {isSubmitting
@@ -549,7 +553,6 @@ const Purchases = () => {
         </div>
       )}
 
-      {/* DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">

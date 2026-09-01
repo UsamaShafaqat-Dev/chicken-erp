@@ -196,8 +196,10 @@ const Sales = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
-    if (!formData.customer || !formData.weight || !formData.rate)
-      return toast.error("Customer, Weight, and Rate are required");
+
+    // Yahan rate ki condition hata di gayi hai
+    if (!formData.customer || !formData.weight)
+      return toast.error("Customer and Weight are required");
 
     setIsSubmitting(true);
     try {
@@ -635,7 +637,6 @@ const Sales = () => {
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
-                        {/* 🔥 FIX: Owner ko Edit+Delete dikhega. Staff ko Edit dikhega (agar date aaj ki hai). */}
                         {isOwner ? (
                           <>
                             <button
@@ -751,7 +752,6 @@ const Sales = () => {
               </div>
 
               <div className="flex gap-2">
-                {/* 🔥 FIX: Mobile view logic */}
                 {isOwner ? (
                   <>
                     <button
@@ -863,15 +863,15 @@ const Sales = () => {
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
-                    Rate per KG (Rs) *
+                    Rate per KG (Rs) (Optional)
                   </label>
+                  {/* Yahan se required nikal diya gaya hai */}
                   <input
                     type="number"
                     step="any"
                     name="rate"
                     value={formData.rate}
                     onChange={handleInputChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
                     placeholder="0"
                   />

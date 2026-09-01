@@ -21,23 +21,25 @@ const createSale = async (req, res) => {
     const { customer, weight, rate, paidAmount, paymentMethod, date, notes } =
       req.body;
 
-    const totalAmount = Number(weight) * Number(rate);
-    const dueAmount = totalAmount - Number(paidAmount || 0);
+    // Rate agar khali aaye toh usay 0 maan lein
+    const finalRate = Number(rate) || 0;
+    const finalPaidAmount = Number(paidAmount) || 0;
 
-    // Sale record create karein
+    const totalAmount = Number(weight) * finalRate;
+    const dueAmount = totalAmount - finalPaidAmount;
+
     const sale = await Sale.create({
       customer,
       weight,
-      rate,
+      rate: finalRate,
       totalAmount,
-      paidAmount: paidAmount || 0,
+      paidAmount: finalPaidAmount,
       balanceDue: dueAmount,
       paymentMethod,
       date: date || Date.now(),
       notes,
     });
 
-    // Customer ka Outstanding Balance update karein
     if (dueAmount !== 0) {
       const customerRecord = await Customer.findById(customer);
       if (customerRecord) {
@@ -52,7 +54,7 @@ const createSale = async (req, res) => {
   }
 };
 
-// @desc    Update a sale (Owner Only)
+// @desc    Update a sale
 // @route   PUT /api/sales/:id
 const updateSale = async (req, res) => {
   try {
@@ -61,15 +63,19 @@ const updateSale = async (req, res) => {
 
     const { weight, rate, paidAmount, paymentMethod, date, notes } = req.body;
 
-    const totalAmount = Number(weight) * Number(rate);
-    const newDueAmount = totalAmount - Number(paidAmount || 0);
+    // Rate agar khali aaye toh usay 0 maan lein
+    const finalRate = Number(rate) || 0;
+    const finalPaidAmount = Number(paidAmount) || 0;
+
+    const totalAmount = Number(weight) * finalRate;
+    const newDueAmount = totalAmount - finalPaidAmount;
     const oldDueAmount = sale.balanceDue;
     const dueDifference = newDueAmount - oldDueAmount;
 
     sale.weight = weight;
-    sale.rate = rate;
+    sale.rate = finalRate;
     sale.totalAmount = totalAmount;
-    sale.paidAmount = paidAmount || 0;
+    sale.paidAmount = finalPaidAmount;
     sale.balanceDue = newDueAmount;
     sale.paymentMethod = paymentMethod;
     sale.date = date || sale.date;
@@ -77,7 +83,6 @@ const updateSale = async (req, res) => {
 
     await sale.save();
 
-    // Customer ka Outstanding Balance adjust karein
     if (dueDifference !== 0) {
       const customerRecord = await Customer.findById(sale.customer);
       if (customerRecord) {
@@ -92,14 +97,13 @@ const updateSale = async (req, res) => {
   }
 };
 
-// @desc    Delete a sale (Owner Only)
+// @desc    Delete a sale
 // @route   DELETE /api/sales/:id
 const deleteSale = async (req, res) => {
   try {
     const sale = await Sale.findById(req.params.id);
     if (!sale) return res.status(404).json({ message: "Sale not found" });
 
-    // Sale delete karne par Customer ka balance reverse karein
     if (sale.balanceDue !== 0) {
       const customerRecord = await Customer.findById(sale.customer);
       if (customerRecord) {
