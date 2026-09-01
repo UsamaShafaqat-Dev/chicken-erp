@@ -278,21 +278,20 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  // NUMBER OVERFLOW FIXES HERE (.toFixed(2))
-  const totalPurchasedWeight = Number(
-    filteredPurchases
-      .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
-      .toFixed(2),
+  // NUMBER OVERFLOW FIXES (Math.round to completely kill long decimals)
+  const roundToTwo = (num) => Math.round((Number(num) || 0) * 100) / 100;
+
+  const totalPurchasedWeight = roundToTwo(
+    filteredPurchases.reduce((sum, p) => sum + (Number(p.weight) || 0), 0),
   );
-  const totalWeight = Number(
-    enhancedSales
-      .reduce((sum, sale) => sum + (Number(sale.weight) || 0), 0)
-      .toFixed(2),
+  const totalWeight = roundToTwo(
+    enhancedSales.reduce((sum, sale) => sum + (Number(sale.weight) || 0), 0),
   );
-  const totalAmount = Number(
-    enhancedSales
-      .reduce((sum, sale) => sum + (Number(sale.totalAmount) || 0), 0)
-      .toFixed(2),
+  const totalAmount = roundToTwo(
+    enhancedSales.reduce(
+      (sum, sale) => sum + (Number(sale.totalAmount) || 0),
+      0,
+    ),
   );
 
   const salesPaid = filteredSales.reduce(
@@ -304,21 +303,23 @@ const Sales = () => {
     0,
   );
 
-  const totalPaid = Number((salesPaid + recoveryPaid).toFixed(2));
-  const netUdhaar = Number((totalAmount - totalPaid).toFixed(2));
+  const totalPaid = roundToTwo(salesPaid + recoveryPaid);
+  const netUdhaar = roundToTwo(totalAmount - totalPaid);
 
-  const tablePaidAmount = enhancedSales.reduce(
-    (sum, sale) => sum + (Number(sale.displayPaid) || 0),
-    0,
+  const tablePaidAmount = roundToTwo(
+    enhancedSales.reduce(
+      (sum, sale) => sum + (Number(sale.displayPaid) || 0),
+      0,
+    ),
   );
-  const tableOutstanding = enhancedSales.reduce(
-    (sum, sale) => sum + (Number(sale.displayBalance) || 0),
-    0,
+  const tableOutstanding = roundToTwo(
+    enhancedSales.reduce(
+      (sum, sale) => sum + (Number(sale.displayBalance) || 0),
+      0,
+    ),
   );
 
-  const shortageWeight = Number(
-    (totalPurchasedWeight - totalWeight).toFixed(2),
-  );
+  const shortageWeight = roundToTwo(totalPurchasedWeight - totalWeight);
 
   const handlePrint = () => {
     window.print();
@@ -362,7 +363,7 @@ const Sales = () => {
               Purchased
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
             {totalPurchasedWeight} KG
           </h3>
         </div>
@@ -373,7 +374,7 @@ const Sales = () => {
               Sold (KG)
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
             {totalWeight} KG
           </h3>
         </div>
@@ -384,7 +385,7 @@ const Sales = () => {
               Shortage
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-red-600">
+          <h3 className="text-lg sm:text-xl font-bold text-red-600 break-words">
             {shortageWeight} KG
           </h3>
         </div>
@@ -395,7 +396,7 @@ const Sales = () => {
               Sale Amount
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
             Rs. {totalAmount.toLocaleString()}
           </h3>
         </div>
@@ -406,7 +407,7 @@ const Sales = () => {
               Total Cash Received
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
             Rs. {totalPaid.toLocaleString()}
           </h3>
           <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-2 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg border border-gray-700">
@@ -422,7 +423,7 @@ const Sales = () => {
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold ${netUdhaar > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold break-words ${netUdhaar > 0 ? "text-red-600" : "text-green-600"}`}
           >
             Rs. {netUdhaar.toLocaleString()}
           </h3>
