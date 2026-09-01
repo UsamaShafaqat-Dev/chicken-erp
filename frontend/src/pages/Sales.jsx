@@ -265,7 +265,7 @@ const Sales = () => {
     };
   });
 
-  // 🔥 NEW LOGIC: Grouping Sales by Same Customer, Same Date, Same Rate
+  // 🔥 LOGIC: Grouping Sales by Same Customer, Same Date, Same Rate
   const groupedSalesMap = {};
   enhancedSales.forEach((sale) => {
     const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
@@ -665,11 +665,7 @@ const Sales = () => {
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
-                        {sale.isGrouped ? (
-                          <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
-                            Grouped
-                          </span>
-                        ) : isOwner ? (
+                        {isOwner ? (
                           <>
                             <button
                               onClick={() => openModal(sale)}
@@ -806,11 +802,7 @@ const Sales = () => {
               </div>
 
               <div className="flex gap-2">
-                {sale.isGrouped ? (
-                  <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
-                    Grouped Entries
-                  </div>
-                ) : isOwner ? (
+                {isOwner ? (
                   <>
                     <button
                       onClick={() => openModal(sale)}
@@ -846,7 +838,7 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Add/Edit Modal and Delete Modal remain same */}
+      {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -1043,6 +1035,7 @@ const Sales = () => {
         </div>
       )}
 
+      {/* DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">

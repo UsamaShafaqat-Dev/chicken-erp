@@ -312,6 +312,13 @@ const Customers = () => {
     0,
   );
 
+  const marketTotalUdhaar = filteredCustomers.reduce((sum, c) => {
+    return c.displayBalance > 0 ? sum + c.displayBalance : sum;
+  }, 0);
+  const marketTotalAdvance = filteredCustomers.reduce((sum, c) => {
+    return c.displayBalance < 0 ? sum + Math.abs(c.displayBalance) : sum;
+  }, 0);
+
   const filteredLedger = ledgerData.filter((item) => {
     try {
       const dateStr = new Date(item.ledgerDate || Date.now())
@@ -610,11 +617,11 @@ const Customers = () => {
                   <td className="px-1.5 py-3 text-green-700">
                     Rs. {marketTotalPaid.toLocaleString()}
                   </td>
-                  <td
-                    colSpan="2"
-                    className="px-1.5 py-3 text-center text-gray-800"
-                  >
-                    Net: Rs. {marketTotalBalance.toLocaleString()}
+                  <td className="px-1.5 py-3 text-red-500">
+                    Rs. {marketTotalUdhaar.toLocaleString()}
+                  </td>
+                  <td className="px-1.5 py-3 text-green-600">
+                    Rs. {marketTotalAdvance.toLocaleString()}
                   </td>
                   <td className="print:hidden"></td>
                 </tr>
@@ -743,7 +750,7 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* Ledger Modal Code remains unchanged */}
+      {/* Ledger Modal Code */}
       {isLedgerModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
