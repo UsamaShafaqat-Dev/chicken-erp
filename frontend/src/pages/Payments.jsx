@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useReactToPrint } from "react-to-print";
 import {
   Search,
   Plus,
@@ -14,7 +15,7 @@ import {
   CreditCard,
   FileText,
   Wallet,
-  Filter,
+  Printer,
 } from "lucide-react";
 
 const Payments = () => {
@@ -28,7 +29,6 @@ const Payments = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
-  // 🔥 NAYA: Date Range States
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -55,6 +55,13 @@ const Payments = () => {
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
   const todayDateStr = new Date().toISOString().split("T")[0];
+
+  // 🔥 NAYA: Print ke liye Ref aur Handler add kar diya
+  const printRef = useRef(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Payments_Report_${startDate || "All"}_to_${endDate || "All"}`,
+  });
 
   const fetchData = async () => {
     try {
@@ -298,7 +305,6 @@ const Payments = () => {
     return p.supplier?.name;
   };
 
-  // 🔥 NAYA: Search aur Date Filter dono lag gaye hain
   const filteredPayments = payments.filter((p) => {
     const partyName = getPartyName(p) || "";
     const cleanNotes = getCleanNotes(p.notes) || "";
@@ -329,7 +335,6 @@ const Payments = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          {/* 🔥 NAYA: Date Range UI */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="date"
@@ -348,41 +353,73 @@ const Payments = () => {
             />
           </div>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="w-full lg:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-        >
-          <Plus size={18} /> Add Payment
-        </button>
+
+        {/* 🔥 NAYA: Print button add kiya gaya hai */}
+        <div className="flex gap-2 w-full lg:w-auto">
+          <button
+            onClick={handlePrint}
+            className="flex-1 lg:flex-none bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <Printer size={18} /> Print PDF
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex-1 lg:flex-none bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus size={18} /> Add Payment
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden">
-        <div className="hidden lg:block w-full">
+      {/* 🔥 NAYA: Print Ref yahan attach kiya gaya hai */}
+      <div
+        ref={printRef}
+        className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden print:border-none print:shadow-none print:p-4"
+      >
+        {/* 🔥 NAYA: Print Header (Sirf PDF mein nazar aayega) */}
+        <div className="hidden print:block text-center mb-6 border-b-2 border-gray-800 pb-4">
+          <h1 className="text-3xl font-black text-gray-900 mb-1">
+            ASIA POULTRY BUSINESS
+          </h1>
+          <p className="text-gray-600 font-bold text-lg uppercase tracking-wider">
+            Payments Report
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Date Filter:{" "}
+            {startDate
+              ? new Date(startDate).toLocaleDateString("en-GB")
+              : "Start"}{" "}
+            TO {endDate ? new Date(endDate).toLocaleDateString("en-GB") : "End"}
+          </p>
+        </div>
+
+        <div className="hidden lg:block print:block w-full">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-gray-600">
-                <th className="px-3 py-4 font-medium whitespace-nowrap">
+              <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 print:bg-white print:border-gray-300">
+                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Date
                 </th>
-                <th className="px-3 py-4 font-medium whitespace-nowrap">
+                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Type
                 </th>
-                <th className="px-3 py-4 font-medium whitespace-nowrap">
+                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Party / Category
                 </th>
-                <th className="px-3 py-4 font-medium whitespace-nowrap">
+                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Cash Account
                 </th>
-                <th className="px-3 py-4 font-medium whitespace-nowrap">
+                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Method
                 </th>
-                <th className="px-3 py-4 font-medium w-full">
+                <th className="px-3 py-4 font-bold w-full print:py-2">
                   Notes / Details
                 </th>
-                <th className="px-3 py-4 font-medium whitespace-nowrap">
+                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Amount
                 </th>
-                <th className="px-3 py-4 font-medium text-center whitespace-nowrap">
+                {/* 🔥 NAYA: Action column ko print mein chupa diya */}
+                <th className="px-3 py-4 font-bold text-center whitespace-nowrap print:hidden">
                   Action
                 </th>
               </tr>
@@ -390,7 +427,10 @@ const Payments = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center p-8 text-gray-500">
+                  <td
+                    colSpan="8"
+                    className="text-center p-8 text-gray-500 print:hidden"
+                  >
                     Loading payments...
                   </td>
                 </tr>
@@ -412,24 +452,26 @@ const Payments = () => {
                   return (
                     <tr
                       key={payment._id}
-                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                      className="border-b border-gray-50 hover:bg-gray-50 transition-colors print:border-gray-200"
                     >
-                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
+                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap print:py-2">
                         {new Date(payment.date).toLocaleDateString("en-GB")}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
                         {payment.type === "receive" ? (
-                          <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-100 px-2 py-1 rounded-md text-xs font-bold">
-                            <ArrowDownLeft size={14} /> Receive (In)
+                          <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-100 px-2 py-1 rounded-md text-xs font-bold print:border-none print:bg-transparent print:p-0">
+                            <ArrowDownLeft size={14} className="print:hidden" />{" "}
+                            Receive
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-orange-700 bg-orange-50 border border-orange-100 px-2 py-1 rounded-md text-xs font-bold">
-                            <ArrowUpRight size={14} /> Pay (Out)
+                          <span className="inline-flex items-center gap-1 text-orange-700 bg-orange-50 border border-orange-100 px-2 py-1 rounded-md text-xs font-bold print:border-none print:bg-transparent print:p-0">
+                            <ArrowUpRight size={14} className="print:hidden" />{" "}
+                            Pay
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <p className="font-bold text-gray-800 truncate max-w-[150px]">
+                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
+                        <p className="font-bold text-gray-800 truncate max-w-[150px] print:max-w-none">
                           {getPartyName(payment) || "Unknown"}
                         </p>
                         <p className="text-[11px] text-gray-500 uppercase">
@@ -442,36 +484,41 @@ const Payments = () => {
                                 : "Broker"}
                         </p>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs font-bold">
-                          <Wallet size={14} />{" "}
+                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
+                        <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs font-bold print:border-none print:bg-transparent print:p-0">
+                          <Wallet size={14} className="print:hidden" />{" "}
                           {payment.cashAccountId?.name || "N/A"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 text-gray-600 capitalize bg-gray-100 px-2 py-1 rounded text-xs font-medium">
-                          <CreditCard size={14} /> {payment.method}
+                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
+                        <span className="inline-flex items-center gap-1 text-gray-600 capitalize bg-gray-100 px-2 py-1 rounded text-xs font-medium print:border-none print:bg-transparent print:p-0">
+                          <CreditCard size={14} className="print:hidden" />{" "}
+                          {payment.method}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-gray-600">
+                      <td className="px-3 py-3 text-gray-600 print:py-2">
                         <div
-                          className="flex items-center gap-1 truncate max-w-[120px] xl:max-w-[200px]"
+                          className="flex items-center gap-1 truncate max-w-[120px] xl:max-w-[200px] print:max-w-none print:whitespace-normal"
                           title={cleanNotes}
                         >
                           <FileText
                             size={14}
-                            className="text-gray-400 shrink-0"
+                            className="text-gray-400 shrink-0 print:hidden"
                           />
-                          <span className="truncate">{cleanNotes}</span>
+                          <span className="truncate print:whitespace-normal print:overflow-visible">
+                            {cleanNotes}
+                          </span>
                         </div>
                       </td>
                       <td
-                        className={`px-3 py-3 font-bold text-base whitespace-nowrap ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
+                        className={`px-3 py-3 font-bold text-base whitespace-nowrap print:py-2 ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
                       >
                         {payment.type === "receive" ? "+" : "-"} Rs.{" "}
                         {payment.amount.toLocaleString()}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+
+                      {/* 🔥 NAYA: Action column ko print mein chupa diya */}
+                      <td className="px-3 py-3 whitespace-nowrap print:hidden">
                         <div className="flex justify-center items-center gap-1.5">
                           {isOwner ? (
                             <>
@@ -514,7 +561,7 @@ const Payments = () => {
         </div>
 
         {/* MOBILE CARDS VIEW */}
-        <div className="lg:hidden flex flex-col">
+        <div className="lg:hidden print:hidden flex flex-col">
           {filteredPayments.map((payment, index) => {
             const isExp =
               payment.notes && payment.notes.startsWith("[EXPENSE:");
@@ -627,7 +674,7 @@ const Payments = () => {
 
       {/* Adding Payment Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
             className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col"
             style={{ maxHeight: "90vh" }}
@@ -914,7 +961,7 @@ const Payments = () => {
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
             <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={32} />
