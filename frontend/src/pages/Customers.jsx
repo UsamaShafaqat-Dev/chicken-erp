@@ -166,14 +166,30 @@ const Customers = () => {
     }
   };
 
-  const handleWhatsAppClick = (phone) => {
+  // 🔥 FIX: WhatsApp text pre-filled
+  const handleWhatsAppClick = (customer) => {
+    const phone = customer.whatsapp || customer.mobile;
     if (!phone) return toast.error("WhatsApp number not available");
-    // API link properly set to api.whatsapp.com
+
     let cleanNumber = phone.replace(/[^0-9]/g, "");
     if (cleanNumber.startsWith("0")) {
       cleanNumber = "92" + cleanNumber.substring(1);
     }
-    window.open(`https://api.whatsapp.com/send?phone=${cleanNumber}`, "_blank");
+
+    let balanceText = "";
+    if (customer.displayBalance > 0) {
+      balanceText = `Aapke zimme (Outstanding) Rs. ${customer.displayBalance.toLocaleString()} baqaya hain.`;
+    } else if (customer.displayBalance < 0) {
+      balanceText = `Aapka Advance Rs. ${Math.abs(customer.displayBalance).toLocaleString()} hamare paas jama hai.`;
+    } else {
+      balanceText = `Aapka khata Nil (Clear) hai.`;
+    }
+
+    const message = `Assalam o Alaikum ${customer.name},\n\nAsia Poultry Business ki taraf se aapka Khata update:\n\n${balanceText}\n\nShukriya!`;
+    window.open(
+      `https://api.whatsapp.com/send?phone=${cleanNumber}&text=${encodeURIComponent(message)}`,
+      "_blank",
+    );
   };
 
   const openLedger = async (customer) => {
@@ -222,13 +238,11 @@ const Customers = () => {
       0,
     );
 
-    // Yahan sirf external payments aayengi
     let externalPayments = cPayments.reduce(
       (sum, p) => sum + (Number(p.amount) || 0),
       0,
     );
 
-    // Yahan bill ke sath di hui cash aayegi
     let billPayments = cSales.reduce(
       (sum, s) => sum + (Number(s.paidAmount) || 0),
       0,
@@ -551,11 +565,7 @@ const Customers = () => {
                           <History size={12} /> Khata
                         </button>
                         <button
-                          onClick={() =>
-                            handleWhatsAppClick(
-                              customer.whatsapp || customer.mobile,
-                            )
-                          }
+                          onClick={() => handleWhatsAppClick(customer)}
                           className="flex items-center gap-1 text-green-600 bg-green-50 hover:bg-green-100 border border-green-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
                           title="WhatsApp"
                         >
@@ -686,9 +696,7 @@ const Customers = () => {
                     <History size={16} /> Khata
                   </button>
                   <button
-                    onClick={() =>
-                      handleWhatsAppClick(customer.whatsapp || customer.mobile)
-                    }
+                    onClick={() => handleWhatsAppClick(customer)}
                     className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-lg font-medium transition-colors border border-green-100"
                   >
                     <MessageCircle size={16} /> WA
@@ -938,140 +946,6 @@ const Customers = () => {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ADD/EDIT MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
-          <div
-            className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col"
-            style={{ maxHeight: "90vh" }}
-          >
-            <div className="flex justify-between items-center p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800">
-                {editingId ? "Edit Customer" : "Add New Customer"}
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form
-              onSubmit={handleSubmit}
-              className="p-5 space-y-4 text-sm overflow-y-auto custom-scrollbar"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Customer Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="e.g. Al-Rehman Chicken"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Mobile No
-                  </label>
-                  <input
-                    type="text"
-                    name="mobile"
-                    value={formData.mobile}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    WhatsApp No
-                  </label>
-                  <input
-                    type="text"
-                    name="whatsapp"
-                    value={formData.whatsapp}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="Optional"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Opening Balance (Rs)
-                  </label>
-                  <input
-                    type="number"
-                    name="openingBalance"
-                    value={formData.openingBalance}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Area (City/Town) *
-                  </label>
-                  <input
-                    type="text"
-                    name="area"
-                    value={formData.area}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="e.g. Rajanpur"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Detailed Address
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="Shop Address..."
-                  />
-                </div>
-              </div>
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-green-800"}`}
-                >
-                  {isSubmitting
-                    ? "Saving..."
-                    : editingId
-                      ? "Update Customer"
-                      : "Save Customer"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

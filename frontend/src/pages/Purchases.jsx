@@ -36,7 +36,7 @@ const Purchases = () => {
     notes: "",
   });
 
-  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
 
   const fetchData = async () => {
@@ -243,15 +243,15 @@ const Purchases = () => {
                       Rs. {purchase.rate}
                     </td>
                     <td className="px-3 py-4 text-blue-600 font-bold">
-                      Rs. {purchase.totalAmount.toLocaleString()}
+                      Rs. {Number(purchase.totalAmount).toLocaleString()}
                     </td>
                     <td className="px-3 py-4 text-green-600 font-medium">
-                      Rs. {purchase.paidAmount.toLocaleString()}
+                      Rs. {Number(purchase.paidAmount).toLocaleString()}
                     </td>
                     <td className="px-3 py-4 font-bold">
                       {purchase.balanceDue > 0 ? (
                         <span className="text-red-500">
-                          Rs. {purchase.balanceDue.toLocaleString()}
+                          Rs. {Number(purchase.balanceDue).toLocaleString()}
                         </span>
                       ) : purchase.balanceDue < 0 ? (
                         <span className="text-green-600">
@@ -311,7 +311,7 @@ const Purchases = () => {
                 <div className="text-right">
                   <p className="text-xs text-gray-500 mb-0.5">Total Amount</p>
                   <p className="text-sm font-bold text-blue-600">
-                    Rs. {purchase.totalAmount.toLocaleString()}
+                    Rs. {Number(purchase.totalAmount).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -332,7 +332,7 @@ const Purchases = () => {
                   <div>
                     <p className="text-gray-500 text-xs mb-1">Paid</p>
                     <p className="font-medium text-green-600">
-                      Rs. {purchase.paidAmount.toLocaleString()}
+                      Rs. {Number(purchase.paidAmount).toLocaleString()}
                     </p>
                   </div>
                   <div>
@@ -340,7 +340,7 @@ const Purchases = () => {
                     <p className="font-bold">
                       {purchase.balanceDue > 0 ? (
                         <span className="text-red-500">
-                          Rs. {purchase.balanceDue.toLocaleString()}
+                          Rs. {Number(purchase.balanceDue).toLocaleString()}
                         </span>
                       ) : purchase.balanceDue < 0 ? (
                         <span className="text-green-600">

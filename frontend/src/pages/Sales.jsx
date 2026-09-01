@@ -57,7 +57,7 @@ const Sales = () => {
     notes: "",
   });
 
-  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
 
   const todayDateStr = new Date().toISOString().split("T")[0];
@@ -278,31 +278,34 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  const totalPurchasedWeight = filteredPurchases.reduce(
-    (sum, p) => sum + (Number(p.weight) || 0),
-    0,
+  // NUMBER OVERFLOW FIXES HERE (.toFixed(2))
+  const totalPurchasedWeight = Number(
+    filteredPurchases
+      .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
+      .toFixed(2),
   );
-  const totalWeight = enhancedSales.reduce(
-    (sum, sale) => sum + (Number(sale.weight) || 0),
-    0,
+  const totalWeight = Number(
+    enhancedSales
+      .reduce((sum, sale) => sum + (Number(sale.weight) || 0), 0)
+      .toFixed(2),
   );
-  const totalAmount = enhancedSales.reduce(
-    (sum, sale) => sum + (Number(sale.totalAmount) || 0),
-    0,
+  const totalAmount = Number(
+    enhancedSales
+      .reduce((sum, sale) => sum + (Number(sale.totalAmount) || 0), 0)
+      .toFixed(2),
   );
 
   const salesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
     0,
   );
-
   const recoveryPaid = filteredRecoveries.reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
     0,
   );
 
-  const totalPaid = salesPaid + recoveryPaid;
-  const netUdhaar = totalAmount - totalPaid;
+  const totalPaid = Number((salesPaid + recoveryPaid).toFixed(2));
+  const netUdhaar = Number((totalAmount - totalPaid).toFixed(2));
 
   const tablePaidAmount = enhancedSales.reduce(
     (sum, sale) => sum + (Number(sale.displayPaid) || 0),
