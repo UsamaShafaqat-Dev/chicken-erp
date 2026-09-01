@@ -17,7 +17,7 @@ const userRoutes = require("./src/routes/userRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
 const cashRoutes = require("./src/routes/cashRoute");
 const dailyRateRoutes = require("./src/routes/dailyRateRoutes");
-const employeeRoutes = require('./src/routes/employeeRoutes');
+const employeeRoutes = require("./src/routes/employeeRoutes");
 
 // 🔥 FIX: Yahan path mein "src" add kar diya hai
 const expenseCategoryRoutes = require("./src/routes/expenseCategoryRoutes");
@@ -34,7 +34,11 @@ app.use(cookieParser());
 // 🔥 FIX: CORS updated for Vercel (Live) & Localhost
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://chicken-erp.vercel.app"],
+    origin: [
+      "http://localhost:5173",
+      "https://chicken-erp.vercel.app",
+      "http://129.121.140.57",
+    ],
     credentials: true,
   }),
 );
@@ -57,7 +61,7 @@ app.use("/api/daily-rates", dailyRateRoutes);
 
 // 🔥 NAYA ROUTE
 app.use("/api/expense-categories", expenseCategoryRoutes);
-app.use('/api/employees', employeeRoutes);
+app.use("/api/employees", employeeRoutes);
 
 app.get("/", (req, res) => {
   res.send("🐔 Asia Poultry ERP API is running...");
