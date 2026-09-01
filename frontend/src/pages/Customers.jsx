@@ -168,11 +168,12 @@ const Customers = () => {
 
   const handleWhatsAppClick = (phone) => {
     if (!phone) return toast.error("WhatsApp number not available");
+    // API link properly set to api.whatsapp.com
     let cleanNumber = phone.replace(/[^0-9]/g, "");
     if (cleanNumber.startsWith("0")) {
       cleanNumber = "92" + cleanNumber.substring(1);
     }
-    window.open(`https://wa.me/${cleanNumber}`, "_blank");
+    window.open(`https://api.whatsapp.com/send?phone=${cleanNumber}`, "_blank");
   };
 
   const openLedger = async (customer) => {
@@ -206,7 +207,6 @@ const Customers = () => {
     }
   };
 
-  // 🔥 FIX: Recalculate accurately to avoid any Double Counting in Database!
   const processedCustomers = customers.map((customer) => {
     const cSales = allSales.filter(
       (s) => (s.customer?._id || s.customer) === customer._id,
@@ -221,10 +221,20 @@ const Customers = () => {
       (sum, s) => sum + (Number(s.totalAmount) || 0),
       0,
     );
-    let displayPaid = cPayments.reduce(
+
+    // Yahan sirf external payments aayengi
+    let externalPayments = cPayments.reduce(
       (sum, p) => sum + (Number(p.amount) || 0),
       0,
-    ); // 🔥 FIX: Sirf Payments uthayen, bill ki paid amount nahi
+    );
+
+    // Yahan bill ke sath di hui cash aayegi
+    let billPayments = cSales.reduce(
+      (sum, s) => sum + (Number(s.paidAmount) || 0),
+      0,
+    );
+
+    let displayPaid = externalPayments + billPayments;
 
     if (globalFromDate || globalToDate) {
       const filteredSales = cSales.filter((s) => {
@@ -245,10 +255,18 @@ const Customers = () => {
         (sum, s) => sum + (Number(s.totalAmount) || 0),
         0,
       );
-      displayPaid = filteredPayments.reduce(
+
+      let filteredExternalPayments = filteredPayments.reduce(
         (sum, p) => sum + (Number(p.amount) || 0),
         0,
-      ); // 🔥 FIX
+      );
+
+      let filteredBillPayments = filteredSales.reduce(
+        (sum, s) => sum + (Number(s.paidAmount) || 0),
+        0,
+      );
+
+      displayPaid = filteredExternalPayments + filteredBillPayments;
     }
 
     let displayBalance = displayPurchases - displayPaid;
@@ -297,12 +315,16 @@ const Customers = () => {
   const periodSales = filteredLedger
     .filter((x) => x.isSale)
     .reduce((sum, x) => sum + (Number(x.totalAmount) || 0), 0);
-  // 🔥 FIX: Khata mein bhi double count khatam kiya
+
   const periodRecoveries = filteredLedger
     .filter((x) => x.isPayment)
     .reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
 
-  const totalPeriodPaid = periodRecoveries;
+  const periodBillPaid = filteredLedger
+    .filter((x) => x.isSale)
+    .reduce((sum, x) => sum + (Number(x.paidAmount) || 0), 0);
+
+  const totalPeriodPaid = periodRecoveries + periodBillPaid;
   const periodRemaining = periodSales - totalPeriodPaid;
 
   const handlePrintLedger = useReactToPrint({
@@ -505,12 +527,19 @@ const Customers = () => {
                       <td className="px-1.5 py-3 print:py-2 text-green-600 font-medium whitespace-nowrap">
                         Rs. {customer.displayPaid.toLocaleString() || 0}
                       </td>
-                      <td
-                        className={`px-1.5 py-3 print:py-2 font-bold whitespace-nowrap ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
-                      >
-                        {customer.displayBalance > 0
-                          ? `Rs. ${customer.displayBalance.toLocaleString()}`
-                          : "Nil"}
+                      <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap">
+                        {customer.displayBalance > 0 ? (
+                          <span className="text-red-500">
+                            Rs. {customer.displayBalance.toLocaleString()}
+                          </span>
+                        ) : customer.displayBalance < 0 ? (
+                          <span className="text-green-600">
+                            Advance Rs.{" "}
+                            {Math.abs(customer.displayBalance).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">Nil</span>
+                        )}
                       </td>
 
                       <td className="px-1.5 py-3 flex justify-center items-center gap-1 whitespace-nowrap print:hidden">
@@ -633,12 +662,19 @@ const Customers = () => {
                     <p className="text-gray-500 text-xs mb-1">
                       Outstanding Balance
                     </p>
-                    <p
-                      className={`text-base font-bold ${customer.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
-                    >
-                      {customer.displayBalance > 0
-                        ? `Rs. ${customer.displayBalance.toLocaleString()}`
-                        : "Nil"}
+                    <p className="text-base font-bold">
+                      {customer.displayBalance > 0 ? (
+                        <span className="text-red-500">
+                          Rs. {customer.displayBalance.toLocaleString()}
+                        </span>
+                      ) : customer.displayBalance < 0 ? (
+                        <span className="text-green-600">
+                          Advance Rs.{" "}
+                          {Math.abs(customer.displayBalance).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">Nil</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -785,9 +821,13 @@ const Customers = () => {
                   Period Balance
                 </p>
                 <p
-                  className={`text-sm font-black ${periodRemaining > 0 ? "text-red-500" : "text-gray-600"}`}
+                  className={`text-sm font-black ${periodRemaining > 0 ? "text-red-500" : periodRemaining < 0 ? "text-green-600" : "text-gray-600"}`}
                 >
-                  Rs. {periodRemaining.toLocaleString()}
+                  {periodRemaining > 0
+                    ? `Rs. ${periodRemaining.toLocaleString()}`
+                    : periodRemaining < 0
+                      ? `Adv Rs. ${Math.abs(periodRemaining).toLocaleString()}`
+                      : "Nil"}
                 </p>
               </div>
             </div>
@@ -818,9 +858,13 @@ const Customers = () => {
                       Period Balance:
                     </p>
                     <h2
-                      className={`text-2xl font-black ${periodRemaining > 0 ? "text-red-600" : "text-gray-800"}`}
+                      className={`text-2xl font-black ${periodRemaining > 0 ? "text-red-600" : periodRemaining < 0 ? "text-green-600" : "text-gray-800"}`}
                     >
-                      Rs. {periodRemaining.toLocaleString()}
+                      {periodRemaining > 0
+                        ? `Rs. ${periodRemaining.toLocaleString()}`
+                        : periodRemaining < 0
+                          ? `Advance Rs. ${Math.abs(periodRemaining).toLocaleString()}`
+                          : "Rs. 0"}
                     </h2>
                   </div>
                 </div>
@@ -876,7 +920,12 @@ const Customers = () => {
                               Rs.{" "}
                               {(Number(tx.totalAmount) || 0).toLocaleString()}
                             </p>
-                            {/* 🔥 FIX: UI se Paid amount nikaal di taake client double confuse na ho */}
+                            {tx.paidAmount > 0 && (
+                              <p className="text-xs font-bold text-green-600 mt-1">
+                                (Bill Paid: Rs. {tx.paidAmount.toLocaleString()}
+                                )
+                              </p>
+                            )}
                           </>
                         ) : (
                           <p className="font-black text-green-600 print:text-base">

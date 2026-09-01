@@ -70,10 +70,8 @@ const Purchases = () => {
     if (name === "weight" || name === "rate") {
       const weight = parseFloat(newFormData.weight) || 0;
       const rate = parseFloat(newFormData.rate) || 0;
-
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
-
       newFormData.balanceDue =
         totalAmount - (parseFloat(newFormData.paidAmount) || 0);
     } else if (name === "paymentMethod") {
@@ -124,7 +122,6 @@ const Purchases = () => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    // Yahan rate ki condition hata di gayi hai
     if (!formData.supplier || !formData.weight)
       return toast.error("Supplier and Weight are required");
 
@@ -251,12 +248,19 @@ const Purchases = () => {
                     <td className="px-3 py-4 text-green-600 font-medium">
                       Rs. {purchase.paidAmount.toLocaleString()}
                     </td>
-                    <td
-                      className={`px-3 py-4 font-bold ${purchase.balanceDue > 0 ? "text-red-500" : "text-gray-600"}`}
-                    >
-                      {purchase.balanceDue > 0
-                        ? `Rs. ${purchase.balanceDue.toLocaleString()}`
-                        : "Nil"}
+                    <td className="px-3 py-4 font-bold">
+                      {purchase.balanceDue > 0 ? (
+                        <span className="text-red-500">
+                          Rs. {purchase.balanceDue.toLocaleString()}
+                        </span>
+                      ) : purchase.balanceDue < 0 ? (
+                        <span className="text-green-600">
+                          Advance Rs.{" "}
+                          {Math.abs(purchase.balanceDue).toLocaleString()}
+                        </span>
+                      ) : (
+                        "Nil"
+                      )}
                     </td>
                     <td className="px-3 py-4 flex justify-center items-center gap-1.5">
                       {isOwner ? (
@@ -333,12 +337,19 @@ const Purchases = () => {
                   </div>
                   <div>
                     <p className="text-gray-500 text-xs mb-1">Due Balance</p>
-                    <p
-                      className={`font-bold ${purchase.balanceDue > 0 ? "text-red-500" : "text-gray-600"}`}
-                    >
-                      {purchase.balanceDue > 0
-                        ? `Rs. ${purchase.balanceDue.toLocaleString()}`
-                        : "Nil"}
+                    <p className="font-bold">
+                      {purchase.balanceDue > 0 ? (
+                        <span className="text-red-500">
+                          Rs. {purchase.balanceDue.toLocaleString()}
+                        </span>
+                      ) : purchase.balanceDue < 0 ? (
+                        <span className="text-green-600">
+                          Advance Rs.{" "}
+                          {Math.abs(purchase.balanceDue).toLocaleString()}
+                        </span>
+                      ) : (
+                        "Nil"
+                      )}
                     </p>
                   </div>
                 </div>
@@ -439,7 +450,6 @@ const Purchases = () => {
                   <label className="block text-gray-700 font-medium mb-1">
                     Rate per KG (Rs) (Optional)
                   </label>
-                  {/* Yahan se required nikal diya gaya hai */}
                   <input
                     type="number"
                     step="any"
@@ -482,10 +492,16 @@ const Purchases = () => {
                     Due Balance (Auto)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     readOnly
-                    value={formData.balanceDue}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-red-500"
+                    value={
+                      formData.balanceDue > 0
+                        ? formData.balanceDue
+                        : formData.balanceDue < 0
+                          ? `Advance ${Math.abs(formData.balanceDue)}`
+                          : "0"
+                    }
+                    className={`w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold ${formData.balanceDue > 0 ? "text-red-500" : formData.balanceDue < 0 ? "text-green-600" : "text-gray-500"}`}
                   />
                 </div>
               </div>

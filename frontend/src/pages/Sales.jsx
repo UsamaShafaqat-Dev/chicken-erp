@@ -143,10 +143,8 @@ const Sales = () => {
     if (name === "weight" || name === "rate") {
       const weight = parseFloat(newFormData.weight) || 0;
       const rate = parseFloat(newFormData.rate) || 0;
-
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
-
       newFormData.balanceDue =
         totalAmount - (parseFloat(newFormData.paidAmount) || 0);
     } else if (name === "paymentMethod") {
@@ -197,7 +195,6 @@ const Sales = () => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    // Yahan rate ki condition hata di gayi hai
     if (!formData.customer || !formData.weight)
       return toast.error("Customer and Weight are required");
 
@@ -628,12 +625,19 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 text-green-600 font-medium print:text-black whitespace-nowrap">
                       Rs. {sale.displayPaid.toLocaleString()}
                     </td>
-                    <td
-                      className={`px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black ${sale.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
-                    >
-                      {sale.displayBalance > 0
-                        ? `Rs. ${sale.displayBalance.toLocaleString()}`
-                        : "Nil"}
+                    <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
+                      {sale.displayBalance > 0 ? (
+                        <span className="text-red-500">
+                          Rs. {sale.displayBalance.toLocaleString()}
+                        </span>
+                      ) : sale.displayBalance < 0 ? (
+                        <span className="text-green-600">
+                          Advance Rs.{" "}
+                          {Math.abs(sale.displayBalance).toLocaleString()}
+                        </span>
+                      ) : (
+                        "Nil"
+                      )}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
@@ -687,7 +691,17 @@ const Sales = () => {
                   Rs. {tablePaidAmount.toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
-                  Rs. {tableOutstanding.toLocaleString()}
+                  {tableOutstanding > 0 ? (
+                    <span className="text-red-500">
+                      Rs. {tableOutstanding.toLocaleString()}
+                    </span>
+                  ) : tableOutstanding < 0 ? (
+                    <span className="text-green-600">
+                      Advance Rs. {Math.abs(tableOutstanding).toLocaleString()}
+                    </span>
+                  ) : (
+                    "Nil"
+                  )}
                 </td>
               </tr>
             </tfoot>
@@ -740,12 +754,19 @@ const Sales = () => {
                     <p className="text-gray-500 text-xs mb-1">
                       Outstanding Balance
                     </p>
-                    <p
-                      className={`font-bold ${sale.displayBalance > 0 ? "text-red-500" : "text-gray-600"}`}
-                    >
-                      {sale.displayBalance > 0
-                        ? `Rs. ${sale.displayBalance.toLocaleString()}`
-                        : "Nil"}
+                    <p className="font-bold">
+                      {sale.displayBalance > 0 ? (
+                        <span className="text-red-500">
+                          Rs. {sale.displayBalance.toLocaleString()}
+                        </span>
+                      ) : sale.displayBalance < 0 ? (
+                        <span className="text-green-600">
+                          Advance Rs.{" "}
+                          {Math.abs(sale.displayBalance).toLocaleString()}
+                        </span>
+                      ) : (
+                        "Nil"
+                      )}
                     </p>
                   </div>
                 </div>
@@ -865,7 +886,6 @@ const Sales = () => {
                   <label className="block text-gray-700 font-medium mb-1">
                     Rate per KG (Rs) (Optional)
                   </label>
-                  {/* Yahan se required nikal diya gaya hai */}
                   <input
                     type="number"
                     step="any"
@@ -908,10 +928,16 @@ const Sales = () => {
                     Outstanding Due (Auto)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     readOnly
-                    value={formData.balanceDue}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-red-500"
+                    value={
+                      formData.balanceDue > 0
+                        ? formData.balanceDue
+                        : formData.balanceDue < 0
+                          ? `Advance ${Math.abs(formData.balanceDue)}`
+                          : "0"
+                    }
+                    className={`w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold ${formData.balanceDue > 0 ? "text-red-500" : formData.balanceDue < 0 ? "text-green-600" : "text-gray-500"}`}
                   />
                 </div>
               </div>
