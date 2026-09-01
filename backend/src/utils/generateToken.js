@@ -5,11 +5,11 @@ const generateToken = (res, userId) => {
     expiresIn: "30d",
   });
 
-  // 🔥 FIX: Cross-Origin (Vercel se Render) request ke liye 'none' aur 'true' karna lazmi hai
+  // 🔥 FIX: HTTP VPS (bina SSL) ke liye secure ko 'false' aur sameSite ko 'lax' kiya gaya hai
   res.cookie("jwt", token, {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: false, // True sirf HTTPS (SSL) par kaam karta hai
+    sameSite: "lax", // IP address aur HTTP ke liye best hai
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 Days
   });
 };

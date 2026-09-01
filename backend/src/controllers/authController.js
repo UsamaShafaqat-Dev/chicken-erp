@@ -73,12 +73,11 @@ const loginUser = async (req, res) => {
 // @desc    Logout user / clear cookie
 // @route   POST /api/auth/logout
 const logoutUser = (req, res) => {
-  // 🔥 FIX: Logout par bhi sameSite "none" aur secure true hona chahiye
+  // 🔥 FIX: HTTP (bina SSL) ke liye secure: false kiya gaya hai
   res.cookie("jwt", "", {
     httpOnly: true,
     expires: new Date(0),
-    secure: true,
-    sameSite: "none",
+    secure: false,
   });
   res.status(200).json({ message: "Logged out successfully" });
 };
