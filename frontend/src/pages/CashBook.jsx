@@ -342,7 +342,6 @@ const CashBook = () => {
                   Transaction History & Details
                 </p>
               </div>
-
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <div className="text-right hidden sm:block print:hidden">
                   <p className="text-xs text-gray-500 font-bold uppercase">
@@ -539,7 +538,239 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Add/Edit Account Modal & Delete Khata modal hidden for brevity (Already kept as is in original code above, refer to original file code structure if needed for space, but provided full component above) */}
+      {/* Add/Edit Account Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <UserPlus size={18} className="text-green-600" />{" "}
+                {editingAccId ? "Edit Cash Account" : "Create Cash Account"}
+              </h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleAddAccount} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Account Name
+                </label>
+                <input
+                  type="text"
+                  value={newAccount.name}
+                  onChange={(e) =>
+                    setNewAccount({ ...newAccount, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
+                  placeholder="e.g. Shop Counter"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Account Type
+                </label>
+                <select
+                  value={newAccount.type}
+                  onChange={(e) =>
+                    setNewAccount({ ...newAccount, type: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500 bg-white"
+                >
+                  <option value="owner">Owner (Main Cash)</option>
+                  <option value="shop">Shop / Counter</option>
+                  <option value="staff">Staff / Rider</option>
+                  <option value="bank">Bank Account</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Opening / Current Balance (Rs)
+                </label>
+                <input
+                  type="number"
+                  value={newAccount.initialBalance}
+                  onChange={(e) =>
+                    setNewAccount({
+                      ...newAccount,
+                      initialBalance: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500"
+                  placeholder="e.g. 0"
+                />
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                >
+                  {editingAccId ? "Update Account" : "Create Account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Khata Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete Khata?
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Are you sure? This will permanently delete this account and all
+              its transaction history!
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <ArrowRightLeft size={18} className="text-blue-600" /> Transfer
+                Cash
+              </h3>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="text-gray-400 hover:text-red-500"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleTransfer} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  From Account (Sender)
+                </label>
+                <select
+                  value={transferData.fromAccountId}
+                  onChange={(e) =>
+                    setTransferData({
+                      ...transferData,
+                      fromAccountId: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
+                  required
+                >
+                  <option value="">-- Select Sender --</option>
+                  {accounts.map((a) => (
+                    <option key={a._id} value={a._id}>
+                      {a.name} (Bal: Rs.{a.balance.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To Account (Receiver)
+                </label>
+                <select
+                  value={transferData.toAccountId}
+                  onChange={(e) =>
+                    setTransferData({
+                      ...transferData,
+                      toAccountId: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
+                  required
+                >
+                  <option value="">-- Select Receiver --</option>
+                  {accounts.map((a) => (
+                    <option key={a._id} value={a._id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount (Rs)
+                </label>
+                <input
+                  type="number"
+                  value={transferData.amount}
+                  onChange={(e) =>
+                    setTransferData({ ...transferData, amount: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                  placeholder="e.g. 50000"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Details / Note
+                </label>
+                <input
+                  type="text"
+                  value={transferData.particulars}
+                  onChange={(e) =>
+                    setTransferData({
+                      ...transferData,
+                      particulars: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                  placeholder="e.g. Cash handed over in evening"
+                  required
+                />
+              </div>
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Transfer Now
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
