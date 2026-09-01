@@ -67,16 +67,16 @@ const Sales = () => {
       setLoading(true);
       const [salesRes, customersRes, purchasesRes, paymentsRes] =
         await Promise.all([
-          axios.get("https://asia-poultry-api.onrender.com/api/sales", {
+          axios.get("http://129.121.140.57:5000/api/sales", {
             withCredentials: true,
           }),
-          axios.get("https://asia-poultry-api.onrender.com/api/customers", {
+          axios.get("http://129.121.140.57:5000/api/customers", {
             withCredentials: true,
           }),
-          axios.get("https://asia-poultry-api.onrender.com/api/purchases", {
+          axios.get("http://129.121.140.57:5000/api/purchases", {
             withCredentials: true,
           }),
-          axios.get("https://asia-poultry-api.onrender.com/api/payments", {
+          axios.get("http://129.121.140.57:5000/api/payments", {
             withCredentials: true,
           }),
         ]);
@@ -95,7 +95,7 @@ const Sales = () => {
     if (!dateStr) return setDailyRates({ bahawalpurRate: "", supplyRate: "" });
     try {
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com/api/daily-rates/${dateStr}`,
+        `http://129.121.140.57:5000/api/daily-rates/${dateStr}`,
         { withCredentials: true },
       );
       setDailyRates({
@@ -120,7 +120,7 @@ const Sales = () => {
     try {
       setSavingRates(true);
       await axios.post(
-        "https://asia-poultry-api.onrender.com/api/daily-rates",
+        "http://129.121.140.57:5000/api/daily-rates",
         {
           date: toDate,
           bahawalpurRate: Number(dailyRates.bahawalpurRate),
@@ -203,14 +203,14 @@ const Sales = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com/api/sales/${editingId}`,
+          `http://129.121.140.57:5000/api/sales/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Sale updated successfully");
       } else {
         await axios.post(
-          "https://asia-poultry-api.onrender.com/api/sales",
+          "http://129.121.140.57:5000/api/sales",
           formData,
           {
             withCredentials: true,
@@ -230,7 +230,7 @@ const Sales = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/sales/${deletingId}`,
+        `http://129.121.140.57:5000/api/sales/${deletingId}`,
         {
           withCredentials: true,
         },

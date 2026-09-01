@@ -36,7 +36,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get("https://asia-poultry-api.onrender.com/api/users", {
+      const { data } = await axios.get("http://129.121.140.57:5000/api/users", {
         withCredentials: true,
       });
       setUsers(data);
@@ -69,7 +69,7 @@ const Users = () => {
     }
 
     try {
-      await axios.post("https://asia-poultry-api.onrender.com/api/users", formData, {
+      await axios.post("http://129.121.140.57:5000/api/users", formData, {
         withCredentials: true,
       });
       toast.success("User account created successfully");
@@ -89,7 +89,7 @@ const Users = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`https://asia-poultry-api.onrender.com/api/users/${deletingId}`, {
+      await axios.delete(`http://129.121.140.57:5000/api/users/${deletingId}`, {
         withCredentials: true,
       });
       toast.success("User deleted successfully");

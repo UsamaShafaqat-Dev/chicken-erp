@@ -40,7 +40,7 @@ const Suppliers = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "https://asia-poultry-api.onrender.com/api/suppliers",
+        "http://129.121.140.57:5000/api/suppliers",
         {
           withCredentials: true,
         },
@@ -95,14 +95,14 @@ const Suppliers = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com/api/suppliers/${editingId}`,
+          `http://129.121.140.57:5000/api/suppliers/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Supplier updated successfully");
       } else {
         await axios.post(
-          "https://asia-poultry-api.onrender.com/api/suppliers",
+          "http://129.121.140.57:5000/api/suppliers",
           formData,
           {
             withCredentials: true,
@@ -122,7 +122,7 @@ const Suppliers = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/suppliers/${deletingId}`,
+        `http://129.121.140.57:5000/api/suppliers/${deletingId}`,
         {
           withCredentials: true,
         },

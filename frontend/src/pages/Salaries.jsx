@@ -63,7 +63,7 @@ const Salaries = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "https://asia-poultry-api.onrender.com/api/employees",
+        "http://129.121.140.57:5000/api/employees",
         {
           withCredentials: true,
         },
@@ -110,14 +110,14 @@ const Salaries = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com/api/employees/${editingId}`,
+          `http://129.121.140.57:5000/api/employees/${editingId}`,
           empForm,
           { withCredentials: true },
         );
         toast.success("Employee updated successfully!");
       } else {
         await axios.post(
-          "https://asia-poultry-api.onrender.com/api/employees",
+          "http://129.121.140.57:5000/api/employees",
           empForm,
           { withCredentials: true },
         );
@@ -138,7 +138,7 @@ const Salaries = () => {
     setIsSubmitting(true);
     try {
       await axios.post(
-        "https://asia-poultry-api.onrender.com/api/employees/transaction",
+        "http://129.121.140.57:5000/api/employees/transaction",
         { ...txnForm, employeeId: selectedEmp._id },
         { withCredentials: true },
       );
@@ -156,7 +156,7 @@ const Salaries = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/employees/${deletingId}`,
+        `http://129.121.140.57:5000/api/employees/${deletingId}`,
         { withCredentials: true },
       );
       toast.success("Employee deleted successfully");
@@ -174,7 +174,7 @@ const Salaries = () => {
       setSelectedEmp(emp);
       setIsLedgerModalOpen(true);
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com/api/employees/${emp._id}/ledger`,
+        `http://129.121.140.57:5000/api/employees/${emp._id}/ledger`,
         { withCredentials: true },
       );
       setLedgerData(data.transactions);
@@ -188,7 +188,7 @@ const Salaries = () => {
   const confirmDeleteTxn = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/employees/transaction/${deletingTxnId}`,
+        `http://129.121.140.57:5000/api/employees/transaction/${deletingTxnId}`,
         { withCredentials: true },
       );
       toast.success("Entry removed from khata");

@@ -32,7 +32,7 @@ const Ledgers = () => {
         const endpoint =
           partyType === "customer" ? "/api/customers" : "/api/suppliers";
         const { data } = await axios.get(
-          `https://asia-poultry-api.onrender.com${endpoint}`,
+          `http://129.121.140.57:5000${endpoint}`,
           {
             withCredentials: true,
           },
@@ -53,7 +53,7 @@ const Ledgers = () => {
     try {
       setLoading(true);
 
-      let apiUrl = `https://asia-poultry-api.onrender.com/api/ledgers?type=${partyType}&id=${selectedParty}`;
+      let apiUrl = `http://129.121.140.57:5000/api/ledgers?type=${partyType}&id=${selectedParty}`;
       if (fromDate) apiUrl += `&startDate=${fromDate}`;
       if (toDate) apiUrl += `&endDate=${toDate}`;
 

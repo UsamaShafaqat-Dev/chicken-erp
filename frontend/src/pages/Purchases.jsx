@@ -43,10 +43,10 @@ const Purchases = () => {
     try {
       setLoading(true);
       const [purchasesRes, suppliersRes] = await Promise.all([
-        axios.get("https://asia-poultry-api.onrender.com/api/purchases", {
+        axios.get("http://129.121.140.57:5000/api/purchases", {
           withCredentials: true,
         }),
-        axios.get("https://asia-poultry-api.onrender.com/api/suppliers", {
+        axios.get("http://129.121.140.57:5000/api/suppliers", {
           withCredentials: true,
         }),
       ]);
@@ -131,14 +131,14 @@ const Purchases = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com/api/purchases/${editingId}`,
+          `http://129.121.140.57:5000/api/purchases/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Purchase updated successfully");
       } else {
         await axios.post(
-          "https://asia-poultry-api.onrender.com/api/purchases",
+          "http://129.121.140.57:5000/api/purchases",
           formData,
           {
             withCredentials: true,
@@ -158,7 +158,7 @@ const Purchases = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/purchases/${deletingId}`,
+        `http://129.121.140.57:5000/api/purchases/${deletingId}`,
         {
           withCredentials: true,
         },

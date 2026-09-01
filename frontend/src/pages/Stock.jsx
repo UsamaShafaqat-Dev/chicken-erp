@@ -54,7 +54,7 @@ const Stock = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "https://asia-poultry-api.onrender.com/api/stock",
+        "http://129.121.140.57:5000/api/stock",
         {
           withCredentials: true,
         },
@@ -84,7 +84,7 @@ const Stock = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/purchases/${deletingId}`,
+        `http://129.121.140.57:5000/api/purchases/${deletingId}`,
         {
           withCredentials: true,
         },
@@ -123,7 +123,7 @@ const Stock = () => {
     setIsSubmitting(true);
     try {
       await axios.put(
-        `https://asia-poultry-api.onrender.com/api/purchases/${editingId}`,
+        `http://129.121.140.57:5000/api/purchases/${editingId}`,
         formData,
         {
           withCredentials: true,

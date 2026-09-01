@@ -21,7 +21,7 @@ const Login = () => {
       setLoading(true);
       // 🔥 FIX: Double slash (//) hata kar single slash (/) kar diya hai
       const response = await axios.post(
-        "https://asia-poultry-api.onrender.com/api/auth/login",
+        "http://129.121.140.57:5000/api/auth/login",
         { userId, password },
         { withCredentials: true }, 
       );

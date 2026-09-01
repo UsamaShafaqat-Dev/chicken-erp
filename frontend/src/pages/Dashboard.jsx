@@ -29,7 +29,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await axios.get("https://asia-poultry-api.onrender.com/api/dashboard", {
+        const res = await axios.get("http://129.121.140.57:5000/api/dashboard", {
           withCredentials: true,
         });
         setData(res.data);

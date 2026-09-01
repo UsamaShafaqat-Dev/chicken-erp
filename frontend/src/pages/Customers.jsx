@@ -64,13 +64,13 @@ const Customers = () => {
     try {
       setLoading(true);
       const [custRes, salesRes, payRes] = await Promise.all([
-        axios.get("https://asia-poultry-api.onrender.com/api/customers", {
+        axios.get("http://129.121.140.57:5000/api/customers", {
           withCredentials: true,
         }),
-        axios.get("https://asia-poultry-api.onrender.com/api/sales", {
+        axios.get("http://129.121.140.57:5000/api/sales", {
           withCredentials: true,
         }),
-        axios.get("https://asia-poultry-api.onrender.com/api/payments", {
+        axios.get("http://129.121.140.57:5000/api/payments", {
           withCredentials: true,
         }),
       ]);
@@ -130,14 +130,14 @@ const Customers = () => {
     try {
       if (editingId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com/api/customers/${editingId}`,
+          `http://129.121.140.57:5000/api/customers/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Customer updated successfully");
       } else {
         await axios.post(
-          "https://asia-poultry-api.onrender.com/api/customers",
+          "http://129.121.140.57:5000/api/customers",
           formData,
           { withCredentials: true },
         );
@@ -155,7 +155,7 @@ const Customers = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/customers/${deletingId}`,
+        `http://129.121.140.57:5000/api/customers/${deletingId}`,
         { withCredentials: true },
       );
       toast.success("Customer deleted successfully");

@@ -66,7 +66,7 @@ const CashBook = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "https://asia-poultry-api.onrender.com/api/cash/accounts",
+        "http://129.121.140.57:5000/api/cash/accounts",
         { withCredentials: true },
       );
       setAccounts(data);
@@ -102,14 +102,14 @@ const CashBook = () => {
     try {
       if (editingAccId) {
         await axios.put(
-          `https://asia-poultry-api.onrender.com/api/cash/accounts/${editingAccId}`,
+          `http://129.121.140.57:5000/api/cash/accounts/${editingAccId}`,
           newAccount,
           { withCredentials: true },
         );
         toast.success("Cash Account Updated!");
       } else {
         await axios.post(
-          "https://asia-poultry-api.onrender.com/api/cash/accounts",
+          "http://129.121.140.57:5000/api/cash/accounts",
           newAccount,
           { withCredentials: true },
         );
@@ -125,7 +125,7 @@ const CashBook = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/cash/accounts/${deletingId}`,
+        `http://129.121.140.57:5000/api/cash/accounts/${deletingId}`,
         { withCredentials: true },
       );
       toast.success("Account deleted successfully!");
@@ -151,7 +151,7 @@ const CashBook = () => {
 
     try {
       await axios.post(
-        "https://asia-poultry-api.onrender.com/api/cash/transfer",
+        "http://129.121.140.57:5000/api/cash/transfer",
         transferData,
         { withCredentials: true },
       );
@@ -178,7 +178,7 @@ const CashBook = () => {
 
     try {
       const { data } = await axios.get(
-        `https://asia-poultry-api.onrender.com/api/cash/ledger/${accountId}`,
+        `http://129.121.140.57:5000/api/cash/ledger/${accountId}`,
         { withCredentials: true },
       );
       if (data.success && data.ledger) {
@@ -200,7 +200,7 @@ const CashBook = () => {
   const confirmDeleteTxn = async () => {
     try {
       await axios.delete(
-        `https://asia-poultry-api.onrender.com/api/cash/transaction/${deletingTxnId}`,
+        `http://129.121.140.57:5000/api/cash/transaction/${deletingTxnId}`,
         { withCredentials: true },
       );
       toast.success("Transfer deleted and balances reverted!");

@@ -80,7 +80,7 @@ const Settings = () => {
       });
 
       const { data } = await axios.put(
-        "https://asia-poultry-api.onrender.com/api/users/profile",
+        "http://129.121.140.57:5000/api/users/profile",
         formData,
         { withCredentials: true },
       );
