@@ -22,7 +22,7 @@ import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import CashBook from "./pages/CashBook";
 import Salaries from "./pages/Salaries";
-import DailyReport from "./components/DailyReport";
+import DailyReport from "./pages/DailyReport";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("userInfo");
