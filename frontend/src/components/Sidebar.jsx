@@ -30,7 +30,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   useEffect(() => {
     axios
-      .get("http://129.121.140.57:5000/api/stock", {
+      .get("https://asiapoultrybusiness.com/api/stock", {
         withCredentials: true,
       })
       .then((res) => setLiveStock(res.data.currentStock))

@@ -36,7 +36,7 @@ const DailyReport = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "http://129.121.140.57:5000/api/reports",
+        "https://asiapoultrybusiness.com/api/reports",
         {
           params: { startDate, endDate },
           withCredentials: true,

@@ -74,11 +74,11 @@ const Expenses = () => {
     try {
       setLoading(true);
       const [expensesRes, categoriesRes] = await Promise.all([
-        axios.get("http://129.121.140.57:5000/api/expenses", {
+        axios.get("https://asiapoultrybusiness.com/api/expenses", {
           withCredentials: true,
         }),
         axios
-          .get("http://129.121.140.57:5000/api/expense-categories", {
+          .get("https://asiapoultrybusiness.com/api/expense-categories", {
             withCredentials: true,
           })
           .catch(() => ({ data: [] })),
@@ -154,14 +154,14 @@ const Expenses = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://129.121.140.57:5000/api/expenses/${editingId}`,
+          `https://asiapoultrybusiness.com/api/expenses/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Expense updated successfully");
       } else {
         await axios.post(
-          "http://129.121.140.57:5000/api/expenses",
+          "https://asiapoultrybusiness.com/api/expenses",
           formData,
           { withCredentials: true },
         );
@@ -179,7 +179,7 @@ const Expenses = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/expenses/${deletingId}`,
+        `https://asiapoultrybusiness.com/api/expenses/${deletingId}`,
         { withCredentials: true },
       );
       toast.success("Expense entry deleted");
@@ -211,14 +211,14 @@ const Expenses = () => {
     try {
       if (editingCategoryId) {
         await axios.put(
-          `http://129.121.140.57:5000/api/expense-categories/${editingCategoryId}`,
+          `https://asiapoultrybusiness.com/api/expense-categories/${editingCategoryId}`,
           { name: categoryForm.name.trim() },
           { withCredentials: true },
         );
         toast.success("Khata Updated!");
       } else {
         const { data } = await axios.post(
-          "http://129.121.140.57:5000/api/expense-categories",
+          "https://asiapoultrybusiness.com/api/expense-categories",
           {
             name: categoryForm.name.trim(),
             openingBalance: categoryForm.openingBalance,
@@ -241,7 +241,7 @@ const Expenses = () => {
   const confirmDeleteCategory = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/expense-categories/${deletingCategoryId}`,
+        `https://asiapoultrybusiness.com/api/expense-categories/${deletingCategoryId}`,
         { withCredentials: true },
       );
       toast.success("Khata and all its expenses deleted");

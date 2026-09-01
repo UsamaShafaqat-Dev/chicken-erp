@@ -68,21 +68,21 @@ const Payments = () => {
       setLoading(true);
       const [paymentsRes, customersRes, suppliersRes, cashRes, expCatRes] =
         await Promise.all([
-          axios.get("http://129.121.140.57:5000/api/payments", {
+          axios.get("https://asiapoultrybusiness.com/api/payments", {
             withCredentials: true,
           }),
-          axios.get("http://129.121.140.57:5000/api/customers", {
+          axios.get("https://asiapoultrybusiness.com/api/customers", {
             withCredentials: true,
           }),
-          axios.get("http://129.121.140.57:5000/api/suppliers", {
+          axios.get("https://asiapoultrybusiness.com/api/suppliers", {
             withCredentials: true,
           }),
-          axios.get("http://129.121.140.57:5000/api/cash/accounts", {
+          axios.get("https://asiapoultrybusiness.com/api/cash/accounts", {
             withCredentials: true,
           }),
           axios
             .get(
-              "http://129.121.140.57:5000/api/expense-categories",
+              "https://asiapoultrybusiness.com/api/expense-categories",
               { withCredentials: true },
             )
             .catch(() => ({ data: [] })),
@@ -91,7 +91,7 @@ const Payments = () => {
       let empData = [];
       try {
         const empRes = await axios.get(
-          "http://129.121.140.57:5000/api/employees",
+          "https://asiapoultrybusiness.com/api/employees",
           { withCredentials: true },
         );
         empData = empRes.data;
@@ -255,14 +255,14 @@ const Payments = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://129.121.140.57:5000/api/payments/${editingId}`,
+          `https://asiapoultrybusiness.com/api/payments/${editingId}`,
           payload,
           { withCredentials: true },
         );
         toast.success("Payment updated successfully");
       } else {
         await axios.post(
-          "http://129.121.140.57:5000/api/payments",
+          "https://asiapoultrybusiness.com/api/payments",
           payload,
           { withCredentials: true },
         );
@@ -280,7 +280,7 @@ const Payments = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/payments/${deletingId}`,
+        `https://asiapoultrybusiness.com/api/payments/${deletingId}`,
         { withCredentials: true },
       );
       toast.success("Payment deleted successfully");

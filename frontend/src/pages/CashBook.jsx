@@ -66,7 +66,7 @@ const CashBook = () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        "http://129.121.140.57:5000/api/cash/accounts",
+        "https://asiapoultrybusiness.com/api/cash/accounts",
         { withCredentials: true },
       );
       setAccounts(data);
@@ -102,14 +102,14 @@ const CashBook = () => {
     try {
       if (editingAccId) {
         await axios.put(
-          `http://129.121.140.57:5000/api/cash/accounts/${editingAccId}`,
+          `https://asiapoultrybusiness.com/api/cash/accounts/${editingAccId}`,
           newAccount,
           { withCredentials: true },
         );
         toast.success("Cash Account Updated!");
       } else {
         await axios.post(
-          "http://129.121.140.57:5000/api/cash/accounts",
+          "https://asiapoultrybusiness.com/api/cash/accounts",
           newAccount,
           { withCredentials: true },
         );
@@ -125,7 +125,7 @@ const CashBook = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/cash/accounts/${deletingId}`,
+        `https://asiapoultrybusiness.com/api/cash/accounts/${deletingId}`,
         { withCredentials: true },
       );
       toast.success("Account deleted successfully!");
@@ -151,7 +151,7 @@ const CashBook = () => {
 
     try {
       await axios.post(
-        "http://129.121.140.57:5000/api/cash/transfer",
+        "https://asiapoultrybusiness.com/api/cash/transfer",
         transferData,
         { withCredentials: true },
       );
@@ -178,7 +178,7 @@ const CashBook = () => {
 
     try {
       const { data } = await axios.get(
-        `http://129.121.140.57:5000/api/cash/ledger/${accountId}`,
+        `https://asiapoultrybusiness.com/api/cash/ledger/${accountId}`,
         { withCredentials: true },
       );
       if (data.success && data.ledger) {
@@ -200,7 +200,7 @@ const CashBook = () => {
   const confirmDeleteTxn = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/cash/transaction/${deletingTxnId}`,
+        `https://asiapoultrybusiness.com/api/cash/transaction/${deletingTxnId}`,
         { withCredentials: true },
       );
       toast.success("Transfer deleted and balances reverted!");

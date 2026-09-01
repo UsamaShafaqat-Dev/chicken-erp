@@ -40,7 +40,7 @@ const Reports = () => {
         query = `?startDate=${start}&endDate=${end}`;
       }
       const { data } = await axios.get(
-        `http://129.121.140.57:5000/api/reports${query}`,
+        `https://asiapoultrybusiness.com/api/reports${query}`,
         { withCredentials: true },
       );
       setReportData(data);
@@ -56,7 +56,7 @@ const Reports = () => {
     try {
       setIsResetting(true);
       await axios.delete(
-        "http://129.121.140.57:5000/api/reports/reset",
+        "https://asiapoultrybusiness.com/api/reports/reset",
         { withCredentials: true },
       );
       toast.success("Software Reset Successfully! All totals are 0.");

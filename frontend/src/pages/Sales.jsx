@@ -67,16 +67,16 @@ const Sales = () => {
       setLoading(true);
       const [salesRes, customersRes, purchasesRes, paymentsRes] =
         await Promise.all([
-          axios.get("http://129.121.140.57:5000/api/sales", {
+          axios.get("https://asiapoultrybusiness.com/api/sales", {
             withCredentials: true,
           }),
-          axios.get("http://129.121.140.57:5000/api/customers", {
+          axios.get("https://asiapoultrybusiness.com/api/customers", {
             withCredentials: true,
           }),
-          axios.get("http://129.121.140.57:5000/api/purchases", {
+          axios.get("https://asiapoultrybusiness.com/api/purchases", {
             withCredentials: true,
           }),
-          axios.get("http://129.121.140.57:5000/api/payments", {
+          axios.get("https://asiapoultrybusiness.com/api/payments", {
             withCredentials: true,
           }),
         ]);
@@ -95,7 +95,7 @@ const Sales = () => {
     if (!dateStr) return setDailyRates({ bahawalpurRate: "", supplyRate: "" });
     try {
       const { data } = await axios.get(
-        `http://129.121.140.57:5000/api/daily-rates/${dateStr}`,
+        `https://asiapoultrybusiness.com/api/daily-rates/${dateStr}`,
         { withCredentials: true },
       );
       setDailyRates({
@@ -120,7 +120,7 @@ const Sales = () => {
     try {
       setSavingRates(true);
       await axios.post(
-        "http://129.121.140.57:5000/api/daily-rates",
+        "https://asiapoultrybusiness.com/api/daily-rates",
         {
           date: toDate,
           bahawalpurRate: Number(dailyRates.bahawalpurRate),
@@ -203,14 +203,14 @@ const Sales = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://129.121.140.57:5000/api/sales/${editingId}`,
+          `https://asiapoultrybusiness.com/api/sales/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Sale updated successfully");
       } else {
         await axios.post(
-          "http://129.121.140.57:5000/api/sales",
+          "https://asiapoultrybusiness.com/api/sales",
           formData,
           {
             withCredentials: true,
@@ -230,7 +230,7 @@ const Sales = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/sales/${deletingId}`,
+        `https://asiapoultrybusiness.com/api/sales/${deletingId}`,
         {
           withCredentials: true,
         },

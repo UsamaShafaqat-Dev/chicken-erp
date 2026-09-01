@@ -43,10 +43,10 @@ const Purchases = () => {
     try {
       setLoading(true);
       const [purchasesRes, suppliersRes] = await Promise.all([
-        axios.get("http://129.121.140.57:5000/api/purchases", {
+        axios.get("https://asiapoultrybusiness.com/api/purchases", {
           withCredentials: true,
         }),
-        axios.get("http://129.121.140.57:5000/api/suppliers", {
+        axios.get("https://asiapoultrybusiness.com/api/suppliers", {
           withCredentials: true,
         }),
       ]);
@@ -131,14 +131,14 @@ const Purchases = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://129.121.140.57:5000/api/purchases/${editingId}`,
+          `https://asiapoultrybusiness.com/api/purchases/${editingId}`,
           formData,
           { withCredentials: true },
         );
         toast.success("Purchase updated successfully");
       } else {
         await axios.post(
-          "http://129.121.140.57:5000/api/purchases",
+          "https://asiapoultrybusiness.com/api/purchases",
           formData,
           {
             withCredentials: true,
@@ -158,7 +158,7 @@ const Purchases = () => {
   const confirmDelete = async () => {
     try {
       await axios.delete(
-        `http://129.121.140.57:5000/api/purchases/${deletingId}`,
+        `https://asiapoultrybusiness.com/api/purchases/${deletingId}`,
         {
           withCredentials: true,
         },
