@@ -22,6 +22,7 @@ import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import CashBook from "./pages/CashBook";
 import Salaries from "./pages/Salaries";
+import DailyReport from "./components/DailyReport";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("userInfo");
@@ -170,6 +171,18 @@ function App() {
           }
         />
 
+        {/* 🔥 FIX: Daily Report ko Layout aur ProtectedRoute mein wrap kar diya */}
+        <Route
+          path="/daily-report"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <DailyReport />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/whatsapp"
           element={
@@ -203,7 +216,6 @@ function App() {
           }
         />
 
-        {/* 🔥 FIX: Salaries ko Layout ke andar wrap kar diya gaya hai */}
         <Route
           path="/salaries"
           element={

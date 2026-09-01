@@ -14,6 +14,7 @@ import {
   CreditCard,
   FileText,
   Wallet,
+  Filter,
 } from "lucide-react";
 
 const Payments = () => {
@@ -25,7 +26,11 @@ const Payments = () => {
   const [cashAccounts, setCashAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
+  // 🔥 NAYA: Date Range States
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -49,7 +54,6 @@ const Payments = () => {
 
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
-
   const todayDateStr = new Date().toISOString().split("T")[0];
 
   const fetchData = async () => {
@@ -194,7 +198,6 @@ const Payments = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
-
     if (formData.type === "receive" && !formData.customer)
       return toast.error("Please select a customer");
     if (
@@ -216,7 +219,6 @@ const Payments = () => {
       !editingId
     )
       return toast.error("Please select an expense category");
-
     if (!formData.cashAccountId)
       return toast.error("Please select a Cash Account");
     if (!formData.amount || formData.amount <= 0)
@@ -296,35 +298,59 @@ const Payments = () => {
     return p.supplier?.name;
   };
 
+  // 🔥 NAYA: Search aur Date Filter dono lag gaye hain
   const filteredPayments = payments.filter((p) => {
     const partyName = getPartyName(p) || "";
     const cleanNotes = getCleanNotes(p.notes) || "";
     const accountName = p.cashAccountId?.name || "";
-    return (
+    const matchesSearch =
       partyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cleanNotes.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      accountName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+      accountName.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const pDate = new Date(p.date).toISOString().split("T")[0];
+    const matchesStart = startDate ? pDate >= startDate : true;
+    const matchesEnd = endDate ? pDate <= endDate : true;
+
+    return matchesSearch && matchesStart && matchesEnd;
   });
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden box-border">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-80 flex items-center gap-2">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+          <div className="bg-gray-100 p-2 rounded-lg w-full sm:w-64 flex items-center gap-2">
             <Search size={18} className="text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, notes or account..."
+              placeholder="Search by name, notes..."
               className="bg-transparent border-none outline-none text-sm w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          {/* 🔥 NAYA: Date Range UI */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="date"
+              className="bg-gray-100 p-2 rounded-lg text-sm border-none outline-none text-gray-600 w-full sm:w-auto"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              title="Start Date"
+            />
+            <span className="text-gray-400">to</span>
+            <input
+              type="date"
+              className="bg-gray-100 p-2 rounded-lg text-sm border-none outline-none text-gray-600 w-full sm:w-auto"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              title="End Date"
+            />
+          </div>
         </div>
         <button
           onClick={() => openModal()}
-          className="w-full sm:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="w-full lg:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <Plus size={18} /> Add Payment
         </button>
@@ -447,7 +473,6 @@ const Payments = () => {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         <div className="flex justify-center items-center gap-1.5">
-                          {/* 🔥 FIX: Owner ko Delete/Edit dono dikhenge. Staff ko sirf Edit (wo bhi tab agar entry aaj ki ho). */}
                           {isOwner ? (
                             <>
                               <button
@@ -563,7 +588,6 @@ const Payments = () => {
                 </div>
 
                 <div className="flex gap-2 mt-1">
-                  {/* 🔥 FIX: Mobile Owner/Staff Delete Logic */}
                   {isOwner ? (
                     <>
                       <button
@@ -601,6 +625,7 @@ const Payments = () => {
         </div>
       </div>
 
+      {/* Adding Payment Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -618,7 +643,6 @@ const Payments = () => {
                 <X size={20} />
               </button>
             </div>
-
             <form
               onSubmit={handleSubmit}
               className="p-5 space-y-5 text-sm overflow-y-auto custom-scrollbar flex-1"
@@ -888,6 +912,7 @@ const Payments = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">

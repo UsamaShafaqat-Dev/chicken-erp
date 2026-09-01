@@ -18,13 +18,13 @@ import {
   X,
   Wallet,
   Briefcase,
+  FileText, // 🔥 NAYA: Daily Report ke icon ke liye add kiya
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const location = useLocation();
   const [liveStock, setLiveStock] = useState(0);
 
-  // 🔥 NAYA: User Info nikali taake Owner aur Staff mein farq pata chale
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
 
@@ -51,10 +51,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: "Ledgers", icon: BookOpen, path: "/ledgers" },
     { name: "Cash Book", icon: Wallet, path: "/cashbook" },
     { name: "Reports", icon: BarChart3, path: "/reports" },
+    { name: "Daily Report", icon: FileText, path: "/daily-report" }, // 🔥 NAYA: Daily Report Menu mein add ho gaya
     { name: "WhatsApp Reminder", icon: MessageCircle, path: "/whatsapp" },
     { name: "Staff / Salaries", icon: Briefcase, path: "/salaries" },
 
-    // 🔥 FIX: Ye 2 buttons sirf Owner (Admin) ko nazar ayenge!
     ...(isOwner
       ? [{ name: "Users / Staff", icon: UserCog, path: "/users" }]
       : []),
@@ -65,7 +65,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   return (
     <>
-      {/* Mobile Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -73,11 +72,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         ></div>
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 h-screen w-64 bg-[#111827] text-gray-300 z-50 transition-transform duration-300 flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
-        {/* Logo Area */}
         <div className="flex items-center justify-between h-16 px-4 bg-[#0f172a] border-b border-gray-800">
           <div className="flex items-center gap-3">
             <div className="bg-white rounded-full p-1 w-8 h-8 flex items-center justify-center text-xl">
@@ -95,7 +92,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-        {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
           <ul className="space-y-1 px-2">
             {menuItems.map((item) => {
@@ -123,7 +119,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </ul>
         </div>
 
-        {/* Bottom Stock Alert (Live Now) */}
         <div className="p-4 bg-gray-900 border-t border-gray-800">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🦆</span>
