@@ -166,7 +166,6 @@ const Customers = () => {
     }
   };
 
-  // 🔥 FIX: WhatsApp text pre-filled
   const handleWhatsAppClick = (customer) => {
     const phone = customer.whatsapp || customer.mobile;
     if (!phone) return toast.error("WhatsApp number not available");
@@ -489,8 +488,11 @@ const Customers = () => {
                   <th className="px-1.5 py-3 print:py-2 font-medium">
                     Paid (Vasooli)
                   </th>
-                  <th className="px-1.5 py-3 print:py-2 font-medium">
-                    Outstanding
+                  <th className="px-1.5 py-3 print:py-2 font-medium text-red-600">
+                    Udhaar (Lene Hain)
+                  </th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium text-green-600">
+                    Advance (Dene Hain)
                   </th>
                   <th className="px-1.5 py-3 font-medium text-center print:hidden">
                     Action
@@ -501,7 +503,7 @@ const Customers = () => {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="text-center p-8 text-gray-500 text-sm"
                     >
                       Loading customers...
@@ -510,7 +512,7 @@ const Customers = () => {
                 ) : filteredCustomers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="text-center p-8 text-gray-500 text-sm"
                     >
                       No customers found.
@@ -541,19 +543,19 @@ const Customers = () => {
                       <td className="px-1.5 py-3 print:py-2 text-green-600 font-medium whitespace-nowrap">
                         Rs. {customer.displayPaid.toLocaleString() || 0}
                       </td>
-                      <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap">
-                        {customer.displayBalance > 0 ? (
-                          <span className="text-red-500">
-                            Rs. {customer.displayBalance.toLocaleString()}
-                          </span>
-                        ) : customer.displayBalance < 0 ? (
-                          <span className="text-green-600">
-                            Advance Rs.{" "}
-                            {Math.abs(customer.displayBalance).toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600">Nil</span>
-                        )}
+
+                      {/* Udhaar Column */}
+                      <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap text-red-500">
+                        {customer.displayBalance > 0
+                          ? `Rs. ${customer.displayBalance.toLocaleString()}`
+                          : "Nil"}
+                      </td>
+
+                      {/* Advance Column */}
+                      <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap text-green-600">
+                        {customer.displayBalance < 0
+                          ? `Rs. ${Math.abs(customer.displayBalance).toLocaleString()}`
+                          : "Nil"}
                       </td>
 
                       <td className="px-1.5 py-3 flex justify-center items-center gap-1 whitespace-nowrap print:hidden">
@@ -608,8 +610,11 @@ const Customers = () => {
                   <td className="px-1.5 py-3 text-green-700">
                     Rs. {marketTotalPaid.toLocaleString()}
                   </td>
-                  <td className="px-1.5 py-3 text-red-600">
-                    Rs. {marketTotalBalance.toLocaleString()}
+                  <td
+                    colSpan="2"
+                    className="px-1.5 py-3 text-center text-gray-800"
+                  >
+                    Net: Rs. {marketTotalBalance.toLocaleString()}
                   </td>
                   <td className="print:hidden"></td>
                 </tr>
@@ -668,23 +673,24 @@ const Customers = () => {
                       Rs. {customer.displayPaid.toLocaleString() || 0}
                     </p>
                   </div>
-                  <div className="col-span-2 pt-2 border-t border-gray-200">
-                    <p className="text-gray-500 text-xs mb-1">
-                      Outstanding Balance
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-red-500 text-xs mb-1 font-bold">
+                      Udhaar (Lene Hain)
                     </p>
-                    <p className="text-base font-bold">
-                      {customer.displayBalance > 0 ? (
-                        <span className="text-red-500">
-                          Rs. {customer.displayBalance.toLocaleString()}
-                        </span>
-                      ) : customer.displayBalance < 0 ? (
-                        <span className="text-green-600">
-                          Advance Rs.{" "}
-                          {Math.abs(customer.displayBalance).toLocaleString()}
-                        </span>
-                      ) : (
-                        <span className="text-gray-600">Nil</span>
-                      )}
+                    <p className="text-base font-bold text-red-500">
+                      {customer.displayBalance > 0
+                        ? `Rs. ${customer.displayBalance.toLocaleString()}`
+                        : "Nil"}
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-green-600 text-xs mb-1 font-bold">
+                      Advance (Dene Hain)
+                    </p>
+                    <p className="text-base font-bold text-green-600">
+                      {customer.displayBalance < 0
+                        ? `Rs. ${Math.abs(customer.displayBalance).toLocaleString()}`
+                        : "Nil"}
                     </p>
                   </div>
                 </div>
@@ -737,6 +743,7 @@ const Customers = () => {
         </div>
       </div>
 
+      {/* Ledger Modal Code remains unchanged */}
       {isLedgerModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div

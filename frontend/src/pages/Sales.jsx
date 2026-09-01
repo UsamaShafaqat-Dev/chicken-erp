@@ -257,11 +257,35 @@ const Sales = () => {
   const enhancedSales = filteredSales.map((sale) => {
     return {
       ...sale,
+      weightNum: Number(sale.weight) || 0,
+      totalAmountNum: Number(sale.totalAmount) || 0,
       displayPaid: Number(sale.paidAmount) || 0,
       displayBalance: Number(sale.balanceDue) || 0,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
+
+  // 🔥 NEW LOGIC: Grouping Sales by Same Customer, Same Date, Same Rate
+  const groupedSalesMap = {};
+  enhancedSales.forEach((sale) => {
+    const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
+
+    if (groupedSalesMap[key]) {
+      groupedSalesMap[key].weightNum += sale.weightNum;
+      groupedSalesMap[key].weight = groupedSalesMap[key].weightNum;
+      groupedSalesMap[key].totalAmountNum += sale.totalAmountNum;
+      groupedSalesMap[key].totalAmount = groupedSalesMap[key].totalAmountNum;
+      groupedSalesMap[key].displayPaid += sale.displayPaid;
+      groupedSalesMap[key].displayBalance =
+        groupedSalesMap[key].totalAmountNum - groupedSalesMap[key].displayPaid;
+      groupedSalesMap[key].isGrouped = true;
+      groupedSalesMap[key].groupCount += 1;
+    } else {
+      groupedSalesMap[key] = { ...sale, groupCount: 1 };
+    }
+  });
+
+  const finalGroupedSales = Object.values(groupedSalesMap);
 
   const filteredPurchases = purchases.filter((p) => {
     const pDate = new Date(p.date).toISOString().split("T")[0];
@@ -278,21 +302,16 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  // NUMBER OVERFLOW FIXES (Math.round to completely kill long decimals)
-  const roundToTwo = (num) => Math.round((Number(num) || 0) * 100) / 100;
-
-  const totalPurchasedWeight = roundToTwo(
-    filteredPurchases.reduce((sum, p) => sum + (Number(p.weight) || 0), 0),
-  );
-  const totalWeight = roundToTwo(
-    enhancedSales.reduce((sum, sale) => sum + (Number(sale.weight) || 0), 0),
-  );
-  const totalAmount = roundToTwo(
-    enhancedSales.reduce(
-      (sum, sale) => sum + (Number(sale.totalAmount) || 0),
-      0,
-    ),
-  );
+  // STRICT DECIMALS FOR BOXES TO PREVENT OVERFLOW
+  const totalPurchasedWeight = filteredPurchases
+    .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
+    .toFixed(2);
+  const totalWeight = enhancedSales
+    .reduce((sum, sale) => sum + sale.weightNum, 0)
+    .toFixed(2);
+  const totalAmount = enhancedSales
+    .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
+    .toFixed(2);
 
   const salesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
@@ -303,23 +322,19 @@ const Sales = () => {
     0,
   );
 
-  const totalPaid = roundToTwo(salesPaid + recoveryPaid);
-  const netUdhaar = roundToTwo(totalAmount - totalPaid);
+  const totalPaid = (salesPaid + recoveryPaid).toFixed(2);
+  const netUdhaar = (Number(totalAmount) - Number(totalPaid)).toFixed(2);
 
-  const tablePaidAmount = roundToTwo(
-    enhancedSales.reduce(
-      (sum, sale) => sum + (Number(sale.displayPaid) || 0),
-      0,
-    ),
-  );
-  const tableOutstanding = roundToTwo(
-    enhancedSales.reduce(
-      (sum, sale) => sum + (Number(sale.displayBalance) || 0),
-      0,
-    ),
-  );
+  const tablePaidAmount = enhancedSales
+    .reduce((sum, sale) => sum + sale.displayPaid, 0)
+    .toFixed(2);
+  const tableOutstanding = enhancedSales
+    .reduce((sum, sale) => sum + sale.displayBalance, 0)
+    .toFixed(2);
 
-  const shortageWeight = roundToTwo(totalPurchasedWeight - totalWeight);
+  const shortageWeight = (
+    Number(totalPurchasedWeight) - Number(totalWeight)
+  ).toFixed(2);
 
   const handlePrint = () => {
     window.print();
@@ -356,76 +371,76 @@ const Sales = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <Package size={16} className="text-blue-600" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
               Purchased
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
             {totalPurchasedWeight} KG
           </h3>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <ShoppingCart size={16} className="text-green-600" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
               Sold (KG)
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
             {totalWeight} KG
           </h3>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-200 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-200 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle size={16} className="text-red-500" />
-            <p className="text-[11px] uppercase tracking-wider text-red-500 font-bold">
+            <p className="text-[11px] uppercase tracking-wider text-red-500 font-bold truncate">
               Shortage
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-red-600 break-words">
+          <h3 className="text-lg sm:text-xl font-bold text-red-600 truncate">
             {shortageWeight} KG
           </h3>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={16} className="text-purple-600" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
               Sale Amount
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
-            Rs. {totalAmount.toLocaleString()}
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
+            Rs. {Number(totalAmount).toLocaleString()}
           </h3>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center relative group cursor-pointer hover:border-blue-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden relative group cursor-pointer hover:border-blue-200">
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={16} className="text-teal-600" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
-              Total Cash Received
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
+              Total Cash
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">
-            Rs. {totalPaid.toLocaleString()}
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
+            Rs. {Number(totalPaid).toLocaleString()}
           </h3>
           <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-2 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg border border-gray-700">
             Sale Cash: Rs. {salesPaid.toLocaleString()} <br /> Payment Recovery:
             Rs. {recoveryPaid.toLocaleString()}
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <AlertCircle size={16} className="text-orange-500" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
               Net Udhaar
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold break-words ${netUdhaar > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold truncate ${Number(netUdhaar) > 0 ? "text-red-600" : "text-green-600"}`}
           >
-            Rs. {netUdhaar.toLocaleString()}
+            Rs. {Number(netUdhaar).toLocaleString()}
           </h3>
         </div>
       </div>
@@ -595,7 +610,7 @@ const Sales = () => {
                     Loading sales...
                   </td>
                 </tr>
-              ) : enhancedSales.length === 0 ? (
+              ) : finalGroupedSales.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center p-8 text-gray-500">
                     {fromDate || toDate
@@ -604,9 +619,9 @@ const Sales = () => {
                   </td>
                 </tr>
               ) : (
-                enhancedSales.map((sale) => (
+                finalGroupedSales.map((sale, index) => (
                   <tr
-                    key={sale._id}
+                    key={index}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors print:border-b-2 print:border-gray-300"
                   >
                     <td className="px-3 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
@@ -615,16 +630,21 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 font-bold text-gray-800 print:text-black whitespace-nowrap">
                       <p className="truncate max-w-[150px] print:max-w-none print:whitespace-normal">
                         {sale.customer?.name || "Unknown"}
+                        {sale.isGrouped && (
+                          <span className="ml-2 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md print:hidden">
+                            ({sale.groupCount} Merged)
+                          </span>
+                        )}
                       </p>
                     </td>
                     <td className="px-3 py-4 print:py-2 text-gray-800 font-medium print:text-black whitespace-nowrap">
-                      {sale.weight} KG
+                      {sale.weightNum.toFixed(2)} KG
                     </td>
                     <td className="px-3 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
                       Rs. {sale.rate}
                     </td>
                     <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
-                      Rs. {sale.totalAmount.toLocaleString()}
+                      Rs. {sale.totalAmountNum.toLocaleString()}
                     </td>
                     <td className="px-3 py-4 print:py-2 text-green-600 font-medium print:text-black whitespace-nowrap">
                       Rs. {sale.displayPaid.toLocaleString()}
@@ -645,7 +665,11 @@ const Sales = () => {
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
-                        {isOwner ? (
+                        {sale.isGrouped ? (
+                          <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
+                            Grouped
+                          </span>
+                        ) : isOwner ? (
                           <>
                             <button
                               onClick={() => openModal(sale)}
@@ -689,17 +713,17 @@ const Sales = () => {
                 <td className="px-3 py-3">{totalWeight} KG</td>
                 <td className="px-3 py-3">-</td>
                 <td className="px-3 py-3">
-                  Rs. {totalAmount.toLocaleString()}
+                  Rs. {Number(totalAmount).toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
-                  Rs. {tablePaidAmount.toLocaleString()}
+                  Rs. {Number(tablePaidAmount).toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
-                  {tableOutstanding > 0 ? (
+                  {Number(tableOutstanding) > 0 ? (
                     <span className="text-red-500">
-                      Rs. {tableOutstanding.toLocaleString()}
+                      Rs. {Number(tableOutstanding).toLocaleString()}
                     </span>
-                  ) : tableOutstanding < 0 ? (
+                  ) : Number(tableOutstanding) < 0 ? (
                     <span className="text-green-600">
                       Advance Rs. {Math.abs(tableOutstanding).toLocaleString()}
                     </span>
@@ -713,15 +737,20 @@ const Sales = () => {
         </div>
 
         <div className="lg:hidden flex flex-col print:hidden">
-          {enhancedSales.map((sale, index) => (
+          {finalGroupedSales.map((sale, index) => (
             <div
-              key={sale._id}
-              className={`p-4 flex flex-col gap-4 ${index !== enhancedSales.length - 1 ? "border-b border-gray-100" : ""}`}
+              key={index}
+              className={`p-4 flex flex-col gap-4 ${index !== finalGroupedSales.length - 1 ? "border-b border-gray-100" : ""}`}
             >
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg">
                     {sale.customer?.name || "Unknown"}
+                    {sale.isGrouped && (
+                      <span className="ml-2 text-xs text-blue-600">
+                        ({sale.groupCount})
+                      </span>
+                    )}
                   </h3>
                   <p className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
                     <Calendar size={14} />{" "}
@@ -731,7 +760,7 @@ const Sales = () => {
                 <div className="text-right">
                   <p className="text-xs text-gray-500 mb-0.5">Total Amount</p>
                   <p className="text-sm font-bold text-blue-600">
-                    Rs. {sale.totalAmount.toLocaleString()}
+                    Rs. {sale.totalAmountNum.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -740,7 +769,7 @@ const Sales = () => {
                 <div>
                   <p className="text-gray-500 text-xs mb-1">Weight</p>
                   <p className="font-medium flex items-center gap-1">
-                    <Scale size={14} /> {sale.weight} KG
+                    <Scale size={14} /> {sale.weightNum.toFixed(2)} KG
                   </p>
                 </div>
                 <div>
@@ -777,7 +806,11 @@ const Sales = () => {
               </div>
 
               <div className="flex gap-2">
-                {isOwner ? (
+                {sale.isGrouped ? (
+                  <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
+                    Grouped Entries
+                  </div>
+                ) : isOwner ? (
                   <>
                     <button
                       onClick={() => openModal(sale)}
@@ -813,6 +846,7 @@ const Sales = () => {
         </div>
       </div>
 
+      {/* Add/Edit Modal and Delete Modal remain same */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
