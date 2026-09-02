@@ -272,61 +272,6 @@ const Sales = () => {
     }
   };
 
-  // 🔥 ADVANCED FIFO ALLOCATION RESTORED (PERFECT LOGIC FOR CLIENT) 🔥
-  const extPaymentsByCust = {};
-  allPayments.forEach((p) => {
-    if (p.type === "receive") {
-      const cId = p.customer?._id || p.customer;
-      if (cId)
-        extPaymentsByCust[cId] =
-          (extPaymentsByCust[cId] || 0) + Number(p.amount);
-    }
-  });
-
-  const sortedSales = [...sales].sort((a, b) => {
-    const diff = new Date(a.date) - new Date(b.date);
-    return diff !== 0 ? diff : a._id.localeCompare(b._id);
-  });
-
-  const salesByCust = {};
-  sortedSales.forEach((s) => {
-    const cId = s.customer?._id || s.customer;
-    if (!salesByCust[cId]) salesByCust[cId] = [];
-    salesByCust[cId].push(s);
-  });
-
-  const allocatedSalesMap = new Map();
-  Object.keys(salesByCust).forEach((cId) => {
-    let pool = extPaymentsByCust[cId] || 0;
-    const cSales = salesByCust[cId];
-
-    cSales.forEach((sale, index) => {
-      let basePaid = Number(sale.paidAmount) || 0;
-      let total = Number(sale.totalAmount) || 0;
-      let due = total - basePaid;
-
-      let allocatedToThisBill = 0;
-      if (pool > 0 && due > 0) {
-        allocatedToThisBill = Math.min(due, pool);
-        pool -= allocatedToThisBill;
-      }
-
-      let displayPaid = basePaid + allocatedToThisBill;
-      let billDue = total - displayPaid;
-      let advance = 0;
-
-      // Jab aakhri bill ho aur wasooli extra ho (e.g. 35000 pay kiya, bill 25000 ka hai)
-      if (index === cSales.length - 1 && pool > 0) {
-        displayPaid += pool; // Paid mein pura 35000 show hoga
-        advance = displayPaid - total; // Advance mein 10000 show hoga
-        billDue = 0;
-        pool = 0;
-      }
-
-      allocatedSalesMap.set(sale._id, { displayPaid, billDue, advance });
-    });
-  });
-
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -337,19 +282,28 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
+  // 🔥 ISOLATED ROW CALCULATION (Client Demand: Sirf issi bill ka data aaye, pichli kating na ho) 🔥
   const enhancedSales = filteredSales.map((sale) => {
-    const alloc = allocatedSalesMap.get(sale._id) || {
-      displayPaid: Number(sale.paidAmount) || 0,
-      billDue: Number(sale.totalAmount) || 0,
-      advance: 0,
-    };
+    const displayPaid = Number(sale.paidAmount) || 0;
+    const totalAmountNum = Number(sale.totalAmount) || 0;
+
+    let billDue = 0;
+    let advance = 0;
+
+    // Agar bill ke paid amount mein bil ki total qeemat se zyada paise likhe hain to advance mein jayega
+    if (displayPaid > totalAmountNum) {
+      advance = displayPaid - totalAmountNum;
+    } else {
+      billDue = totalAmountNum - displayPaid;
+    }
+
     return {
       ...sale,
       weightNum: Number(sale.weight) || 0,
-      totalAmountNum: Number(sale.totalAmount) || 0,
-      displayPaid: alloc.displayPaid,
-      billDue: alloc.billDue,
-      advance: alloc.advance,
+      totalAmountNum,
+      displayPaid,
+      billDue,
+      advance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
