@@ -287,7 +287,6 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 UPDATE: FIFO logic removed. Har line sirf apni asal wasooli dikhayegi.
   const enhancedSales = filteredSales.map((sale) => {
     const displayPaid = Number(sale.paidAmount) || 0;
     const displayBalance = (Number(sale.totalAmount) || 0) - displayPaid;
@@ -330,7 +329,6 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  // 🔥 TRUE CASH FLOW CALCULATION FOR TOTALS 🔥
   const filteredExtPayments = allPayments.filter((p) => {
     if (p.type !== "receive") return false;
     const pDate = new Date(p.date).toISOString().split("T")[0];
@@ -373,17 +371,85 @@ const Sales = () => {
 
   return (
     <div className="space-y-6 w-full min-w-0 print:bg-white print:m-0 print:p-0 overflow-hidden print:overflow-visible">
-      <div className="hidden print:block mb-8 text-center border-b-2 border-gray-800 pb-4">
-        <h1 className="text-3xl font-black text-gray-900 uppercase">
+      {/* 🖨️ NAYA PRINT HEADER (Sirf Print mein show hoga, Rates aur Cards ke sath) */}
+      <div className="hidden print:block mb-8 border-b-2 border-gray-800 pb-6 mt-2">
+        <h1 className="text-3xl font-black text-gray-900 uppercase text-center">
           Asia Poultry Business
         </h1>
-        <h2 className="text-lg font-bold text-gray-600 mt-1">
+        <h2 className="text-lg font-bold text-gray-600 mt-1 text-center">
           Sales Report:{" "}
           {fromDate ? new Date(fromDate).toLocaleDateString("en-GB") : "Start"}{" "}
           TO {toDate ? new Date(toDate).toLocaleDateString("en-GB") : "End"}
         </h2>
+
+        <div className="mt-6 flex flex-col gap-4 px-2">
+          <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border-2 border-gray-300">
+            <span className="font-bold text-gray-900 text-sm uppercase">
+              BWP Rate:{" "}
+              <span className="text-blue-700">
+                Rs. {dailyRates.bahawalpurRate || "0"}
+              </span>
+            </span>
+            <span className="font-bold text-gray-900 text-sm uppercase">
+              Supply Rate:{" "}
+              <span className="text-green-700">
+                Rs. {dailyRates.supplyRate || "0"}
+              </span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 text-sm mt-2">
+            <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
+              <p className="text-gray-500 font-bold text-[11px] uppercase">
+                Purchased
+              </p>
+              <p className="font-bold text-gray-800">
+                {totalPurchasedWeight} KG
+              </p>
+            </div>
+            <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
+              <p className="text-gray-500 font-bold text-[11px] uppercase">
+                Sold (KG)
+              </p>
+              <p className="font-bold text-gray-800">{totalWeight} KG</p>
+            </div>
+            <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
+              <p className="text-gray-500 font-bold text-[11px] uppercase">
+                Shortage
+              </p>
+              <p className="font-bold text-red-600">{shortageWeight} KG</p>
+            </div>
+            <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
+              <p className="text-gray-500 font-bold text-[11px] uppercase">
+                Total Sale Bill
+              </p>
+              <p className="font-bold text-gray-800">
+                Rs. {Number(totalAmount).toLocaleString()}
+              </p>
+            </div>
+            <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
+              <p className="text-gray-500 font-bold text-[11px] uppercase">
+                Sale Vasooli
+              </p>
+              <p className="font-bold text-green-700">
+                Rs. {Number(tablePaidAmount).toLocaleString()}
+              </p>
+            </div>
+            <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
+              <p className="text-gray-500 font-bold text-[11px] uppercase">
+                Net Udhaar
+              </p>
+              <p
+                className={`font-bold ${Number(tableOutstanding) > 0 ? "text-red-600" : "text-green-600"}`}
+              >
+                Rs. {Number(tableOutstanding).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Screen Cards (Sirf Screen par show hongay) */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
@@ -835,9 +901,9 @@ const Sales = () => {
                 ) : sale.entryDateStr === todayDateStr ? (
                   <button
                     onClick={() => openModal(sale)}
-                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
+                    className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
                   >
-                    <Edit size={16} /> Edit
+                    <Edit size={14} /> Edit
                   </button>
                 ) : (
                   <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
