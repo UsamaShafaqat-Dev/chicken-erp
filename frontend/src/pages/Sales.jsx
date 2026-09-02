@@ -244,7 +244,6 @@ const Sales = () => {
       )
     )
       return;
-
     try {
       setLoading(true);
       let fixedCount = 0;
@@ -273,58 +272,6 @@ const Sales = () => {
     }
   };
 
-  // 🔥 ADVANCED FIFO ALLOCATION (PERFECT LOGIC AS PER CLIENT DEMAND) 🔥
-  const extPaymentsByCust = {};
-  allPayments.forEach((p) => {
-    if (p.type === "receive") {
-      const cId = p.customer?._id || p.customer;
-      if (cId)
-        extPaymentsByCust[cId] =
-          (extPaymentsByCust[cId] || 0) + Number(p.amount);
-    }
-  });
-
-  const sortedSales = [...sales].sort((a, b) => {
-    const diff = new Date(a.date) - new Date(b.date);
-    return diff !== 0 ? diff : a._id.localeCompare(b._id);
-  });
-
-  const salesByCust = {};
-  sortedSales.forEach((s) => {
-    const cId = s.customer?._id || s.customer;
-    if (!salesByCust[cId]) salesByCust[cId] = [];
-    salesByCust[cId].push(s);
-  });
-
-  const allocatedSalesMap = new Map();
-  Object.keys(salesByCust).forEach((cId) => {
-    let pool = extPaymentsByCust[cId] || 0;
-    const cSales = salesByCust[cId];
-
-    cSales.forEach((sale, index) => {
-      let basePaid = Number(sale.paidAmount) || 0;
-      let total = Number(sale.totalAmount) || 0;
-      let due = total - basePaid;
-
-      let allocatedToThisBill = 0;
-      if (pool > 0 && due > 0) {
-        allocatedToThisBill = Math.min(due, pool);
-        pool -= allocatedToThisBill;
-      }
-
-      let displayPaid = basePaid + allocatedToThisBill;
-      let billDue = total - displayPaid;
-
-      let advance = 0;
-      if (index === cSales.length - 1 && pool > 0) {
-        advance = pool;
-        pool = 0;
-      }
-
-      allocatedSalesMap.set(sale._id, { displayPaid, billDue, advance });
-    });
-  });
-
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -335,19 +282,27 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
+  // 🔥 DIRECT ROW CALCULATION (As per client's exact math) 🔥
   const enhancedSales = filteredSales.map((sale) => {
-    const alloc = allocatedSalesMap.get(sale._id) || {
-      displayPaid: 0,
-      billDue: sale.totalAmount,
-      advance: 0,
-    };
+    const displayPaid = Number(sale.paidAmount) || 0;
+    const totalAmountNum = Number(sale.totalAmount) || 0;
+
+    let billDue = 0;
+    let advance = 0;
+
+    if (displayPaid > totalAmountNum) {
+      advance = displayPaid - totalAmountNum;
+    } else {
+      billDue = totalAmountNum - displayPaid;
+    }
+
     return {
       ...sale,
       weightNum: Number(sale.weight) || 0,
-      totalAmountNum: Number(sale.totalAmount) || 0,
-      displayPaid: alloc.displayPaid,
-      billDue: alloc.billDue,
-      advance: alloc.advance,
+      totalAmountNum,
+      displayPaid,
+      billDue,
+      advance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
@@ -360,8 +315,12 @@ const Sales = () => {
       groupedSalesMap[key].weightNum += sale.weightNum;
       groupedSalesMap[key].totalAmountNum += sale.totalAmountNum;
       groupedSalesMap[key].displayPaid += sale.displayPaid;
-      groupedSalesMap[key].billDue += sale.billDue;
-      groupedSalesMap[key].advance += sale.advance;
+
+      const gTotal = groupedSalesMap[key].totalAmountNum;
+      const gPaid = groupedSalesMap[key].displayPaid;
+      groupedSalesMap[key].billDue = gPaid < gTotal ? gTotal - gPaid : 0;
+      groupedSalesMap[key].advance = gPaid > gTotal ? gPaid - gTotal : 0;
+
       groupedSalesMap[key].isGrouped = true;
       groupedSalesMap[key].groupCount += 1;
     } else {
@@ -386,6 +345,7 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
+  // Footer Totals Calculation
   const periodSalesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
     0,
@@ -394,7 +354,6 @@ const Sales = () => {
     (sum, p) => sum + (Number(p.amount) || 0),
     0,
   );
-  const trueTablePaidAmount = (periodSalesPaid + periodExtPaid).toFixed(2);
 
   const totalPurchasedWeight = filteredPurchases
     .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
@@ -406,20 +365,17 @@ const Sales = () => {
     .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
     .toFixed(2);
 
-  const tablePaidAmount = trueTablePaidAmount;
-  const tableOutstanding = (
-    Number(totalAmount) - Number(tablePaidAmount)
-  ).toFixed(2);
+  const tablePaidAmount = (periodSalesPaid + periodExtPaid).toFixed(2);
   const shortageWeight = (
     Number(totalPurchasedWeight) - Number(totalWeight)
   ).toFixed(2);
 
-  const tablePending = finalGroupedSales
-    .reduce((sum, sale) => sum + (sale.billDue || 0), 0)
-    .toFixed(2);
-  const tableAdvance = finalGroupedSales
-    .reduce((sum, sale) => sum + (sale.advance || 0), 0)
-    .toFixed(2);
+  // Footer Net Pending & Advance Calculation
+  const netTableBalance = Number(totalAmount) - Number(tablePaidAmount);
+  const tableFooterPending =
+    netTableBalance > 0 ? netTableBalance.toFixed(2) : "0.00";
+  const tableFooterAdvance =
+    netTableBalance < 0 ? Math.abs(netTableBalance).toFixed(2) : "0.00";
 
   const handlePrint = () => {
     window.print();
@@ -495,9 +451,9 @@ const Sales = () => {
                 Net Udhaar
               </p>
               <p
-                className={`font-bold ${Number(tableOutstanding) > 0 ? "text-red-600" : "text-green-600"}`}
+                className={`font-bold ${Number(tableFooterPending) > 0 ? "text-red-600" : "text-green-600"}`}
               >
-                Rs. {Number(tableOutstanding).toLocaleString()}
+                Rs. {Number(tableFooterPending).toLocaleString()}
               </p>
             </div>
           </div>
@@ -568,9 +524,9 @@ const Sales = () => {
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold truncate ${Number(tableOutstanding) > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold truncate ${Number(tableFooterPending) > 0 ? "text-red-600" : "text-green-600"}`}
           >
-            Rs. {Number(tableOutstanding).toLocaleString()}
+            Rs. {Number(tableFooterPending).toLocaleString()}
           </h3>
         </div>
       </div>
@@ -667,17 +623,6 @@ const Sales = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 shrink-0">
-            {isOwner && (
-              <button
-                onClick={handleFixOldBug}
-                disabled={loading}
-                className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
-                title="Saray puranay double entries theek karein"
-              >
-                <Wrench size={18} /> Fix Old Bug
-              </button>
-            )}
-
             <button
               onClick={handlePrint}
               className="flex-1 sm:flex-none bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
@@ -769,7 +714,6 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmountNum.toLocaleString()}
                     </td>
-                    {/* Paid Amount */}
                     <td className="px-3 py-4 print:py-2 font-bold print:text-black whitespace-nowrap">
                       {sale.displayPaid > 0 ? (
                         <span className="text-green-600">
@@ -779,7 +723,6 @@ const Sales = () => {
                         "-"
                       )}
                     </td>
-                    {/* Pending Due (Udhaar) */}
                     <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
                       {sale.billDue > 0 ? (
                         <span className="text-red-500">
@@ -789,7 +732,6 @@ const Sales = () => {
                         <span className="text-green-600">Cleared</span>
                       )}
                     </td>
-                    {/* Advance (Jama) */}
                     <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
                       {sale.advance > 0 ? (
                         <span className="text-teal-600">
@@ -856,11 +798,13 @@ const Sales = () => {
                   </div>
                 </td>
                 <td className="px-3 py-3 text-red-500">
-                  Rs. {Number(tablePending).toLocaleString()}
+                  {Number(tableFooterPending) > 0
+                    ? `Rs. ${Number(tableFooterPending).toLocaleString()}`
+                    : "-"}
                 </td>
                 <td className="px-3 py-3 text-teal-600">
-                  {Number(tableAdvance) > 0
-                    ? `Rs. ${Number(tableAdvance).toLocaleString()}`
+                  {Number(tableFooterAdvance) > 0
+                    ? `Rs. ${Number(tableFooterAdvance).toLocaleString()}`
                     : "-"}
                 </td>
                 <td className="print:hidden"></td>
@@ -869,7 +813,6 @@ const Sales = () => {
           </table>
         </div>
 
-        {/* MOBILE CARDS VIEW */}
         <div className="lg:hidden flex flex-col print:hidden">
           {finalGroupedSales.map((sale, index) => (
             <div
@@ -911,7 +854,6 @@ const Sales = () => {
                   <p className="font-medium">Rs. {sale.rate}</p>
                 </div>
 
-                {/* NEW 3 COLUMNS IN MOBILE VIEW */}
                 <div className="col-span-2 pt-3 border-t border-gray-200 grid grid-cols-3 gap-2">
                   <div>
                     <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
@@ -1178,7 +1120,6 @@ const Sales = () => {
         </div>
       )}
 
-      {/* DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
