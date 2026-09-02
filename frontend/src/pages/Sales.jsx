@@ -24,6 +24,7 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,20 +65,25 @@ const Sales = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [salesRes, customersRes, purchasesRes] = await Promise.all([
-        axios.get("https://asiapoultrybusiness.com/api/sales", {
-          withCredentials: true,
-        }),
-        axios.get("https://asiapoultrybusiness.com/api/customers", {
-          withCredentials: true,
-        }),
-        axios.get("https://asiapoultrybusiness.com/api/purchases", {
-          withCredentials: true,
-        }),
-      ]);
+      const [salesRes, customersRes, purchasesRes, paymentsRes] =
+        await Promise.all([
+          axios.get("https://asiapoultrybusiness.com/api/sales", {
+            withCredentials: true,
+          }),
+          axios.get("https://asiapoultrybusiness.com/api/customers", {
+            withCredentials: true,
+          }),
+          axios.get("https://asiapoultrybusiness.com/api/purchases", {
+            withCredentials: true,
+          }),
+          axios.get("https://asiapoultrybusiness.com/api/payments", {
+            withCredentials: true,
+          }),
+        ]);
       setSales(salesRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
       setPurchases(purchasesRes.data);
+      setAllPayments(paymentsRes.data);
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -231,41 +237,6 @@ const Sales = () => {
     }
   };
 
-  const handleFixOldBug = async () => {
-    if (
-      !window.confirm(
-        "Tasalli rakhein, yeh button koi data delete nahi karega! Yeh sirf puranay bill jin mein ghalti se wasooli likhi gayi thi, unko 0 kar ke theek kar dega. Kya main Fix kar doon?",
-      )
-    )
-      return;
-    try {
-      setLoading(true);
-      let fixedCount = 0;
-      for (const sale of sales) {
-        if (Number(sale.paidAmount) > 0) {
-          await axios.put(
-            `https://asiapoultrybusiness.com/api/sales/${sale._id}`,
-            {
-              ...sale,
-              paidAmount: "0",
-              balanceDue: sale.totalAmount,
-            },
-            { withCredentials: true },
-          );
-          fixedCount++;
-        }
-      }
-      toast.success(
-        `Jadoo Chal Gaya! ${fixedCount} puranay bills theek ho gaye.`,
-      );
-      fetchData();
-    } catch (error) {
-      toast.error("Error fixing data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -276,19 +247,43 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 100% PURE ISOLATED ROW CALCULATION (No outside ledger logic at all) 🔥
+  // 🔥 NEW LOGIC: Only match payments made on the EXACT SAME DAY (ignores past ledger)
+  const extPaymentsByCustAndDate = {};
+  allPayments.forEach((p) => {
+    if (p.type === "receive") {
+      const cId = p.customer?._id || p.customer;
+      const pDate = new Date(p.date).toISOString().split("T")[0];
+      const key = `${cId}_${pDate}`;
+      extPaymentsByCustAndDate[key] =
+        (extPaymentsByCustAndDate[key] || 0) + Number(p.amount);
+    }
+  });
+
   const enhancedSales = filteredSales.map((sale) => {
-    const displayPaid = Number(sale.paidAmount) || 0;
+    const cId = sale.customer?._id || sale.customer;
+    const saleDate = new Date(sale.date).toISOString().split("T")[0];
+    const pKey = `${cId}_${saleDate}`;
+
+    let basePaid = Number(sale.paidAmount) || 0;
     const totalAmountNum = Number(sale.totalAmount) || 0;
 
-    let billDue = 0;
     let advance = 0;
 
-    if (displayPaid > totalAmountNum) {
-      advance = displayPaid - totalAmountNum;
-    } else {
-      billDue = totalAmountNum - displayPaid;
+    // Grab advance if backend created a payment for it TODAY
+    if (extPaymentsByCustAndDate[pKey]) {
+      advance = extPaymentsByCustAndDate[pKey];
+      // Consume so it doesn't duplicate if multiple sales exist today
+      extPaymentsByCustAndDate[pKey] = 0;
     }
+
+    // Failsafe: if backend didn't cap it
+    if (basePaid > totalAmountNum) {
+      advance += basePaid - totalAmountNum;
+      basePaid = totalAmountNum;
+    }
+
+    const displayPaid = basePaid + advance;
+    const billDue = totalAmountNum - basePaid;
 
     return {
       ...sale,
@@ -297,7 +292,7 @@ const Sales = () => {
       displayPaid,
       billDue,
       advance,
-      entryDateStr: new Date(sale.date).toISOString().split("T")[0],
+      entryDateStr: saleDate,
     };
   });
 
@@ -331,7 +326,40 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  // 🔥 STRICT CALCULATOR MATCHING TOTALS 🔥
+  const filteredExtPayments = allPayments.filter((p) => {
+    if (p.type !== "receive") return false;
+    const pDate = new Date(p.date).toISOString().split("T")[0];
+    const matchFrom = fromDate ? pDate >= fromDate : true;
+    const matchTo = toDate ? pDate <= toDate : true;
+    return matchFrom && matchTo;
+  });
+
+  const periodSalesPaid = filteredSales.reduce(
+    (sum, sale) => sum + (Number(sale.paidAmount) || 0),
+    0,
+  );
+  const periodExtPaid = filteredExtPayments.reduce(
+    (sum, p) => sum + (Number(p.amount) || 0),
+    0,
+  );
+  const totalMarketWasooli = (periodSalesPaid + periodExtPaid).toFixed(2);
+
+  const totalPurchasedWeight = filteredPurchases
+    .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
+    .toFixed(2);
+  const totalWeight = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.weightNum,
+    0,
+  );
+  const totalAmount = finalGroupedSales
+    .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
+    .toFixed(2);
+  const shortageWeight = totalPurchasedWeight - totalWeight;
+
+  const netMarketBalance = Number(totalAmount) - Number(totalMarketWasooli);
+  const topCardPending =
+    netMarketBalance > 0 ? netMarketBalance.toFixed(2) : "0.00";
+
   const tableFooterTotal = finalGroupedSales.reduce(
     (sum, sale) => sum + sale.totalAmountNum,
     0,
@@ -348,16 +376,6 @@ const Sales = () => {
     (sum, sale) => sum + sale.advance,
     0,
   );
-
-  const totalPurchasedWeight = filteredPurchases.reduce(
-    (sum, p) => sum + (Number(p.weight) || 0),
-    0,
-  );
-  const totalWeight = finalGroupedSales.reduce(
-    (sum, sale) => sum + sale.weightNum,
-    0,
-  );
-  const shortageWeight = totalPurchasedWeight - totalWeight;
 
   const handlePrint = () => {
     window.print();
@@ -426,10 +444,10 @@ const Sales = () => {
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
-                Sale Vasooli
+                Total Wasooli (Payments In)
               </p>
               <p className="font-bold text-green-700">
-                Rs. {tableFooterPaid.toLocaleString()}
+                Rs. {Number(totalMarketWasooli).toLocaleString()}
               </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
@@ -437,16 +455,15 @@ const Sales = () => {
                 Net Udhaar
               </p>
               <p
-                className={`font-bold ${tableFooterPending > 0 ? "text-red-600" : "text-green-600"}`}
+                className={`font-bold ${Number(topCardPending) > 0 ? "text-red-600" : "text-green-600"}`}
               >
-                Rs. {tableFooterPending.toLocaleString()}
+                Rs. {Number(topCardPending).toLocaleString()}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Screen Cards - Now Perfectly Linked with Table Calculations */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
@@ -456,7 +473,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
-            {totalPurchasedWeight.toFixed(2)} KG
+            {Number(totalPurchasedWeight).toFixed(2)} KG
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
@@ -496,11 +513,11 @@ const Sales = () => {
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={16} className="text-teal-600" />
             <p className="text-[11px] uppercase tracking-wider text-green-700 font-bold truncate">
-              Sale Vasooli
+              Market Wasooli
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-green-700 truncate">
-            Rs. {tableFooterPaid.toLocaleString()}
+            Rs. {Number(totalMarketWasooli).toLocaleString()}
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 flex flex-col justify-center overflow-hidden">
@@ -511,9 +528,9 @@ const Sales = () => {
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold truncate ${tableFooterPending > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold truncate ${Number(topCardPending) > 0 ? "text-red-600" : "text-green-600"}`}
           >
-            Rs. {tableFooterPending.toLocaleString()}
+            Rs. {Number(topCardPending).toLocaleString()}
           </h3>
         </div>
       </div>
@@ -766,7 +783,6 @@ const Sales = () => {
                 ))
               )}
             </tbody>
-            {/* 🔥 STRICT CALCULATOR TOTALS 🔥 */}
             <tfoot className="table-row-group bg-gray-100 font-bold text-black border-t-2 border-gray-300">
               <tr>
                 <td colSpan="2" className="px-3 py-3 text-right">
