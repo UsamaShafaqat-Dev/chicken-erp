@@ -17,7 +17,7 @@ import {
   Save,
   Wallet,
   AlertCircle,
-  Wrench, // Naya icon repair button ke liye
+  Wrench,
 } from "lucide-react";
 
 const Sales = () => {
@@ -237,7 +237,6 @@ const Sales = () => {
     }
   };
 
-  // 🔥 YEH WOH JADOO WALA FUNCTION HAI JO PURANI ENTRIES THEEK KAREGA
   const handleFixOldBug = async () => {
     if (
       !window.confirm(
@@ -382,6 +381,25 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
+  // 🔥 TRUE CASH FLOW CALCULATION FOR TOTALS 🔥
+  const filteredExtPayments = allPayments.filter((p) => {
+    if (p.type !== "receive") return false;
+    const pDate = new Date(p.date).toISOString().split("T")[0];
+    const matchFrom = fromDate ? pDate >= fromDate : true;
+    const matchTo = toDate ? pDate <= toDate : true;
+    return matchFrom && matchTo;
+  });
+
+  const periodSalesPaid = filteredSales.reduce(
+    (sum, sale) => sum + (Number(sale.paidAmount) || 0),
+    0,
+  );
+  const periodExtPaid = filteredExtPayments.reduce(
+    (sum, p) => sum + (Number(p.amount) || 0),
+    0,
+  );
+  const trueTablePaidAmount = (periodSalesPaid + periodExtPaid).toFixed(2);
+
   const totalPurchasedWeight = filteredPurchases
     .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
     .toFixed(2);
@@ -391,12 +409,11 @@ const Sales = () => {
   const totalAmount = enhancedSales
     .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
     .toFixed(2);
-  const tablePaidAmount = enhancedSales
-    .reduce((sum, sale) => sum + sale.displayPaid, 0)
-    .toFixed(2);
-  const tableOutstanding = enhancedSales
-    .reduce((sum, sale) => sum + sale.displayBalance, 0)
-    .toFixed(2);
+
+  const tablePaidAmount = trueTablePaidAmount;
+  const tableOutstanding = (
+    Number(totalAmount) - Number(tablePaidAmount)
+  ).toFixed(2);
   const shortageWeight = (
     Number(totalPurchasedWeight) - Number(totalWeight)
   ).toFixed(2);
@@ -581,7 +598,6 @@ const Sales = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 shrink-0">
-            {/* 🔥 YEH RAHA WOH REPAIR BUTTON 🔥 */}
             {isOwner && (
               <button
                 onClick={handleFixOldBug}
@@ -751,7 +767,12 @@ const Sales = () => {
                   Rs. {Number(totalAmount).toLocaleString()}
                 </td>
                 <td className="px-3 py-3 text-green-700">
-                  Rs. {Number(tablePaidAmount).toLocaleString()}
+                  <div className="flex flex-col">
+                    <span>Rs. {Number(tablePaidAmount).toLocaleString()}</span>
+                    <span className="text-[10px] text-gray-500 font-normal leading-tight mt-0.5 whitespace-nowrap">
+                      *(All Market Vasooli)*
+                    </span>
+                  </div>
                 </td>
                 <td className="px-3 py-3">
                   {Number(tableOutstanding) > 0 ? (
