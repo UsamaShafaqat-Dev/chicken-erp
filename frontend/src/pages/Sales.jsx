@@ -237,6 +237,41 @@ const Sales = () => {
     }
   };
 
+  const handleFixOldBug = async () => {
+    if (
+      !window.confirm(
+        "Tasalli rakhein, yeh button koi data delete nahi karega! Yeh sirf puranay bill jin mein ghalti se wasooli likhi gayi thi, unko 0 kar ke theek kar dega. Kya main Fix kar doon?",
+      )
+    )
+      return;
+    try {
+      setLoading(true);
+      let fixedCount = 0;
+      for (const sale of sales) {
+        if (Number(sale.paidAmount) > 0) {
+          await axios.put(
+            `https://asiapoultrybusiness.com/api/sales/${sale._id}`,
+            {
+              ...sale,
+              paidAmount: "0",
+              balanceDue: sale.totalAmount,
+            },
+            { withCredentials: true },
+          );
+          fixedCount++;
+        }
+      }
+      toast.success(
+        `Jadoo Chal Gaya! ${fixedCount} puranay bills theek ho gaye.`,
+      );
+      fetchData();
+    } catch (error) {
+      toast.error("Error fixing data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -247,43 +282,19 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 NEW LOGIC: Only match payments made on the EXACT SAME DAY (ignores past ledger)
-  const extPaymentsByCustAndDate = {};
-  allPayments.forEach((p) => {
-    if (p.type === "receive") {
-      const cId = p.customer?._id || p.customer;
-      const pDate = new Date(p.date).toISOString().split("T")[0];
-      const key = `${cId}_${pDate}`;
-      extPaymentsByCustAndDate[key] =
-        (extPaymentsByCustAndDate[key] || 0) + Number(p.amount);
-    }
-  });
-
+  // PURE ISOLATED ROW CALCULATION
   const enhancedSales = filteredSales.map((sale) => {
-    const cId = sale.customer?._id || sale.customer;
-    const saleDate = new Date(sale.date).toISOString().split("T")[0];
-    const pKey = `${cId}_${saleDate}`;
-
-    let basePaid = Number(sale.paidAmount) || 0;
+    const displayPaid = Number(sale.paidAmount) || 0;
     const totalAmountNum = Number(sale.totalAmount) || 0;
 
+    let billDue = 0;
     let advance = 0;
 
-    // Grab advance if backend created a payment for it TODAY
-    if (extPaymentsByCustAndDate[pKey]) {
-      advance = extPaymentsByCustAndDate[pKey];
-      // Consume so it doesn't duplicate if multiple sales exist today
-      extPaymentsByCustAndDate[pKey] = 0;
+    if (displayPaid > totalAmountNum) {
+      advance = displayPaid - totalAmountNum;
+    } else {
+      billDue = totalAmountNum - displayPaid;
     }
-
-    // Failsafe: if backend didn't cap it
-    if (basePaid > totalAmountNum) {
-      advance += basePaid - totalAmountNum;
-      basePaid = totalAmountNum;
-    }
-
-    const displayPaid = basePaid + advance;
-    const billDue = totalAmountNum - basePaid;
 
     return {
       ...sale,
@@ -292,7 +303,7 @@ const Sales = () => {
       displayPaid,
       billDue,
       advance,
-      entryDateStr: saleDate,
+      entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
 
@@ -334,6 +345,7 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
+  // CRASH FIX: Kept all totals as raw Numbers to avoid .toFixed errors in JSX
   const periodSalesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
     0,
@@ -342,23 +354,24 @@ const Sales = () => {
     (sum, p) => sum + (Number(p.amount) || 0),
     0,
   );
-  const totalMarketWasooli = (periodSalesPaid + periodExtPaid).toFixed(2);
+  const totalMarketWasooli = periodSalesPaid + periodExtPaid;
 
-  const totalPurchasedWeight = filteredPurchases
-    .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
-    .toFixed(2);
+  const totalPurchasedWeight = filteredPurchases.reduce(
+    (sum, p) => sum + (Number(p.weight) || 0),
+    0,
+  );
   const totalWeight = finalGroupedSales.reduce(
     (sum, sale) => sum + sale.weightNum,
     0,
   );
-  const totalAmount = finalGroupedSales
-    .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
-    .toFixed(2);
+  const totalAmount = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.totalAmountNum,
+    0,
+  );
   const shortageWeight = totalPurchasedWeight - totalWeight;
 
-  const netMarketBalance = Number(totalAmount) - Number(totalMarketWasooli);
-  const topCardPending =
-    netMarketBalance > 0 ? netMarketBalance.toFixed(2) : "0.00";
+  const netMarketBalance = totalAmount - totalMarketWasooli;
+  const topCardPending = netMarketBalance > 0 ? netMarketBalance : 0;
 
   const tableFooterTotal = finalGroupedSales.reduce(
     (sum, sale) => sum + sale.totalAmountNum,
@@ -447,7 +460,7 @@ const Sales = () => {
                 Total Wasooli (Payments In)
               </p>
               <p className="font-bold text-green-700">
-                Rs. {Number(totalMarketWasooli).toLocaleString()}
+                Rs. {totalMarketWasooli.toLocaleString()}
               </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
@@ -455,9 +468,9 @@ const Sales = () => {
                 Net Udhaar
               </p>
               <p
-                className={`font-bold ${Number(topCardPending) > 0 ? "text-red-600" : "text-green-600"}`}
+                className={`font-bold ${topCardPending > 0 ? "text-red-600" : "text-green-600"}`}
               >
-                Rs. {Number(topCardPending).toLocaleString()}
+                Rs. {topCardPending.toLocaleString()}
               </p>
             </div>
           </div>
@@ -473,7 +486,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
-            {Number(totalPurchasedWeight).toFixed(2)} KG
+            {totalPurchasedWeight.toFixed(2)} KG
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
@@ -517,7 +530,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-green-700 truncate">
-            Rs. {Number(totalMarketWasooli).toLocaleString()}
+            Rs. {totalMarketWasooli.toLocaleString()}
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 flex flex-col justify-center overflow-hidden">
@@ -528,9 +541,9 @@ const Sales = () => {
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold truncate ${Number(topCardPending) > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold truncate ${topCardPending > 0 ? "text-red-600" : "text-green-600"}`}
           >
-            Rs. {Number(topCardPending).toLocaleString()}
+            Rs. {topCardPending.toLocaleString()}
           </h3>
         </div>
       </div>
