@@ -99,7 +99,7 @@ const Customers = () => {
         whatsapp: customer.whatsapp || "",
         area: customer.area || "",
         address: customer.address || "",
-        openingBalance: customer.openingBalance,
+        openingBalance: customer.openingBalance || 0,
         notes: customer.notes || "",
       });
       setEditingId(customer._id);
@@ -749,6 +749,148 @@ const Customers = () => {
           </div>
         </div>
       </div>
+
+      {/* 🔥 Add/Edit Customer Modal (Jo pichli dafa reh gaya tha) */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col"
+            style={{ maxHeight: "90vh" }}
+          >
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+              <h2 className="text-lg font-bold text-gray-800">
+                {editingId ? "Edit Customer" : "Add New Customer"}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form
+              onSubmit={handleSubmit}
+              className="p-5 space-y-4 text-sm overflow-y-auto custom-scrollbar flex-1"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Area / City *
+                  </label>
+                  <input
+                    type="text"
+                    name="area"
+                    value={formData.area}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Mobile Number
+                  </label>
+                  <input
+                    type="text"
+                    name="mobile"
+                    value={formData.mobile}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    WhatsApp Number
+                  </label>
+                  <input
+                    type="text"
+                    name="whatsapp"
+                    value={formData.whatsapp}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-700 font-medium mb-1">
+                  Full Address
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Opening Balance (Rs)
+                  </label>
+                  <input
+                    type="number"
+                    name="openingBalance"
+                    value={formData.openingBalance}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">
+                    Notes
+                  </label>
+                  <input
+                    type="text"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+            </form>
+            <div className="p-4 flex justify-end gap-3 border-t border-gray-100 shrink-0 bg-white">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}
+              >
+                {isSubmitting
+                  ? "Saving..."
+                  : editingId
+                    ? "Update Customer"
+                    : "Save Customer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ledger Modal Code */}
       {isLedgerModalOpen && selectedCustomer && (
