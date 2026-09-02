@@ -388,32 +388,29 @@ const Payments = () => {
           </p>
         </div>
 
+        {/* 🚀 RESPONSIVE TABLE FIX 🚀 */}
         <div className="hidden lg:block print:block w-full">
-          <table className="w-full text-left border-collapse text-[13px]">
+          <table className="w-full text-left border-collapse text-xs table-auto">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 print:bg-white print:border-gray-300">
-                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
+                <th className="px-2 py-3 font-bold whitespace-nowrap print:py-2">
                   Date
                 </th>
-                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
+                <th className="px-2 py-3 font-bold whitespace-nowrap print:py-2">
                   Type
                 </th>
-                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
+                <th className="px-2 py-3 font-bold print:py-2">
                   Party / Category
                 </th>
-                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
-                  Cash Account
-                </th>
-                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
-                  Method
-                </th>
-                <th className="px-3 py-4 font-bold w-full print:py-2">
+                <th className="px-2 py-3 font-bold print:py-2">Cash Account</th>
+                <th className="px-2 py-3 font-bold print:py-2">Method</th>
+                <th className="px-2 py-3 font-bold w-1/5 print:py-2">
                   Notes / Details
                 </th>
-                <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
+                <th className="px-2 py-3 font-bold whitespace-nowrap print:py-2">
                   Amount
                 </th>
-                <th className="px-3 py-4 font-bold text-center whitespace-nowrap print:hidden">
+                <th className="px-2 py-3 font-bold text-center whitespace-nowrap print:hidden">
                   Action
                 </th>
               </tr>
@@ -448,27 +445,27 @@ const Payments = () => {
                       key={payment._id}
                       className="border-b border-gray-50 hover:bg-gray-50 transition-colors print:border-gray-200"
                     >
-                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap print:py-2">
+                      <td className="px-2 py-2.5 text-gray-600 whitespace-nowrap print:py-2">
                         {new Date(payment.date).toLocaleDateString("en-GB")}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
+                      <td className="px-2 py-2.5 whitespace-nowrap print:py-2">
                         {payment.type === "receive" ? (
-                          <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-100 px-2 py-1 rounded-md text-xs font-bold print:border-none print:bg-transparent print:p-0">
-                            <ArrowDownLeft size={14} className="print:hidden" />{" "}
+                          <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-100 px-1.5 py-1 rounded text-[11px] font-bold print:border-none print:bg-transparent print:p-0">
+                            <ArrowDownLeft size={12} className="print:hidden" />{" "}
                             Receive
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-orange-700 bg-orange-50 border border-orange-100 px-2 py-1 rounded-md text-xs font-bold print:border-none print:bg-transparent print:p-0">
-                            <ArrowUpRight size={14} className="print:hidden" />{" "}
+                          <span className="inline-flex items-center gap-1 text-orange-700 bg-orange-50 border border-orange-100 px-1.5 py-1 rounded text-[11px] font-bold print:border-none print:bg-transparent print:p-0">
+                            <ArrowUpRight size={12} className="print:hidden" />{" "}
                             Pay
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
-                        <p className="font-bold text-gray-800 truncate max-w-[150px] print:max-w-none">
+                      <td className="px-2 py-2.5 print:py-2 break-words max-w-[150px]">
+                        <p className="font-bold text-gray-800">
                           {getPartyName(payment) || "Unknown"}
                         </p>
-                        <p className="text-[11px] text-gray-500 uppercase">
+                        <p className="text-[10px] text-gray-500 uppercase">
                           {payment.type === "receive"
                             ? "Customer"
                             : isExp
@@ -478,68 +475,70 @@ const Payments = () => {
                                 : "Broker"}
                         </p>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
-                        <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs font-bold print:border-none print:bg-transparent print:p-0">
-                          <Wallet size={14} className="print:hidden" />{" "}
-                          {payment.cashAccountId?.name || "N/A"}
+                      <td className="px-2 py-2.5 print:py-2 break-words max-w-[120px]">
+                        <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-1 rounded text-[11px] font-bold print:border-none print:bg-transparent print:p-0">
+                          <Wallet size={12} className="shrink-0 print:hidden" />{" "}
+                          <span className="truncate">
+                            {payment.cashAccountId?.name || "N/A"}
+                          </span>
                         </span>
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap print:py-2">
-                        <span className="inline-flex items-center gap-1 text-gray-600 capitalize bg-gray-100 px-2 py-1 rounded text-xs font-medium print:border-none print:bg-transparent print:p-0">
-                          <CreditCard size={14} className="print:hidden" />{" "}
+                      <td className="px-2 py-2.5 print:py-2">
+                        <span className="inline-flex items-center gap-1 text-gray-600 capitalize bg-gray-100 px-1.5 py-1 rounded text-[11px] font-medium print:border-none print:bg-transparent print:p-0">
+                          <CreditCard size={12} className="print:hidden" />{" "}
                           {payment.method}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-gray-600 print:py-2">
+                      <td className="px-2 py-2.5 text-gray-600 print:py-2">
                         <div
-                          className="flex items-center gap-1 truncate max-w-[120px] xl:max-w-[200px] print:max-w-none print:whitespace-normal"
+                          className="flex items-start gap-1 max-w-[120px] lg:max-w-[150px] xl:max-w-[200px]"
                           title={cleanNotes}
                         >
                           <FileText
-                            size={14}
-                            className="text-gray-400 shrink-0 print:hidden"
+                            size={12}
+                            className="text-gray-400 mt-0.5 shrink-0 print:hidden"
                           />
-                          <span className="truncate print:whitespace-normal print:overflow-visible">
+                          <span className="break-words line-clamp-2 print:line-clamp-none">
                             {cleanNotes}
                           </span>
                         </div>
                       </td>
                       <td
-                        className={`px-3 py-3 font-bold text-base whitespace-nowrap print:py-2 ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
+                        className={`px-2 py-2.5 font-bold text-sm whitespace-nowrap print:py-2 ${payment.type === "receive" ? "text-green-600" : "text-red-500"}`}
                       >
                         {payment.type === "receive" ? "+" : "-"} Rs.{" "}
                         {payment.amount.toLocaleString()}
                       </td>
 
-                      <td className="px-3 py-3 whitespace-nowrap print:hidden">
+                      <td className="px-2 py-2.5 whitespace-nowrap print:hidden">
                         <div className="flex justify-center items-center gap-1.5">
                           {isOwner ? (
                             <>
                               <button
                                 onClick={() => openModal(payment)}
-                                className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                                className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
                               >
-                                <Edit size={14} /> Edit
+                                <Edit size={12} /> Edit
                               </button>
                               <button
                                 onClick={() => {
                                   setDeletingId(payment._id);
                                   setIsDeleteModalOpen(true);
                                 }}
-                                className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                                className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
                               >
-                                <Trash2 size={14} /> Del
+                                <Trash2 size={12} /> Del
                               </button>
                             </>
                           ) : entryDateStr === todayDateStr ? (
                             <button
                               onClick={() => openModal(payment)}
-                              className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                              className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
                             >
-                              <Edit size={14} /> Edit
+                              <Edit size={12} /> Edit
                             </button>
                           ) : (
-                            <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
+                            <span className="text-[9px] text-gray-400 bg-gray-100 px-1.5 py-1 rounded font-bold uppercase tracking-wider">
                               Locked
                             </span>
                           )}
@@ -553,6 +552,7 @@ const Payments = () => {
           </table>
         </div>
 
+        {/* MOBILE VIEW */}
         <div className="lg:hidden print:hidden flex flex-col">
           {filteredPayments.map((payment, index) => {
             const isExp =
