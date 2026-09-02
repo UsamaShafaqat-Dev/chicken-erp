@@ -275,56 +275,6 @@ const Sales = () => {
     }
   };
 
-  const extPaymentsByCust = {};
-  allPayments.forEach((p) => {
-    if (p.type === "receive") {
-      const cId = p.customer?._id || p.customer;
-      if (cId)
-        extPaymentsByCust[cId] =
-          (extPaymentsByCust[cId] || 0) + Number(p.amount);
-    }
-  });
-
-  const sortedSales = [...sales].sort(
-    (a, b) => new Date(a.date) - new Date(b.date),
-  );
-  const salesByCust = {};
-  sortedSales.forEach((s) => {
-    const cId = s.customer?._id || s.customer;
-    if (!salesByCust[cId]) salesByCust[cId] = [];
-    salesByCust[cId].push(s);
-  });
-
-  const allocatedSalesMap = new Map();
-  Object.keys(salesByCust).forEach((cId) => {
-    let pool = extPaymentsByCust[cId] || 0;
-    const cSales = salesByCust[cId];
-
-    cSales.forEach((sale, index) => {
-      let basePaid = Number(sale.paidAmount) || 0;
-      let total = Number(sale.totalAmount) || 0;
-      let due = total - basePaid;
-
-      let allocated = 0;
-      if (pool > 0 && due > 0) {
-        allocated = Math.min(due, pool);
-        pool -= allocated;
-      }
-
-      let displayPaid = basePaid + allocated;
-
-      if (index === cSales.length - 1 && pool > 0) {
-        displayPaid += pool;
-        pool = 0;
-      }
-
-      allocatedSalesMap.set(sale._id, {
-        displayPaid,
-        displayBalance: total - displayPaid,
-      });
-    });
-  });
-
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -337,18 +287,17 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
+  // 🔥 UPDATE: FIFO logic removed. Har line sirf apni asal wasooli dikhayegi.
   const enhancedSales = filteredSales.map((sale) => {
-    const alloc = allocatedSalesMap.get(sale._id) || {
-      displayPaid: Number(sale.paidAmount) || 0,
-      displayBalance:
-        (Number(sale.totalAmount) || 0) - (Number(sale.paidAmount) || 0),
-    };
+    const displayPaid = Number(sale.paidAmount) || 0;
+    const displayBalance = (Number(sale.totalAmount) || 0) - displayPaid;
+
     return {
       ...sale,
       weightNum: Number(sale.weight) || 0,
       totalAmountNum: Number(sale.totalAmount) || 0,
-      displayPaid: alloc.displayPaid,
-      displayBalance: alloc.displayBalance,
+      displayPaid: displayPaid,
+      displayBalance: displayBalance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
