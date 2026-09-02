@@ -191,29 +191,76 @@ const Customers = () => {
     );
   };
 
+  // 🔥 NEW PURE LEDGER LOGIC (Khata Modal Fix) 🔥
   const openLedger = async (customer) => {
     setSelectedCustomer(customer);
     setLedgerStartDate("");
     setLedgerEndDate("");
     setIsLedgerModalOpen(true);
     setLedgerLoading(true);
+
     try {
-      const cSales = allSales
-        .filter((s) => (s.customer?._id || s.customer) === customer._id)
-        .map((s) => ({ ...s, isSale: true, ledgerDate: s.date }));
+      let opBal = Number(customer.openingBalance) || 0;
+      let txs = [];
 
-      const cPayments = allPayments
-        .filter(
-          (p) =>
-            p.type === "receive" &&
-            (p.customer?._id || p.customer) === customer._id,
-        )
-        .map((p) => ({ ...p, isPayment: true, ledgerDate: p.date }));
-
-      let combined = [...cSales, ...cPayments].sort(
-        (a, b) => new Date(b.ledgerDate) - new Date(a.ledgerDate),
+      // 1. Sales Data
+      const cSales = allSales.filter(
+        (s) => (s.customer?._id || s.customer) === customer._id,
       );
-      setLedgerData(combined);
+      cSales.forEach((s) => {
+        const sDate = new Date(s.date);
+
+        // A. Bill Amount (Debit)
+        txs.push({
+          id: s._id + "_sale",
+          isSale: true,
+          particulars: `Maal Diya (Sale) ${s.weight ? ` - ${s.weight} KG` : ""}`,
+          ledgerDate: sDate,
+          debit: Number(s.totalAmount) || 0,
+          credit: 0,
+        });
+
+        // B. Paid Amount (Credit) - Isko sale se nikal kar alag line bana di!
+        if (Number(s.paidAmount) > 0) {
+          txs.push({
+            id: s._id + "_pay",
+            isPayment: true,
+            particulars: "Cash Received (Bill Pmt)",
+            ledgerDate: sDate,
+            debit: 0,
+            credit: Number(s.paidAmount),
+          });
+        }
+      });
+
+      // 2. Payments Data (External Ledger Payments)
+      const cPayments = allPayments.filter(
+        (p) =>
+          p.type === "receive" &&
+          (p.customer?._id || p.customer) === customer._id,
+      );
+      cPayments.forEach((p) => {
+        txs.push({
+          id: p._id,
+          isPayment: true,
+          particulars: "Cash Received (Ledger Pmt)",
+          ledgerDate: new Date(p.date),
+          debit: 0,
+          credit: Number(p.amount) || 0,
+        });
+      });
+
+      // Sort by Date (Oldest to Newest)
+      txs.sort((a, b) => a.ledgerDate - b.ledgerDate);
+
+      // Calculate Running Balance
+      let currentBal = opBal;
+      txs = txs.map((tx) => {
+        currentBal = currentBal + tx.debit - tx.credit;
+        return { ...tx, balance: currentBal };
+      });
+
+      setLedgerData(txs);
     } catch (err) {
       toast.error("Failed to load customer ledger");
       setIsLedgerModalOpen(false);
@@ -237,8 +284,6 @@ const Customers = () => {
       (sum, s) => sum + (Number(s.totalAmount) || 0),
       0,
     );
-
-    // Yahan humne dobara se Sales ki vasooli ko add kar diya hai
     let lifetimeBillPayments = cSales.reduce(
       (sum, s) => sum + (Number(s.paidAmount) || 0),
       0,
@@ -249,9 +294,7 @@ const Customers = () => {
     );
     let lifetimePaid = lifetimeBillPayments + lifetimeExternalPayments;
 
-    // Exact math for lifetime balance
     let displayBalance = opBal + lifetimePurchases - lifetimePaid;
-
     let displayPurchases = lifetimePurchases;
     let displayPaid = lifetimePaid;
 
@@ -325,6 +368,7 @@ const Customers = () => {
     return c.displayBalance < 0 ? sum + Math.abs(c.displayBalance) : sum;
   }, 0);
 
+  // Khata Modal Date Filtering
   const filteredLedger = ledgerData.filter((item) => {
     try {
       const dateStr = new Date(item.ledgerDate || Date.now())
@@ -338,19 +382,8 @@ const Customers = () => {
     }
   });
 
-  const periodSales = filteredLedger
-    .filter((x) => x.isSale)
-    .reduce((sum, x) => sum + (Number(x.totalAmount) || 0), 0);
-
-  const periodBillPaid = filteredLedger
-    .filter((x) => x.isSale)
-    .reduce((sum, x) => sum + (Number(x.paidAmount) || 0), 0);
-
-  const periodRecoveries = filteredLedger
-    .filter((x) => x.isPayment)
-    .reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
-
-  const totalPeriodPaid = periodBillPaid + periodRecoveries;
+  const periodSales = filteredLedger.reduce((sum, x) => sum + x.debit, 0);
+  const totalPeriodPaid = filteredLedger.reduce((sum, x) => sum + x.credit, 0);
   const periodRemaining = periodSales - totalPeriodPaid;
 
   const handlePrintLedger = useReactToPrint({
@@ -552,42 +585,35 @@ const Customers = () => {
                           {customer.area || "-"}
                         </span>
                       </td>
-
                       <td className="px-1.5 py-3 print:py-2 font-bold text-blue-700 whitespace-nowrap">
                         Rs. {customer.opBal.toLocaleString()}
                       </td>
-
                       <td className="px-1.5 py-3 print:py-2 text-blue-600 font-medium whitespace-nowrap">
                         Rs. {customer.displayPurchases.toLocaleString() || 0}
                       </td>
                       <td className="px-1.5 py-3 print:py-2 text-green-600 font-medium whitespace-nowrap">
                         Rs. {customer.displayPaid.toLocaleString() || 0}
                       </td>
-
                       <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap text-red-500">
                         {customer.displayBalance > 0
                           ? `Rs. ${customer.displayBalance.toLocaleString()}`
                           : "Nil"}
                       </td>
-
                       <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap text-green-600">
                         {customer.displayBalance < 0
                           ? `Rs. ${Math.abs(customer.displayBalance).toLocaleString()}`
                           : "Nil"}
                       </td>
-
                       <td className="px-1.5 py-3 flex justify-center items-center gap-1 whitespace-nowrap print:hidden">
                         <button
                           onClick={() => openLedger(customer)}
                           className="flex items-center gap-1 text-teal-600 bg-teal-50 hover:bg-teal-100 border border-teal-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                          title="View Khata"
                         >
                           <History size={12} /> Khata
                         </button>
                         <button
                           onClick={() => handleWhatsAppClick(customer)}
                           className="flex items-center gap-1 text-green-600 bg-green-50 hover:bg-green-100 border border-green-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                          title="WhatsApp"
                         >
                           <MessageCircle size={12} /> WA
                         </button>
@@ -596,7 +622,6 @@ const Customers = () => {
                             <button
                               onClick={() => openModal(customer)}
                               className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                              title="Edit"
                             >
                               <Edit size={12} />
                             </button>
@@ -606,7 +631,6 @@ const Customers = () => {
                                 setIsDeleteModalOpen(true);
                               }}
                               className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-1.5 py-1 rounded text-[11px] font-medium transition-colors"
-                              title="Delete"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -643,12 +667,14 @@ const Customers = () => {
             </table>
           </div>
 
+          {/* MOBILE VIEW */}
           <div className="lg:hidden flex flex-col print:hidden">
             {filteredCustomers.map((customer, index) => (
               <div
                 key={customer._id}
                 className={`p-4 flex flex-col gap-4 ${index !== filteredCustomers.length - 1 ? "border-b border-gray-100" : ""}`}
               >
+                {/* ... (Mobile display code logic unchanged from original) ... */}
                 <div>
                   <div className="flex justify-between items-start mb-1">
                     <h3 className="font-bold text-gray-800 text-lg">
@@ -758,16 +784,6 @@ const Customers = () => {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div className="hidden print:flex mt-20 justify-between items-center border-t border-gray-300 pt-4">
-          <p className="text-gray-500 text-sm">
-            System Generated Report - Asia Poultry Business
-          </p>
-          <div className="text-center w-48">
-            <div className="border-b border-gray-800 pb-8"></div>
-            <p className="text-gray-800 font-bold mt-2">Authorized Signature</p>
           </div>
         </div>
       </div>
@@ -913,11 +929,11 @@ const Customers = () => {
         </div>
       )}
 
-      {/* Ledger Modal Code */}
+      {/* NEW KHATA MODAL (FIXED DOUBLE ENTRY ISSUE) */}
       {isLedgerModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
-            className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col"
+            className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col"
             style={{ maxHeight: "90vh" }}
           >
             <div className="p-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
@@ -992,7 +1008,7 @@ const Customers = () => {
                 <p className="text-[10px] text-gray-500 uppercase font-bold">
                   Period Sales
                 </p>
-                <p className="text-sm font-black text-blue-600">
+                <p className="text-sm font-black text-red-500">
                   Rs. {periodSales.toLocaleString()}
                 </p>
               </div>
@@ -1022,7 +1038,7 @@ const Customers = () => {
 
             <div
               ref={printRef}
-              className="flex-1 overflow-y-auto p-5 bg-white custom-scrollbar print:p-8 print:w-full print:h-auto print:overflow-visible"
+              className="flex-1 overflow-y-auto p-0 sm:p-5 bg-white custom-scrollbar print:p-8 print:w-full print:h-auto print:overflow-visible"
             >
               <div className="hidden print:block text-center mb-8 border-b-2 border-gray-800 pb-4">
                 <h1 className="text-3xl font-black text-gray-900 mb-1">
@@ -1066,73 +1082,126 @@ const Customers = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : filteredLedger.length === 0 ? (
-                <div className="text-center p-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200 print:border-none print:bg-white">
+                <div className="text-center p-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200 m-5">
                   No records found for the selected period.
                 </div>
               ) : (
-                <div className="space-y-3 print:space-y-0 print:border-t print:border-gray-200">
-                  {filteredLedger.map((tx, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:border-0 print:border-b print:border-gray-200 print:shadow-none print:rounded-none print:py-3 print:px-1"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`mt-0.5 p-2 rounded-lg shrink-0 print:border ${tx.isPayment ? "bg-green-100 text-green-600 print:border-green-600 print:bg-white" : "bg-blue-100 text-blue-600 print:border-blue-600 print:bg-white"}`}
-                        >
-                          {tx.isPayment ? (
-                            <ArrowDownLeft size={16} />
-                          ) : (
-                            <ArrowUpRight size={16} />
+                <>
+                  {/* DESKTOP STRICT TABLE VIEW (Munshi Style) */}
+                  <div className="hidden sm:block print:block w-full border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-gray-100 border-b border-gray-300 text-gray-700">
+                          <th className="p-3 font-bold">Date</th>
+                          <th className="p-3 font-bold">Particulars</th>
+                          <th className="p-3 font-bold text-right text-red-600">
+                            Bill (Dr)
+                          </th>
+                          <th className="p-3 font-bold text-right text-green-700">
+                            Paid (Cr)
+                          </th>
+                          <th className="p-3 font-bold text-right">Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredLedger.map((tx) => (
+                          <tr
+                            key={tx.id}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="p-3 text-gray-600">
+                              {new Date(tx.ledgerDate).toLocaleDateString(
+                                "en-GB",
+                              )}
+                            </td>
+                            <td className="p-3 font-medium text-gray-800">
+                              {tx.particulars}
+                            </td>
+                            <td className="p-3 text-right text-red-500 font-bold">
+                              {tx.debit > 0 ? tx.debit.toLocaleString() : "-"}
+                            </td>
+                            <td className="p-3 text-right text-green-600 font-bold">
+                              {tx.credit > 0 ? tx.credit.toLocaleString() : "-"}
+                            </td>
+                            <td className="p-3 text-right font-black">
+                              {tx.balance > 0 ? (
+                                <span className="text-red-600">
+                                  {tx.balance.toLocaleString()}
+                                </span>
+                              ) : tx.balance < 0 ? (
+                                <span className="text-green-600">
+                                  Adv {Math.abs(tx.balance).toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-gray-500">Nil</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE CARDS VIEW */}
+                  <div className="sm:hidden flex flex-col p-4 gap-3 print:hidden">
+                    {filteredLedger.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm flex flex-col gap-2"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-xs text-gray-500 flex items-center gap-1 font-medium bg-gray-100 px-2 py-0.5 rounded">
+                            <Calendar size={12} />{" "}
+                            {new Date(tx.ledgerDate).toLocaleDateString(
+                              "en-GB",
+                            )}
+                          </span>
+                          <span
+                            className={`font-black text-sm ${tx.balance > 0 ? "text-red-600" : tx.balance < 0 ? "text-green-600" : "text-gray-800"}`}
+                          >
+                            Bal:{" "}
+                            {tx.balance > 0
+                              ? tx.balance.toLocaleString()
+                              : tx.balance < 0
+                                ? `Adv ${Math.abs(tx.balance).toLocaleString()}`
+                                : "Nil"}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-gray-800 mb-1">
+                          {tx.particulars}
+                        </p>
+                        <div className="flex gap-2 w-full mt-1">
+                          {tx.debit > 0 && (
+                            <div className="flex-1 bg-red-50 p-2 rounded-lg border border-red-100 text-center">
+                              <span className="block text-[10px] text-gray-500 uppercase font-bold mb-0.5">
+                                Bill (Dr)
+                              </span>
+                              <span className="font-black text-red-600">
+                                Rs. {tx.debit.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {tx.credit > 0 && (
+                            <div className="flex-1 bg-green-50 p-2 rounded-lg border border-green-100 text-center">
+                              <span className="block text-[10px] text-gray-500 uppercase font-bold mb-0.5">
+                                Paid (Cr)
+                              </span>
+                              <span className="font-black text-green-600">
+                                Rs. {tx.credit.toLocaleString()}
+                              </span>
+                            </div>
                           )}
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-800 text-sm print:text-base">
-                            {tx.isPayment
-                              ? "Cash Received"
-                              : "Maal Diya (Sale)"}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(
-                              tx.ledgerDate || Date.now(),
-                            ).toLocaleDateString("en-GB")}
-                            {tx.isSale && (
-                              <span className="ml-2 font-bold text-gray-600">
-                                ({tx.weight} KG)
-                              </span>
-                            )}
-                          </p>
-                        </div>
                       </div>
-                      <div className="text-right pl-11 sm:pl-0">
-                        {tx.isSale ? (
-                          <>
-                            <p className="font-black text-blue-600 print:text-base">
-                              Rs.{" "}
-                              {(Number(tx.totalAmount) || 0).toLocaleString()}
-                            </p>
-                            {tx.paidAmount > 0 && (
-                              <p className="text-xs font-bold text-green-600 mt-1">
-                                (Paid: Rs. {tx.paidAmount.toLocaleString()})
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="font-black text-green-600 print:text-base">
-                            + Rs. {(Number(tx.amount) || 0).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
