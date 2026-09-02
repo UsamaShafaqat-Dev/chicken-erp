@@ -246,9 +246,9 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 100% PURE & ISOLATED LOGIC (No external payments mixed) 🔥
+  // 🔥 100% PURE LOGIC: Yahan koi double entry ya Payments page ka link nahi hai 🔥
   const enhancedSales = filteredSales.map((sale) => {
-    const displayPaid = Number(sale.paidAmount) || 0;
+    const displayPaid = Number(sale.paidAmount) || 0; // Sirf aur sirf Bill wali amount uthayega
     const totalAmountNum = Number(sale.totalAmount) || 0;
 
     let billDue = 0;
