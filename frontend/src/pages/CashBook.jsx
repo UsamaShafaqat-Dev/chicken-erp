@@ -21,8 +21,6 @@ import {
 
 const CashBook = () => {
   const [accounts, setAccounts] = useState([]);
-  const [allSales, setAllSales] = useState([]);
-  const [allPayments, setAllPayments] = useState([]); // 🔥 NAYA: Payments ka data lane ke liye
   const [loading, setLoading] = useState(true);
 
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -66,21 +64,11 @@ const CashBook = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      // 🔥 NAYA: Accounts, Sales, aur Payments teeno ka data mangwaya hai
-      const [accRes, salesRes, payRes] = await Promise.all([
-        axios.get("https://asiapoultrybusiness.com/api/cash/accounts", {
-          withCredentials: true,
-        }),
-        axios.get("https://asiapoultrybusiness.com/api/sales", {
-          withCredentials: true,
-        }),
-        axios.get("https://asiapoultrybusiness.com/api/payments", {
-          withCredentials: true,
-        }),
-      ]);
-      setAccounts(accRes.data);
-      setAllSales(salesRes.data);
-      setAllPayments(payRes.data);
+      const { data } = await axios.get(
+        "https://asiapoultrybusiness.com/api/cash/accounts",
+        { withCredentials: true },
+      );
+      setAccounts(data);
     } catch (error) {
       toast.error("Failed to load cash accounts");
     } finally {
@@ -192,63 +180,11 @@ const CashBook = () => {
         { withCredentials: true },
       );
       if (data.success && data.ledger) {
-        // 1. Purani Sales ki vasooli ko merge karna
-        const salesTxns = allSales
-          .filter((s) => {
-            const isMatch =
-              s.cashAccountId?._id === accountId ||
-              s.cashAccountId === accountId;
-            return isMatch && Number(s.paidAmount) > 0;
-          })
-          .map((s) => ({
-            _id: s._id,
-            type: "in",
-            amount: Number(s.paidAmount),
-            date: s.date,
-            particulars: `Sale Vasooli - ${s.customer?.name || "Customer"}`,
-            transactionType: "sale",
-            isSale: true,
-          }));
-
-        // 2. 🔥 NAYA: Payments ki saari history merge karna
-        const paymentTxns = allPayments
-          .filter((p) => {
-            return (
-              p.cashAccountId?._id === accountId ||
-              p.cashAccountId === accountId
-            );
-          })
-          .map((p) => {
-            let partyName = "Unknown";
-            if (p.type === "receive") partyName = p.customer?.name;
-            else if (p.notes && p.notes.startsWith("[EXPENSE:"))
-              partyName = "Expense Khata";
-            else if (p.employee) partyName = p.employee?.name;
-            else partyName = p.supplier?.name;
-
-            return {
-              _id: p._id,
-              type: p.type === "receive" ? "in" : "out", // Receive hai toh IN, Pay hai toh OUT
-              amount: Number(p.amount),
-              date: p.date,
-              particulars: `${p.type === "receive" ? "Received from" : "Paid to"} ${partyName || ""}`,
-              transactionType: "payment",
-              isPayment: true,
-            };
-          });
-
-        // 3. Sab ko mila kar date wise sort kar dena
-        const mergedTxns = [
-          ...(data.ledger.transactions || []),
-          ...salesTxns,
-          ...paymentTxns,
-        ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
         setSelectedAccountLedger({
           accountId: data.ledger.accountId,
           accountName: data.ledger.accountName,
-          balance: data.ledger.balance, // Current actual balance from DB
-          transactions: mergedTxns,
+          balance: data.ledger.balance,
+          transactions: data.ledger.transactions || [],
         });
       }
     } catch (error) {
