@@ -248,7 +248,6 @@ const Sales = () => {
     try {
       setLoading(true);
       let fixedCount = 0;
-
       for (const sale of sales) {
         if (Number(sale.paidAmount) > 0) {
           await axios.put(
@@ -263,7 +262,6 @@ const Sales = () => {
           fixedCount++;
         }
       }
-
       toast.success(
         `Jadoo Chal Gaya! ${fixedCount} puranay bills theek ho gaye.`,
       );
@@ -275,28 +273,81 @@ const Sales = () => {
     }
   };
 
+  // 🔥 ADVANCED FIFO ALLOCATION (PERFECT LOGIC AS PER CLIENT DEMAND) 🔥
+  const extPaymentsByCust = {};
+  allPayments.forEach((p) => {
+    if (p.type === "receive") {
+      const cId = p.customer?._id || p.customer;
+      if (cId)
+        extPaymentsByCust[cId] =
+          (extPaymentsByCust[cId] || 0) + Number(p.amount);
+    }
+  });
+
+  const sortedSales = [...sales].sort((a, b) => {
+    const diff = new Date(a.date) - new Date(b.date);
+    return diff !== 0 ? diff : a._id.localeCompare(b._id);
+  });
+
+  const salesByCust = {};
+  sortedSales.forEach((s) => {
+    const cId = s.customer?._id || s.customer;
+    if (!salesByCust[cId]) salesByCust[cId] = [];
+    salesByCust[cId].push(s);
+  });
+
+  const allocatedSalesMap = new Map();
+  Object.keys(salesByCust).forEach((cId) => {
+    let pool = extPaymentsByCust[cId] || 0;
+    const cSales = salesByCust[cId];
+
+    cSales.forEach((sale, index) => {
+      let basePaid = Number(sale.paidAmount) || 0;
+      let total = Number(sale.totalAmount) || 0;
+      let due = total - basePaid;
+
+      let allocatedToThisBill = 0;
+      if (pool > 0 && due > 0) {
+        allocatedToThisBill = Math.min(due, pool);
+        pool -= allocatedToThisBill;
+      }
+
+      let displayPaid = basePaid + allocatedToThisBill;
+      let billDue = total - displayPaid;
+
+      let advance = 0;
+      if (index === cSales.length - 1 && pool > 0) {
+        advance = pool;
+        pool = 0;
+      }
+
+      allocatedSalesMap.set(sale._id, { displayPaid, billDue, advance });
+    });
+  });
+
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-
     const saleDate = new Date(s.date).toISOString().split("T")[0];
     const matchFrom = fromDate ? saleDate >= fromDate : true;
     const matchTo = toDate ? saleDate <= toDate : true;
-
     return matchName && matchFrom && matchTo;
   });
 
   const enhancedSales = filteredSales.map((sale) => {
-    const displayPaid = Number(sale.paidAmount) || 0;
-    const displayBalance = (Number(sale.totalAmount) || 0) - displayPaid;
-
+    const alloc = allocatedSalesMap.get(sale._id) || {
+      displayPaid: 0,
+      billDue: sale.totalAmount,
+      advance: 0,
+    };
     return {
       ...sale,
       weightNum: Number(sale.weight) || 0,
       totalAmountNum: Number(sale.totalAmount) || 0,
-      displayPaid: displayPaid,
-      displayBalance: displayBalance,
+      displayPaid: alloc.displayPaid,
+      billDue: alloc.billDue,
+      advance: alloc.advance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
@@ -307,12 +358,10 @@ const Sales = () => {
 
     if (groupedSalesMap[key]) {
       groupedSalesMap[key].weightNum += sale.weightNum;
-      groupedSalesMap[key].weight = groupedSalesMap[key].weightNum;
       groupedSalesMap[key].totalAmountNum += sale.totalAmountNum;
-      groupedSalesMap[key].totalAmount = groupedSalesMap[key].totalAmountNum;
       groupedSalesMap[key].displayPaid += sale.displayPaid;
-      groupedSalesMap[key].displayBalance =
-        groupedSalesMap[key].totalAmountNum - groupedSalesMap[key].displayPaid;
+      groupedSalesMap[key].billDue += sale.billDue;
+      groupedSalesMap[key].advance += sale.advance;
       groupedSalesMap[key].isGrouped = true;
       groupedSalesMap[key].groupCount += 1;
     } else {
@@ -365,13 +414,19 @@ const Sales = () => {
     Number(totalPurchasedWeight) - Number(totalWeight)
   ).toFixed(2);
 
+  const tablePending = finalGroupedSales
+    .reduce((sum, sale) => sum + (sale.billDue || 0), 0)
+    .toFixed(2);
+  const tableAdvance = finalGroupedSales
+    .reduce((sum, sale) => sum + (sale.advance || 0), 0)
+    .toFixed(2);
+
   const handlePrint = () => {
     window.print();
   };
 
   return (
     <div className="space-y-6 w-full min-w-0 print:bg-white print:m-0 print:p-0 overflow-hidden print:overflow-visible">
-      {/* 🖨️ NAYA PRINT HEADER (Sirf Print mein show hoga, Rates aur Cards ke sath) */}
       <div className="hidden print:block mb-8 border-b-2 border-gray-800 pb-6 mt-2">
         <h1 className="text-3xl font-black text-gray-900 uppercase text-center">
           Asia Poultry Business
@@ -449,7 +504,6 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Screen Cards (Sirf Screen par show hongay) */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
@@ -652,7 +706,7 @@ const Sales = () => {
                   Customer Name
                 </th>
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
-                  Weight (KG)
+                  Weight
                 </th>
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
                   Rate
@@ -660,11 +714,14 @@ const Sales = () => {
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
                   Bill Amount
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
+                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-green-700">
                   Paid Amount
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
-                  Outstanding
+                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-red-500">
+                  Pending Due
+                </th>
+                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-teal-600">
+                  Advance (Jama)
                 </th>
                 <th className="px-3 py-4 print:py-2 font-medium text-center whitespace-nowrap print:hidden">
                   Action
@@ -674,16 +731,14 @@ const Sales = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center p-8 text-gray-500">
+                  <td colSpan="9" className="text-center p-8 text-gray-500">
                     Loading sales...
                   </td>
                 </tr>
               ) : finalGroupedSales.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center p-8 text-gray-500">
-                    {fromDate || toDate
-                      ? "No sales found for selected dates."
-                      : "No sales records found."}
+                  <td colSpan="9" className="text-center p-8 text-gray-500">
+                    No sales records found.
                   </td>
                 </tr>
               ) : (
@@ -700,37 +755,48 @@ const Sales = () => {
                         {sale.customer?.name || "Unknown"}
                         {sale.isGrouped && (
                           <span className="ml-2 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md print:hidden">
-                            ({sale.groupCount} Merged)
+                            ({sale.groupCount})
                           </span>
                         )}
                       </p>
                     </td>
                     <td className="px-3 py-4 print:py-2 text-gray-800 font-medium print:text-black whitespace-nowrap">
-                      {sale.weightNum.toFixed(2)} KG
+                      {sale.weightNum.toFixed(2)}
                     </td>
                     <td className="px-3 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
-                      Rs. {sale.rate}
+                      {sale.rate}
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
+                    <td className="px-3 py-4 print:py-2 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmountNum.toLocaleString()}
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-green-600 font-bold print:text-black whitespace-nowrap">
-                      {sale.displayPaid > 0
-                        ? `Rs. ${sale.displayPaid.toLocaleString()}`
-                        : "-"}
-                    </td>
-                    <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
-                      {sale.displayBalance > 0 ? (
-                        <span className="text-red-500">
-                          Rs. {sale.displayBalance.toLocaleString()}
-                        </span>
-                      ) : sale.displayBalance < 0 ? (
+                    {/* Paid Amount */}
+                    <td className="px-3 py-4 print:py-2 font-bold print:text-black whitespace-nowrap">
+                      {sale.displayPaid > 0 ? (
                         <span className="text-green-600">
-                          Advance Rs.{" "}
-                          {Math.abs(sale.displayBalance).toLocaleString()}
+                          Rs. {sale.displayPaid.toLocaleString()}
                         </span>
                       ) : (
-                        "Nil"
+                        "-"
+                      )}
+                    </td>
+                    {/* Pending Due (Udhaar) */}
+                    <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
+                      {sale.billDue > 0 ? (
+                        <span className="text-red-500">
+                          Rs. {sale.billDue.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-green-600">Cleared</span>
+                      )}
+                    </td>
+                    {/* Advance (Jama) */}
+                    <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
+                      {sale.advance > 0 ? (
+                        <span className="text-teal-600">
+                          Rs. {sale.advance.toLocaleString()}
+                        </span>
+                      ) : (
+                        "-"
                       )}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
@@ -741,7 +807,7 @@ const Sales = () => {
                               onClick={() => openModal(sale)}
                               className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
                             >
-                              <Edit size={14} /> Edit
+                              <Edit size={14} />
                             </button>
                             <button
                               onClick={() => {
@@ -750,7 +816,7 @@ const Sales = () => {
                               }}
                               className="flex items-center gap-1 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
                             >
-                              <Trash2 size={14} /> Del
+                              <Trash2 size={14} />
                             </button>
                           </>
                         ) : sale.entryDateStr === todayDateStr ? (
@@ -758,7 +824,7 @@ const Sales = () => {
                             onClick={() => openModal(sale)}
                             className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
                           >
-                            <Edit size={14} /> Edit
+                            <Edit size={14} />
                           </button>
                         ) : (
                           <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider">
@@ -789,18 +855,13 @@ const Sales = () => {
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-3">
-                  {Number(tableOutstanding) > 0 ? (
-                    <span className="text-red-500">
-                      Rs. {Number(tableOutstanding).toLocaleString()}
-                    </span>
-                  ) : Number(tableOutstanding) < 0 ? (
-                    <span className="text-green-600">
-                      Advance Rs. {Math.abs(tableOutstanding).toLocaleString()}
-                    </span>
-                  ) : (
-                    "Nil"
-                  )}
+                <td className="px-3 py-3 text-red-500">
+                  Rs. {Number(tablePending).toLocaleString()}
+                </td>
+                <td className="px-3 py-3 text-teal-600">
+                  {Number(tableAdvance) > 0
+                    ? `Rs. ${Number(tableAdvance).toLocaleString()}`
+                    : "-"}
                 </td>
                 <td className="print:hidden"></td>
               </tr>
@@ -808,6 +869,7 @@ const Sales = () => {
           </table>
         </div>
 
+        {/* MOBILE CARDS VIEW */}
         <div className="lg:hidden flex flex-col print:hidden">
           {finalGroupedSales.map((sale, index) => (
             <div
@@ -831,7 +893,7 @@ const Sales = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 mb-0.5">Total Bill</p>
-                  <p className="text-sm font-bold text-blue-600">
+                  <p className="text-sm font-bold text-gray-800">
                     Rs. {sale.totalAmountNum.toLocaleString()}
                   </p>
                 </div>
@@ -848,31 +910,44 @@ const Sales = () => {
                   <p className="text-gray-500 text-xs mb-1">Rate</p>
                   <p className="font-medium">Rs. {sale.rate}</p>
                 </div>
-                <div className="col-span-2 pt-2 border-t border-gray-200 grid grid-cols-2 gap-3">
+
+                {/* NEW 3 COLUMNS IN MOBILE VIEW */}
+                <div className="col-span-2 pt-3 border-t border-gray-200 grid grid-cols-3 gap-2">
                   <div>
-                    <p className="text-gray-500 text-xs mb-1">Paid Amount</p>
-                    <p className="font-medium text-green-600">
+                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
+                      Paid Amount
+                    </p>
+                    <p className="font-bold text-green-600 text-xs">
                       {sale.displayPaid > 0
                         ? `Rs. ${sale.displayPaid.toLocaleString()}`
                         : "-"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs mb-1">
-                      Outstanding Balance
+                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
+                      Pending Due
                     </p>
-                    <p className="font-bold">
-                      {sale.displayBalance > 0 ? (
+                    <p className="font-bold text-xs">
+                      {sale.billDue > 0 ? (
                         <span className="text-red-500">
-                          Rs. {sale.displayBalance.toLocaleString()}
-                        </span>
-                      ) : sale.displayBalance < 0 ? (
-                        <span className="text-green-600">
-                          Advance Rs.{" "}
-                          {Math.abs(sale.displayBalance).toLocaleString()}
+                          Rs. {sale.billDue.toLocaleString()}
                         </span>
                       ) : (
-                        "Nil"
+                        <span className="text-green-600">Cleared</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
+                      Advance (Jama)
+                    </p>
+                    <p className="font-bold text-xs">
+                      {sale.advance > 0 ? (
+                        <span className="text-teal-600">
+                          Rs. {sale.advance.toLocaleString()}
+                        </span>
+                      ) : (
+                        "-"
                       )}
                     </p>
                   </div>
@@ -901,13 +976,13 @@ const Sales = () => {
                 ) : sale.entryDateStr === todayDateStr ? (
                   <button
                     onClick={() => openModal(sale)}
-                    className="flex items-center gap-1 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2 py-1.5 rounded text-xs font-medium transition-colors"
+                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
                   >
-                    <Edit size={14} /> Edit
+                    <Edit size={16} /> Edit
                   </button>
                 ) : (
                   <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
-                    🔒 Locked (Old Entry)
+                    🔒 Locked
                   </div>
                 )}
               </div>
