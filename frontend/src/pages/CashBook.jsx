@@ -54,7 +54,6 @@ const CashBook = () => {
     transactions: [],
   });
 
-  // 🔥 NAYA: Ledger Modal ke andar Date Range Filter ki State
   const [ledgerStartDate, setLedgerStartDate] = useState("");
   const [ledgerEndDate, setLedgerEndDate] = useState("");
 
@@ -172,7 +171,6 @@ const CashBook = () => {
   const handleOpenLedger = async (accountId) => {
     setShowLedgerModal(true);
     setLedgerLoading(true);
-    // Modal khulte hi puranay filters clear kar do
     setLedgerStartDate("");
     setLedgerEndDate("");
 
@@ -217,7 +215,6 @@ const CashBook = () => {
     documentTitle: `Cash_Ledger_${selectedAccountLedger.accountName}_${new Date().toISOString().split("T")[0]}`,
   });
 
-  // 🔥 NAYA: Ledger Transactions pe Date Filter Apply karna
   const filteredLedgerTransactions = selectedAccountLedger.transactions.filter(
     (tx) => {
       const txDate = new Date(tx.date).toISOString().split("T")[0];
@@ -226,6 +223,16 @@ const CashBook = () => {
       return matchesStart && matchesEnd;
     },
   );
+
+  const periodCashIn = filteredLedgerTransactions
+    .filter((tx) => tx.type === "in")
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+  const periodCashOut = filteredLedgerTransactions
+    .filter((tx) => tx.type === "out")
+    .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+
+  const periodNet = periodCashIn - periodCashOut;
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
@@ -371,7 +378,6 @@ const CashBook = () => {
               </div>
             </div>
 
-            {/* 🔥 NAYA: Ledger Date Filter Section */}
             <div className="p-3 bg-white border-b border-gray-100 flex gap-2 items-center print:hidden overflow-x-auto shrink-0">
               <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
                 <Filter size={14} /> Filter:
@@ -391,6 +397,36 @@ const CashBook = () => {
                 className="bg-gray-100 p-1.5 px-3 rounded-lg text-sm border-none outline-none text-gray-700"
                 title="End Date"
               />
+            </div>
+
+            {/* 🔥 NAYE 3 BOXES JO CLIENT NE MANGAY HAIN */}
+            <div className="grid grid-cols-3 gap-2 px-5 py-3 bg-gray-50 border-b border-gray-100 text-center shrink-0">
+              <div className="bg-white p-2 rounded border border-gray-200">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">
+                  Cash In (Aaya)
+                </p>
+                <p className="text-sm font-black text-green-600">
+                  Rs. {periodCashIn.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white p-2 rounded border border-gray-200">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">
+                  Cash Out (Gaya)
+                </p>
+                <p className="text-sm font-black text-red-600">
+                  Rs. {periodCashOut.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white p-2 rounded border border-gray-200">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">
+                  Net Flow (Baqaya)
+                </p>
+                <p
+                  className={`text-sm font-black ${periodNet >= 0 ? "text-blue-700" : "text-red-600"}`}
+                >
+                  Rs. {periodNet.toLocaleString()}
+                </p>
+              </div>
             </div>
 
             <div

@@ -56,7 +56,6 @@ const Payments = () => {
   const isOwner = userInfo?.role === "owner";
   const todayDateStr = new Date().toISOString().split("T")[0];
 
-  // 🔥 NAYA: Print ke liye Ref aur Handler add kar diya
   const printRef = useRef(null);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -81,10 +80,9 @@ const Payments = () => {
             withCredentials: true,
           }),
           axios
-            .get(
-              "https://asiapoultrybusiness.com/api/expense-categories",
-              { withCredentials: true },
-            )
+            .get("https://asiapoultrybusiness.com/api/expense-categories", {
+              withCredentials: true,
+            })
             .catch(() => ({ data: [] })),
         ]);
 
@@ -354,7 +352,6 @@ const Payments = () => {
           </div>
         </div>
 
-        {/* 🔥 NAYA: Print button add kiya gaya hai */}
         <div className="flex gap-2 w-full lg:w-auto">
           <button
             onClick={handlePrint}
@@ -371,12 +368,10 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* 🔥 NAYA: Print Ref yahan attach kiya gaya hai */}
       <div
         ref={printRef}
         className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden print:border-none print:shadow-none print:p-4"
       >
-        {/* 🔥 NAYA: Print Header (Sirf PDF mein nazar aayega) */}
         <div className="hidden print:block text-center mb-6 border-b-2 border-gray-800 pb-4">
           <h1 className="text-3xl font-black text-gray-900 mb-1">
             ASIA POULTRY BUSINESS
@@ -418,7 +413,6 @@ const Payments = () => {
                 <th className="px-3 py-4 font-bold whitespace-nowrap print:py-2">
                   Amount
                 </th>
-                {/* 🔥 NAYA: Action column ko print mein chupa diya */}
                 <th className="px-3 py-4 font-bold text-center whitespace-nowrap print:hidden">
                   Action
                 </th>
@@ -517,7 +511,6 @@ const Payments = () => {
                         {payment.amount.toLocaleString()}
                       </td>
 
-                      {/* 🔥 NAYA: Action column ko print mein chupa diya */}
                       <td className="px-3 py-3 whitespace-nowrap print:hidden">
                         <div className="flex justify-center items-center gap-1.5">
                           {isOwner ? (
@@ -560,7 +553,6 @@ const Payments = () => {
           </table>
         </div>
 
-        {/* MOBILE CARDS VIEW */}
         <div className="lg:hidden print:hidden flex flex-col">
           {filteredPayments.map((payment, index) => {
             const isExp =
@@ -705,7 +697,6 @@ const Payments = () => {
                     checked={formData.type === "receive"}
                     onChange={handleInputChange}
                     className="hidden"
-                    disabled={!!editingId}
                   />
                   <ArrowDownLeft size={18} /> Receive (Cash In)
                 </label>
@@ -719,7 +710,6 @@ const Payments = () => {
                     checked={formData.type === "pay"}
                     onChange={handleInputChange}
                     className="hidden"
-                    disabled={!!editingId}
                   />
                   <ArrowUpRight size={18} /> Send (Cash Out)
                 </label>
@@ -771,8 +761,7 @@ const Payments = () => {
                       value={formData.customer}
                       onChange={handleInputChange}
                       required
-                      disabled={!!editingId}
-                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-green-500"}`}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-green-500"
                     >
                       <option value="">-- Choose Customer --</option>
                       {customers.map((c) => (
@@ -792,8 +781,7 @@ const Payments = () => {
                       value={formData.supplier}
                       onChange={handleInputChange}
                       required
-                      disabled={!!editingId}
-                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">-- Choose Broker --</option>
                       {suppliers.map((s) => (
@@ -813,8 +801,7 @@ const Payments = () => {
                       value={formData.employee}
                       onChange={handleInputChange}
                       required
-                      disabled={!!editingId}
-                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">-- Choose Staff --</option>
                       {employees.map((emp) => (
@@ -834,8 +821,7 @@ const Payments = () => {
                       value={formData.expenseCategory}
                       onChange={handleInputChange}
                       required
-                      disabled={!!editingId}
-                      className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-orange-500"}`}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-orange-500"
                     >
                       <option value="">-- Choose Expense Khata --</option>
                       {expenseCategories.map((cat, idx) => (
@@ -859,8 +845,7 @@ const Payments = () => {
                   value={formData.cashAccountId}
                   onChange={handleInputChange}
                   required
-                  disabled={!!editingId}
-                  className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100" : "bg-white focus:ring-2 focus:ring-blue-500"}`}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Choose Cash Account --</option>
                   {cashAccounts.map((acc) => (

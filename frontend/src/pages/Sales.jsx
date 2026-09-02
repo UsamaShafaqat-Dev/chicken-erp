@@ -265,7 +265,6 @@ const Sales = () => {
     };
   });
 
-  // 🔥 LOGIC: Grouping Sales by Same Customer, Same Date, Same Rate
   const groupedSalesMap = {};
   enhancedSales.forEach((sale) => {
     const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
@@ -294,15 +293,6 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  const filteredRecoveries = payments.filter((p) => {
-    if (p.type !== "receive") return false;
-    const pDate = new Date(p.date).toISOString().split("T")[0];
-    const matchFrom = fromDate ? pDate >= fromDate : true;
-    const matchTo = toDate ? pDate <= toDate : true;
-    return matchFrom && matchTo;
-  });
-
-  // STRICT DECIMALS FOR BOXES TO PREVENT OVERFLOW
   const totalPurchasedWeight = filteredPurchases
     .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
     .toFixed(2);
@@ -312,18 +302,6 @@ const Sales = () => {
   const totalAmount = enhancedSales
     .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
     .toFixed(2);
-
-  const salesPaid = filteredSales.reduce(
-    (sum, sale) => sum + (Number(sale.paidAmount) || 0),
-    0,
-  );
-  const recoveryPaid = filteredRecoveries.reduce(
-    (sum, p) => sum + (Number(p.amount) || 0),
-    0,
-  );
-
-  const totalPaid = (salesPaid + recoveryPaid).toFixed(2);
-  const netUdhaar = (Number(totalAmount) - Number(totalPaid)).toFixed(2);
 
   const tablePaidAmount = enhancedSales
     .reduce((sum, sale) => sum + sale.displayPaid, 0)
@@ -415,32 +393,28 @@ const Sales = () => {
             Rs. {Number(totalAmount).toLocaleString()}
           </h3>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden relative group cursor-pointer hover:border-blue-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-green-200 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={16} className="text-teal-600" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
-              Total Cash
+            <p className="text-[11px] uppercase tracking-wider text-green-700 font-bold truncate">
+              Sale Vasooli (Cash)
             </p>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
-            Rs. {Number(totalPaid).toLocaleString()}
+          <h3 className="text-lg sm:text-xl font-bold text-green-700 truncate">
+            Rs. {Number(tablePaidAmount).toLocaleString()}
           </h3>
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-2 rounded hidden group-hover:block whitespace-nowrap z-10 shadow-lg border border-gray-700">
-            Sale Cash: Rs. {salesPaid.toLocaleString()} <br /> Payment Recovery:
-            Rs. {recoveryPaid.toLocaleString()}
-          </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <AlertCircle size={16} className="text-orange-500" />
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
+            <p className="text-[11px] uppercase tracking-wider text-red-600 font-bold truncate">
               Net Udhaar
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold truncate ${Number(netUdhaar) > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold truncate ${Number(tableOutstanding) > 0 ? "text-red-600" : "text-green-600"}`}
           >
-            Rs. {Number(netUdhaar).toLocaleString()}
+            Rs. {Number(tableOutstanding).toLocaleString()}
           </h3>
         </div>
       </div>
@@ -870,8 +844,7 @@ const Sales = () => {
                     value={formData.customer}
                     onChange={handleInputChange}
                     required
-                    disabled={editingId}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg outline-none ${editingId ? "bg-gray-100 text-gray-500" : "focus:ring-2 focus:ring-green-500 bg-white"}`}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-white"
                   >
                     <option value="">-- Choose Customer --</option>
                     {customers.map((c) => (
