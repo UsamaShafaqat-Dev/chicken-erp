@@ -246,36 +246,11 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 SMART LOGIC: Payments page se same day ki vasooli utha kar Sales mein daalna
-  const extPaymentsByCustAndDate = {};
-  allPayments.forEach((p) => {
-    if (p.type === "receive") {
-      const cId = p.customer?._id || p.customer;
-      const pDate = new Date(p.date).toISOString().split("T")[0];
-      const key = `${cId}_${pDate}`;
-      extPaymentsByCustAndDate[key] =
-        (extPaymentsByCustAndDate[key] || 0) + Number(p.amount);
-    }
-  });
-
+  // 🔥 100% PURE & ISOLATED LOGIC (No external payments mixed) 🔥
   const enhancedSales = filteredSales.map((sale) => {
-    const cId = sale.customer?._id || sale.customer;
-    const saleDate = new Date(sale.date).toISOString().split("T")[0];
-    const pKey = `${cId}_${saleDate}`;
-
-    let basePaid = Number(sale.paidAmount) || 0;
+    const displayPaid = Number(sale.paidAmount) || 0;
     const totalAmountNum = Number(sale.totalAmount) || 0;
 
-    let externalPaymentForThisBill = 0;
-
-    // Agar usi din Payments page se koi vasooli aayi hai, to usko line mein le aao
-    if (extPaymentsByCustAndDate[pKey]) {
-      externalPaymentForThisBill = extPaymentsByCustAndDate[pKey];
-      // Consume kar lein taake duplicate na ho agar 1 din mein 2 bill hon
-      extPaymentsByCustAndDate[pKey] = 0;
-    }
-
-    const displayPaid = basePaid + externalPaymentForThisBill;
     let billDue = 0;
     let advance = 0;
 
@@ -292,7 +267,7 @@ const Sales = () => {
       displayPaid,
       billDue,
       advance,
-      entryDateStr: saleDate,
+      entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
 
