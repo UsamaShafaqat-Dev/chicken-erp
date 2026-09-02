@@ -26,20 +26,16 @@ const Sales = () => {
   const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState("");
-
   const [fromDate, setFromDate] = useState(
     new Date().toISOString().split("T")[0],
   );
   const [toDate, setToDate] = useState(new Date().toISOString().split("T")[0]);
-
   const [dailyRates, setDailyRates] = useState({
     bahawalpurRate: "",
     supplyRate: "",
   });
   const [savingRates, setSavingRates] = useState(false);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -109,7 +105,6 @@ const Sales = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
   useEffect(() => {
     fetchRatesForDate(toDate);
   }, [toDate]);
@@ -138,15 +133,12 @@ const Sales = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let newFormData = { ...formData, [name]: value };
-
     const weight = parseFloat(newFormData.weight) || 0;
     const rate = parseFloat(newFormData.rate) || 0;
     const paid = parseFloat(newFormData.paidAmount) || 0;
-
     const totalAmount = weight * rate;
     newFormData.totalAmount = totalAmount;
     newFormData.balanceDue = totalAmount - paid;
-
     setFormData(newFormData);
   };
 
@@ -184,19 +176,15 @@ const Sales = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
-
     if (!formData.customer || !formData.weight)
       return toast.error("Customer and Weight are required");
-
     setIsSubmitting(true);
-
     const payload = {
       ...formData,
       paidAmount: String(formData.paidAmount || "0"),
       weight: String(formData.weight),
       rate: String(formData.rate),
     };
-
     try {
       if (editingId) {
         await axios.put(
@@ -224,9 +212,7 @@ const Sales = () => {
     try {
       await axios.delete(
         `https://asiapoultrybusiness.com/api/sales/${deletingId}`,
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
       toast.success("Sale deleted successfully");
       setIsDeleteModalOpen(false);
@@ -250,16 +236,13 @@ const Sales = () => {
   const enhancedSales = filteredSales.map((sale) => {
     const displayPaid = Number(sale.paidAmount) || 0; // Sirf aur sirf Bill wali amount uthayega
     const totalAmountNum = Number(sale.totalAmount) || 0;
-
     let billDue = 0;
     let advance = 0;
-
     if (displayPaid > totalAmountNum) {
       advance = displayPaid - totalAmountNum;
     } else {
       billDue = totalAmountNum - displayPaid;
     }
-
     return {
       ...sale,
       weightNum: Number(sale.weight) || 0,
@@ -274,17 +257,14 @@ const Sales = () => {
   const groupedSalesMap = {};
   enhancedSales.forEach((sale) => {
     const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
-
     if (groupedSalesMap[key]) {
       groupedSalesMap[key].weightNum += sale.weightNum;
       groupedSalesMap[key].totalAmountNum += sale.totalAmountNum;
       groupedSalesMap[key].displayPaid += sale.displayPaid;
-
       const gTotal = groupedSalesMap[key].totalAmountNum;
       const gPaid = groupedSalesMap[key].displayPaid;
       groupedSalesMap[key].billDue = gPaid < gTotal ? gTotal - gPaid : 0;
       groupedSalesMap[key].advance = gPaid > gTotal ? gPaid - gTotal : 0;
-
       groupedSalesMap[key].isGrouped = true;
       groupedSalesMap[key].groupCount += 1;
     } else {
@@ -293,14 +273,12 @@ const Sales = () => {
   });
 
   const finalGroupedSales = Object.values(groupedSalesMap);
-
   const filteredPurchases = purchases.filter((p) => {
     const pDate = new Date(p.date).toISOString().split("T")[0];
     const matchFrom = fromDate ? pDate >= fromDate : true;
     const matchTo = toDate ? pDate <= toDate : true;
     return matchFrom && matchTo;
   });
-
   const filteredExtPayments = allPayments.filter((p) => {
     if (p.type !== "receive") return false;
     const pDate = new Date(p.date).toISOString().split("T")[0];
@@ -318,7 +296,6 @@ const Sales = () => {
     0,
   );
   const totalMarketWasooli = periodSalesPaid + periodExtPaid;
-
   const totalPurchasedWeight = filteredPurchases.reduce(
     (sum, p) => sum + (Number(p.weight) || 0),
     0,
@@ -332,7 +309,6 @@ const Sales = () => {
     0,
   );
   const shortageWeight = totalPurchasedWeight - totalWeight;
-
   const netMarketBalance = totalAmount - totalMarketWasooli;
   const topCardPending = netMarketBalance > 0 ? netMarketBalance : 0;
 
@@ -368,7 +344,6 @@ const Sales = () => {
           {fromDate ? new Date(fromDate).toLocaleDateString("en-GB") : "Start"}{" "}
           TO {toDate ? new Date(toDate).toLocaleDateString("en-GB") : "End"}
         </h2>
-
         <div className="mt-6 flex flex-col gap-4 px-2">
           <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border-2 border-gray-300">
             <span className="font-bold text-gray-900 text-sm uppercase">
@@ -384,7 +359,6 @@ const Sales = () => {
               </span>
             </span>
           </div>
-
           <div className="grid grid-cols-3 gap-4 text-sm mt-2">
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
@@ -420,7 +394,7 @@ const Sales = () => {
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
-                Total Wasooli (Payments In)
+                Total Wasooli
               </p>
               <p className="font-bold text-green-700">
                 Rs. {totalMarketWasooli.toLocaleString()}
@@ -523,7 +497,6 @@ const Sales = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <div className="bg-gray-100 p-2 rounded-lg flex items-center gap-2 border-2 border-transparent focus-within:border-blue-400 transition-colors flex-1 sm:flex-none">
               <span className="text-xs text-gray-500 font-bold">From:</span>
@@ -601,7 +574,6 @@ const Sales = () => {
               <Save size={16} />
             </button>
           </div>
-
           <div className="flex flex-wrap gap-2 shrink-0">
             <button
               onClick={handlePrint}
@@ -677,7 +649,7 @@ const Sales = () => {
                     </td>
                     <td className="px-3 py-4 print:py-2 font-bold text-gray-800 print:text-black whitespace-nowrap">
                       <p className="truncate max-w-[150px] print:max-w-none print:whitespace-normal">
-                        {sale.customer?.name || "Unknown"}
+                        {sale.customer?.name || "Unknown"}{" "}
                         {sale.isGrouped && (
                           <span className="ml-2 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md print:hidden">
                             ({sale.groupCount})
@@ -783,125 +755,6 @@ const Sales = () => {
             </tfoot>
           </table>
         </div>
-
-        <div className="lg:hidden flex flex-col print:hidden">
-          {finalGroupedSales.map((sale, index) => (
-            <div
-              key={index}
-              className={`p-4 flex flex-col gap-4 ${index !== finalGroupedSales.length - 1 ? "border-b border-gray-100" : ""}`}
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg">
-                    {sale.customer?.name || "Unknown"}
-                    {sale.isGrouped && (
-                      <span className="ml-2 text-xs text-blue-600">
-                        ({sale.groupCount})
-                      </span>
-                    )}
-                  </h3>
-                  <p className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
-                    <Calendar size={14} />{" "}
-                    {new Date(sale.date).toLocaleDateString("en-GB")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 mb-0.5">Total Bill</p>
-                  <p className="text-sm font-bold text-gray-800">
-                    Rs. {sale.totalAmountNum.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Weight</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Scale size={14} /> {sale.weightNum.toFixed(2)} KG
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Rate</p>
-                  <p className="font-medium">Rs. {sale.rate}</p>
-                </div>
-
-                <div className="col-span-2 pt-3 border-t border-gray-200 grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
-                      Paid Amount
-                    </p>
-                    <p className="font-bold text-green-600 text-xs">
-                      {sale.displayPaid > 0
-                        ? `Rs. ${sale.displayPaid.toLocaleString()}`
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
-                      Pending Due
-                    </p>
-                    <p className="font-bold text-xs">
-                      {sale.billDue > 0 ? (
-                        <span className="text-red-500">
-                          Rs. {sale.billDue.toLocaleString()}
-                        </span>
-                      ) : (
-                        <span className="text-green-600">Cleared</span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
-                      Advance (Jama)
-                    </p>
-                    <p className="font-bold text-xs">
-                      {sale.advance > 0 ? (
-                        <span className="text-teal-600">
-                          Rs. {sale.advance.toLocaleString()}
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                {isOwner ? (
-                  <>
-                    <button
-                      onClick={() => openModal(sale)}
-                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
-                    >
-                      <Edit size={16} /> Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeletingId(sale._id);
-                        setIsDeleteModalOpen(true);
-                      }}
-                      className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors border border-red-100"
-                    >
-                      <Trash2 size={16} /> Delete
-                    </button>
-                  </>
-                ) : sale.entryDateStr === todayDateStr ? (
-                  <button
-                    onClick={() => openModal(sale)}
-                    className="flex-1 flex justify-center items-center gap-1.5 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors border border-blue-100"
-                  >
-                    <Edit size={16} /> Edit
-                  </button>
-                ) : (
-                  <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
-                    🔒 Locked
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {isModalOpen && (
@@ -921,7 +774,6 @@ const Sales = () => {
                 <X size={20} />
               </button>
             </div>
-
             <form
               onSubmit={handleSubmit}
               className="p-5 space-y-4 text-sm overflow-y-auto custom-scrollbar flex-1"
@@ -960,7 +812,6 @@ const Sales = () => {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
@@ -992,7 +843,6 @@ const Sales = () => {
                   />
                 </div>
               </div>
-
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-gray-600 font-medium mb-1 text-xs">
@@ -1033,7 +883,6 @@ const Sales = () => {
                   </div>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
@@ -1090,39 +939,7 @@ const Sales = () => {
           </div>
         </div>
       )}
-
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
-            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle size={32} />
-            </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">
-              Delete Sale?
-            </h3>
-            <p className="text-gray-500 text-sm mb-6">
-              Are you sure? Deleting this will reverse the customer's balance
-              automatically.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="px-4 py-2 flex-1 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 flex-1 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-              >
-                Yes, Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
 export default Sales;
