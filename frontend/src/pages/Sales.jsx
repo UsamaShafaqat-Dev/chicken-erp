@@ -17,13 +17,14 @@ import {
   Save,
   Wallet,
   AlertCircle,
+  Wrench, // Naya icon repair button ke liye
 } from "lucide-react";
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purchases, setPurchases] = useState([]);
-  const [allPayments, setAllPayments] = useState([]); // 🔥 NAYA: Payments ka data Sales table ke liye
+  const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -190,7 +191,6 @@ const Sales = () => {
 
     setIsSubmitting(true);
 
-    // 🔥 JADOO: Bypass backend 0 falsy bug by passing exact String
     const payload = {
       ...formData,
       paidAmount: String(formData.paidAmount || "0"),
@@ -237,7 +237,45 @@ const Sales = () => {
     }
   };
 
-  // 🔥 NAYA: FIFO Allocation Logic - Payments ko Sales table mein daalne ke liye
+  // 🔥 YEH WOH JADOO WALA FUNCTION HAI JO PURANI ENTRIES THEEK KAREGA
+  const handleFixOldBug = async () => {
+    if (
+      !window.confirm(
+        "Tasalli rakhein, yeh button koi data delete nahi karega! Yeh sirf puranay bill jin mein ghalti se wasooli likhi gayi thi, unko 0 kar ke theek kar dega. Kya main Fix kar doon?",
+      )
+    )
+      return;
+
+    try {
+      setLoading(true);
+      let fixedCount = 0;
+
+      for (const sale of sales) {
+        if (Number(sale.paidAmount) > 0) {
+          await axios.put(
+            `https://asiapoultrybusiness.com/api/sales/${sale._id}`,
+            {
+              ...sale,
+              paidAmount: "0",
+              balanceDue: sale.totalAmount,
+            },
+            { withCredentials: true },
+          );
+          fixedCount++;
+        }
+      }
+
+      toast.success(
+        `Jadoo Chal Gaya! ${fixedCount} puranay bills theek ho gaye.`,
+      );
+      fetchData();
+    } catch (error) {
+      toast.error("Error fixing data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const extPaymentsByCust = {};
   allPayments.forEach((p) => {
     if (p.type === "receive") {
@@ -543,6 +581,18 @@ const Sales = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 shrink-0">
+            {/* 🔥 YEH RAHA WOH REPAIR BUTTON 🔥 */}
+            {isOwner && (
+              <button
+                onClick={handleFixOldBug}
+                disabled={loading}
+                className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                title="Saray puranay double entries theek karein"
+              >
+                <Wrench size={18} /> Fix Old Bug
+              </button>
+            )}
+
             <button
               onClick={handlePrint}
               className="flex-1 sm:flex-none bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
