@@ -232,12 +232,13 @@ const Customers = () => {
         (p.customer?._id || p.customer) === customer._id,
     );
 
-    // Liftime original data
+    let opBal = Number(customer.openingBalance) || 0;
     let lifetimePurchases = cSales.reduce(
       (sum, s) => sum + (Number(s.totalAmount) || 0),
       0,
     );
-    // Purani sales mein jo paid tha wo bhi jama karna hai warna balance bigar jayega
+
+    // Yahan humne dobara se Sales ki vasooli ko add kar diya hai
     let lifetimeBillPayments = cSales.reduce(
       (sum, s) => sum + (Number(s.paidAmount) || 0),
       0,
@@ -248,9 +249,7 @@ const Customers = () => {
     );
     let lifetimePaid = lifetimeBillPayments + lifetimeExternalPayments;
 
-    let opBal = Number(customer.openingBalance) || 0;
-
-    // Overall balance will ALWAYS be exact
+    // Exact math for lifetime balance
     let displayBalance = opBal + lifetimePurchases - lifetimePaid;
 
     let displayPurchases = lifetimePurchases;
@@ -496,7 +495,7 @@ const Customers = () => {
                   <th className="px-1.5 py-3 print:py-2 font-medium">Name</th>
                   <th className="px-1.5 py-3 print:py-2 font-medium">Mobile</th>
                   <th className="px-1.5 py-3 print:py-2 font-medium">Area</th>
-                  <th className="px-1.5 py-3 print:py-2 font-medium">
+                  <th className="px-1.5 py-3 print:py-2 font-bold text-blue-700">
                     Opening Bal
                   </th>
                   <th className="px-1.5 py-3 print:py-2 font-medium">
@@ -554,7 +553,7 @@ const Customers = () => {
                         </span>
                       </td>
 
-                      <td className="px-1.5 py-3 print:py-2 text-gray-600 font-medium whitespace-nowrap">
+                      <td className="px-1.5 py-3 print:py-2 font-bold text-blue-700 whitespace-nowrap">
                         Rs. {customer.opBal.toLocaleString()}
                       </td>
 
@@ -623,7 +622,7 @@ const Customers = () => {
                   <td colSpan="3" className="px-1.5 py-3 text-right">
                     TOTAL MARKET:
                   </td>
-                  <td className="px-1.5 py-3 text-gray-700">
+                  <td className="px-1.5 py-3 text-blue-800">
                     Rs. {marketTotalOpening.toLocaleString()}
                   </td>
                   <td className="px-1.5 py-3 text-blue-700">
@@ -682,8 +681,10 @@ const Customers = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
                   <div>
-                    <p className="text-gray-500 text-xs mb-1">Opening Bal</p>
-                    <p className="font-medium text-gray-700">
+                    <p className="text-gray-500 text-xs mb-1 font-bold text-blue-700">
+                      Opening Bal
+                    </p>
+                    <p className="font-bold text-blue-700">
                       Rs. {customer.opBal.toLocaleString()}
                     </p>
                   </div>
@@ -1045,15 +1046,15 @@ const Customers = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500 uppercase font-bold mb-1">
-                      Period Balance:
+                      Total Due Balance:
                     </p>
                     <h2
-                      className={`text-2xl font-black ${periodRemaining > 0 ? "text-red-600" : periodRemaining < 0 ? "text-green-600" : "text-gray-800"}`}
+                      className={`text-2xl font-black ${selectedCustomer.displayBalance > 0 ? "text-red-600" : selectedCustomer.displayBalance < 0 ? "text-green-600" : "text-gray-800"}`}
                     >
-                      {periodRemaining > 0
-                        ? `Rs. ${periodRemaining.toLocaleString()}`
-                        : periodRemaining < 0
-                          ? `Advance Rs. ${Math.abs(periodRemaining).toLocaleString()}`
+                      {selectedCustomer.displayBalance > 0
+                        ? `Rs. ${selectedCustomer.displayBalance.toLocaleString()}`
+                        : selectedCustomer.displayBalance < 0
+                          ? `Advance Rs. ${Math.abs(selectedCustomer.displayBalance).toLocaleString()}`
                           : "Rs. 0"}
                     </h2>
                   </div>
@@ -1105,9 +1106,17 @@ const Customers = () => {
                       </div>
                       <div className="text-right pl-11 sm:pl-0">
                         {tx.isSale ? (
-                          <p className="font-black text-blue-600 print:text-base">
-                            Rs. {(Number(tx.totalAmount) || 0).toLocaleString()}
-                          </p>
+                          <>
+                            <p className="font-black text-blue-600 print:text-base">
+                              Rs.{" "}
+                              {(Number(tx.totalAmount) || 0).toLocaleString()}
+                            </p>
+                            {tx.paidAmount > 0 && (
+                              <p className="text-xs font-bold text-green-600 mt-1">
+                                (Paid: Rs. {tx.paidAmount.toLocaleString()})
+                              </p>
+                            )}
+                          </>
                         ) : (
                           <p className="font-black text-green-600 print:text-base">
                             + Rs. {(Number(tx.amount) || 0).toLocaleString()}
