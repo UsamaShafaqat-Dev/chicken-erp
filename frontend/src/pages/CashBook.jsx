@@ -21,6 +21,7 @@ import {
 
 const CashBook = () => {
   const [accounts, setAccounts] = useState([]);
+  const [allSales, setAllSales] = useState([]); // NAYA: Sales data store karne ke liye
   const [loading, setLoading] = useState(true);
 
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -64,11 +65,17 @@ const CashBook = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(
-        "https://asiapoultrybusiness.com/api/cash/accounts",
-        { withCredentials: true },
-      );
-      setAccounts(data);
+      // 🔥 NAYA: Dono Accounts aur Sales ka data ikatha fetch karein
+      const [accRes, salesRes] = await Promise.all([
+        axios.get("https://asiapoultrybusiness.com/api/cash/accounts", {
+          withCredentials: true,
+        }),
+        axios.get("https://asiapoultrybusiness.com/api/sales", {
+          withCredentials: true,
+        }),
+      ]);
+      setAccounts(accRes.data);
+      setAllSales(salesRes.data);
     } catch (error) {
       toast.error("Failed to load cash accounts");
     } finally {
@@ -180,11 +187,35 @@ const CashBook = () => {
         { withCredentials: true },
       );
       if (data.success && data.ledger) {
+        // 🔥 NAYA JADOO: Sales ka missing cash nikal kar Ledger mein add karna
+        const salesTxns = allSales
+          .filter((s) => {
+            const isMatch =
+              s.cashAccountId?._id === accountId ||
+              s.cashAccountId === accountId;
+            return isMatch && Number(s.paidAmount) > 0;
+          })
+          .map((s) => ({
+            _id: s._id,
+            type: "in", // Sale ka paisa hamesha IN hota hai
+            amount: Number(s.paidAmount),
+            date: s.date,
+            particulars: `Sale Vasooli - ${s.customer?.name || "Customer"}`,
+            transactionType: "sale",
+            isSale: true,
+          }));
+
+        // Purani transactions aur Sales ki vasooli ko merge karke date wise sort karna
+        const mergedTxns = [
+          ...(data.ledger.transactions || []),
+          ...salesTxns,
+        ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
         setSelectedAccountLedger({
           accountId: data.ledger.accountId,
           accountName: data.ledger.accountName,
-          balance: data.ledger.balance,
-          transactions: data.ledger.transactions || [],
+          balance: data.ledger.balance, // Current actual balance from DB
+          transactions: mergedTxns,
         });
       }
     } catch (error) {
@@ -397,9 +428,20 @@ const CashBook = () => {
                 className="bg-gray-100 p-1.5 px-3 rounded-lg text-sm border-none outline-none text-gray-700"
                 title="End Date"
               />
+              {(ledgerStartDate || ledgerEndDate) && (
+                <button
+                  onClick={() => {
+                    setLedgerStartDate("");
+                    setLedgerEndDate("");
+                  }}
+                  className="flex items-center gap-1 text-red-500 hover:bg-red-50 px-2 py-1.5 rounded text-xs font-medium transition-colors ml-auto"
+                >
+                  <X size={14} /> Clear
+                </button>
+              )}
             </div>
 
-            {/* 🔥 NAYE 3 BOXES JO CLIENT NE MANGAY HAIN */}
+            {/* 3 BOXES UPDATE - Ab Cash in theek aayega! */}
             <div className="grid grid-cols-3 gap-2 px-5 py-3 bg-gray-50 border-b border-gray-100 text-center shrink-0">
               <div className="bg-white p-2 rounded border border-gray-200">
                 <p className="text-[10px] text-gray-500 uppercase font-bold">
