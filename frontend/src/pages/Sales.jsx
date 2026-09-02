@@ -23,6 +23,7 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [allPayments, setAllPayments] = useState([]); // 🔥 NAYA: Payments ka data Sales table ke liye
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,20 +64,25 @@ const Sales = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [salesRes, customersRes, purchasesRes] = await Promise.all([
-        axios.get("https://asiapoultrybusiness.com/api/sales", {
-          withCredentials: true,
-        }),
-        axios.get("https://asiapoultrybusiness.com/api/customers", {
-          withCredentials: true,
-        }),
-        axios.get("https://asiapoultrybusiness.com/api/purchases", {
-          withCredentials: true,
-        }),
-      ]);
+      const [salesRes, customersRes, purchasesRes, paymentsRes] =
+        await Promise.all([
+          axios.get("https://asiapoultrybusiness.com/api/sales", {
+            withCredentials: true,
+          }),
+          axios.get("https://asiapoultrybusiness.com/api/customers", {
+            withCredentials: true,
+          }),
+          axios.get("https://asiapoultrybusiness.com/api/purchases", {
+            withCredentials: true,
+          }),
+          axios.get("https://asiapoultrybusiness.com/api/payments", {
+            withCredentials: true,
+          }),
+        ]);
       setSales(salesRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
       setPurchases(purchasesRes.data);
+      setAllPayments(paymentsRes.data);
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -184,22 +190,26 @@ const Sales = () => {
 
     setIsSubmitting(true);
 
+    // 🔥 JADOO: Bypass backend 0 falsy bug by passing exact String
+    const payload = {
+      ...formData,
+      paidAmount: String(formData.paidAmount || "0"),
+      weight: String(formData.weight),
+      rate: String(formData.rate),
+    };
+
     try {
       if (editingId) {
         await axios.put(
           `https://asiapoultrybusiness.com/api/sales/${editingId}`,
-          formData,
+          payload,
           { withCredentials: true },
         );
         toast.success("Sale bill updated successfully");
       } else {
-        await axios.post(
-          "https://asiapoultrybusiness.com/api/sales",
-          formData,
-          {
-            withCredentials: true,
-          },
-        );
+        await axios.post("https://asiapoultrybusiness.com/api/sales", payload, {
+          withCredentials: true,
+        });
         toast.success("Sale bill added successfully");
       }
       setIsModalOpen(false);
@@ -227,6 +237,57 @@ const Sales = () => {
     }
   };
 
+  // 🔥 NAYA: FIFO Allocation Logic - Payments ko Sales table mein daalne ke liye
+  const extPaymentsByCust = {};
+  allPayments.forEach((p) => {
+    if (p.type === "receive") {
+      const cId = p.customer?._id || p.customer;
+      if (cId)
+        extPaymentsByCust[cId] =
+          (extPaymentsByCust[cId] || 0) + Number(p.amount);
+    }
+  });
+
+  const sortedSales = [...sales].sort(
+    (a, b) => new Date(a.date) - new Date(b.date),
+  );
+  const salesByCust = {};
+  sortedSales.forEach((s) => {
+    const cId = s.customer?._id || s.customer;
+    if (!salesByCust[cId]) salesByCust[cId] = [];
+    salesByCust[cId].push(s);
+  });
+
+  const allocatedSalesMap = new Map();
+  Object.keys(salesByCust).forEach((cId) => {
+    let pool = extPaymentsByCust[cId] || 0;
+    const cSales = salesByCust[cId];
+
+    cSales.forEach((sale, index) => {
+      let basePaid = Number(sale.paidAmount) || 0;
+      let total = Number(sale.totalAmount) || 0;
+      let due = total - basePaid;
+
+      let allocated = 0;
+      if (pool > 0 && due > 0) {
+        allocated = Math.min(due, pool);
+        pool -= allocated;
+      }
+
+      let displayPaid = basePaid + allocated;
+
+      if (index === cSales.length - 1 && pool > 0) {
+        displayPaid += pool;
+        pool = 0;
+      }
+
+      allocatedSalesMap.set(sale._id, {
+        displayPaid,
+        displayBalance: total - displayPaid,
+      });
+    });
+  });
+
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -240,12 +301,17 @@ const Sales = () => {
   });
 
   const enhancedSales = filteredSales.map((sale) => {
+    const alloc = allocatedSalesMap.get(sale._id) || {
+      displayPaid: Number(sale.paidAmount) || 0,
+      displayBalance:
+        (Number(sale.totalAmount) || 0) - (Number(sale.paidAmount) || 0),
+    };
     return {
       ...sale,
       weightNum: Number(sale.weight) || 0,
       totalAmountNum: Number(sale.totalAmount) || 0,
-      displayPaid: Number(sale.paidAmount) || 0,
-      displayBalance: Number(sale.balanceDue) || 0,
+      displayPaid: alloc.displayPaid,
+      displayBalance: alloc.displayBalance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
@@ -567,7 +633,7 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmountNum.toLocaleString()}
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-gray-500 font-medium print:text-black whitespace-nowrap">
+                    <td className="px-3 py-4 print:py-2 text-green-600 font-bold print:text-black whitespace-nowrap">
                       {sale.displayPaid > 0
                         ? `Rs. ${sale.displayPaid.toLocaleString()}`
                         : "-"}
@@ -634,7 +700,7 @@ const Sales = () => {
                 <td className="px-3 py-3">
                   Rs. {Number(totalAmount).toLocaleString()}
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 text-green-700">
                   Rs. {Number(tablePaidAmount).toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
@@ -699,7 +765,7 @@ const Sales = () => {
                 <div className="col-span-2 pt-2 border-t border-gray-200 grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-gray-500 text-xs mb-1">Paid Amount</p>
-                    <p className="font-medium text-gray-500">
+                    <p className="font-medium text-green-600">
                       {sale.displayPaid > 0
                         ? `Rs. ${sale.displayPaid.toLocaleString()}`
                         : "-"}
