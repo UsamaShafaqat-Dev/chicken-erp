@@ -24,7 +24,6 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purchases, setPurchases] = useState([]);
-  const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -65,25 +64,20 @@ const Sales = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [salesRes, customersRes, purchasesRes, paymentsRes] =
-        await Promise.all([
-          axios.get("https://asiapoultrybusiness.com/api/sales", {
-            withCredentials: true,
-          }),
-          axios.get("https://asiapoultrybusiness.com/api/customers", {
-            withCredentials: true,
-          }),
-          axios.get("https://asiapoultrybusiness.com/api/purchases", {
-            withCredentials: true,
-          }),
-          axios.get("https://asiapoultrybusiness.com/api/payments", {
-            withCredentials: true,
-          }),
-        ]);
+      const [salesRes, customersRes, purchasesRes] = await Promise.all([
+        axios.get("https://asiapoultrybusiness.com/api/sales", {
+          withCredentials: true,
+        }),
+        axios.get("https://asiapoultrybusiness.com/api/customers", {
+          withCredentials: true,
+        }),
+        axios.get("https://asiapoultrybusiness.com/api/purchases", {
+          withCredentials: true,
+        }),
+      ]);
       setSales(salesRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
       setPurchases(purchasesRes.data);
-      setAllPayments(paymentsRes.data);
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -282,7 +276,7 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 ISOLATED ROW CALCULATION (Client Demand: Sirf issi bill ka data aaye, pichli kating na ho) 🔥
+  // 🔥 100% PURE ISOLATED ROW CALCULATION (No outside ledger logic at all) 🔥
   const enhancedSales = filteredSales.map((sale) => {
     const displayPaid = Number(sale.paidAmount) || 0;
     const totalAmountNum = Number(sale.totalAmount) || 0;
@@ -290,7 +284,6 @@ const Sales = () => {
     let billDue = 0;
     let advance = 0;
 
-    // Agar bill ke paid amount mein bil ki total qeemat se zyada paise likhe hain to advance mein jayega
     if (displayPaid > totalAmountNum) {
       advance = displayPaid - totalAmountNum;
     } else {
@@ -338,44 +331,33 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
-  const filteredExtPayments = allPayments.filter((p) => {
-    if (p.type !== "receive") return false;
-    const pDate = new Date(p.date).toISOString().split("T")[0];
-    const matchFrom = fromDate ? pDate >= fromDate : true;
-    const matchTo = toDate ? pDate <= toDate : true;
-    return matchFrom && matchTo;
-  });
-
-  // Footer Totals Calculation
-  const periodSalesPaid = filteredSales.reduce(
-    (sum, sale) => sum + (Number(sale.paidAmount) || 0),
+  // 🔥 STRICT CALCULATOR MATCHING TOTALS 🔥
+  const tableFooterTotal = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.totalAmountNum,
     0,
   );
-  const periodExtPaid = filteredExtPayments.reduce(
-    (sum, p) => sum + (Number(p.amount) || 0),
+  const tableFooterPaid = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.displayPaid,
+    0,
+  );
+  const tableFooterPending = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.billDue,
+    0,
+  );
+  const tableFooterAdvance = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.advance,
     0,
   );
 
-  const totalPurchasedWeight = filteredPurchases
-    .reduce((sum, p) => sum + (Number(p.weight) || 0), 0)
-    .toFixed(2);
-  const totalWeight = enhancedSales
-    .reduce((sum, sale) => sum + sale.weightNum, 0)
-    .toFixed(2);
-  const totalAmount = enhancedSales
-    .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
-    .toFixed(2);
-
-  const tablePaidAmount = (periodSalesPaid + periodExtPaid).toFixed(2);
-  const shortageWeight = (
-    Number(totalPurchasedWeight) - Number(totalWeight)
-  ).toFixed(2);
-
-  const netTableBalance = Number(totalAmount) - Number(tablePaidAmount);
-  const tableFooterPending =
-    netTableBalance > 0 ? netTableBalance.toFixed(2) : "0.00";
-  const tableFooterAdvance =
-    netTableBalance < 0 ? Math.abs(netTableBalance).toFixed(2) : "0.00";
+  const totalPurchasedWeight = filteredPurchases.reduce(
+    (sum, p) => sum + (Number(p.weight) || 0),
+    0,
+  );
+  const totalWeight = finalGroupedSales.reduce(
+    (sum, sale) => sum + sale.weightNum,
+    0,
+  );
+  const shortageWeight = totalPurchasedWeight - totalWeight;
 
   const handlePrint = () => {
     window.print();
@@ -415,27 +397,31 @@ const Sales = () => {
                 Purchased
               </p>
               <p className="font-bold text-gray-800">
-                {totalPurchasedWeight} KG
+                {totalPurchasedWeight.toFixed(2)} KG
               </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
                 Sold (KG)
               </p>
-              <p className="font-bold text-gray-800">{totalWeight} KG</p>
+              <p className="font-bold text-gray-800">
+                {totalWeight.toFixed(2)} KG
+              </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
                 Shortage
               </p>
-              <p className="font-bold text-red-600">{shortageWeight} KG</p>
+              <p className="font-bold text-red-600">
+                {shortageWeight.toFixed(2)} KG
+              </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
                 Total Sale Bill
               </p>
               <p className="font-bold text-gray-800">
-                Rs. {Number(totalAmount).toLocaleString()}
+                Rs. {tableFooterTotal.toLocaleString()}
               </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
@@ -443,7 +429,7 @@ const Sales = () => {
                 Sale Vasooli
               </p>
               <p className="font-bold text-green-700">
-                Rs. {Number(tablePaidAmount).toLocaleString()}
+                Rs. {tableFooterPaid.toLocaleString()}
               </p>
             </div>
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
@@ -451,15 +437,16 @@ const Sales = () => {
                 Net Udhaar
               </p>
               <p
-                className={`font-bold ${Number(tableFooterPending) > 0 ? "text-red-600" : "text-green-600"}`}
+                className={`font-bold ${tableFooterPending > 0 ? "text-red-600" : "text-green-600"}`}
               >
-                Rs. {Number(tableFooterPending).toLocaleString()}
+                Rs. {tableFooterPending.toLocaleString()}
               </p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Screen Cards - Now Perfectly Linked with Table Calculations */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
@@ -469,7 +456,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
-            {totalPurchasedWeight} KG
+            {totalPurchasedWeight.toFixed(2)} KG
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
@@ -480,7 +467,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
-            {totalWeight} KG
+            {totalWeight.toFixed(2)} KG
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-red-200 flex flex-col justify-center overflow-hidden">
@@ -491,7 +478,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-red-600 truncate">
-            {shortageWeight} KG
+            {shortageWeight.toFixed(2)} KG
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
@@ -502,7 +489,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
-            Rs. {Number(totalAmount).toLocaleString()}
+            Rs. {tableFooterTotal.toLocaleString()}
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-green-200 flex flex-col justify-center overflow-hidden">
@@ -513,7 +500,7 @@ const Sales = () => {
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-green-700 truncate">
-            Rs. {Number(tablePaidAmount).toLocaleString()}
+            Rs. {tableFooterPaid.toLocaleString()}
           </h3>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 flex flex-col justify-center overflow-hidden">
@@ -524,9 +511,9 @@ const Sales = () => {
             </p>
           </div>
           <h3
-            className={`text-lg sm:text-xl font-bold truncate ${Number(tableFooterPending) > 0 ? "text-red-600" : "text-green-600"}`}
+            className={`text-lg sm:text-xl font-bold truncate ${tableFooterPending > 0 ? "text-red-600" : "text-green-600"}`}
           >
-            Rs. {Number(tableFooterPending).toLocaleString()}
+            Rs. {tableFooterPending.toLocaleString()}
           </h3>
         </div>
       </div>
@@ -779,33 +766,25 @@ const Sales = () => {
                 ))
               )}
             </tbody>
+            {/* 🔥 STRICT CALCULATOR TOTALS 🔥 */}
             <tfoot className="table-row-group bg-gray-100 font-bold text-black border-t-2 border-gray-300">
               <tr>
                 <td colSpan="2" className="px-3 py-3 text-right">
                   TOTAL (TABLE):
                 </td>
-                <td className="px-3 py-3">{totalWeight} KG</td>
+                <td className="px-3 py-3">{totalWeight.toFixed(2)} KG</td>
                 <td className="px-3 py-3">-</td>
                 <td className="px-3 py-3">
-                  Rs. {Number(totalAmount).toLocaleString()}
+                  Rs. {tableFooterTotal.toLocaleString()}
                 </td>
                 <td className="px-3 py-3 text-green-700">
-                  <div className="flex flex-col">
-                    <span>Rs. {Number(tablePaidAmount).toLocaleString()}</span>
-                    <span className="text-[10px] text-gray-500 font-normal leading-tight mt-0.5 whitespace-nowrap">
-                      *(All Market Vasooli)*
-                    </span>
-                  </div>
+                  Rs. {tableFooterPaid.toLocaleString()}
                 </td>
                 <td className="px-3 py-3 text-red-500">
-                  {Number(tableFooterPending) > 0
-                    ? `Rs. ${Number(tableFooterPending).toLocaleString()}`
-                    : "-"}
+                  Rs. {tableFooterPending.toLocaleString()}
                 </td>
                 <td className="px-3 py-3 text-teal-600">
-                  {Number(tableFooterAdvance) > 0
-                    ? `Rs. ${Number(tableFooterAdvance).toLocaleString()}`
-                    : "-"}
+                  Rs. {tableFooterAdvance.toLocaleString()}
                 </td>
                 <td className="print:hidden"></td>
               </tr>
