@@ -232,22 +232,29 @@ const Customers = () => {
         (p.customer?._id || p.customer) === customer._id,
     );
 
-    let displayPurchases = cSales.reduce(
+    // Liftime original data
+    let lifetimePurchases = cSales.reduce(
       (sum, s) => sum + (Number(s.totalAmount) || 0),
       0,
     );
-
-    let externalPayments = cPayments.reduce(
-      (sum, p) => sum + (Number(p.amount) || 0),
-      0,
-    );
-
-    let billPayments = cSales.reduce(
+    // Purani sales mein jo paid tha wo bhi jama karna hai warna balance bigar jayega
+    let lifetimeBillPayments = cSales.reduce(
       (sum, s) => sum + (Number(s.paidAmount) || 0),
       0,
     );
+    let lifetimeExternalPayments = cPayments.reduce(
+      (sum, p) => sum + (Number(p.amount) || 0),
+      0,
+    );
+    let lifetimePaid = lifetimeBillPayments + lifetimeExternalPayments;
 
-    let displayPaid = externalPayments + billPayments;
+    let opBal = Number(customer.openingBalance) || 0;
+
+    // Overall balance will ALWAYS be exact
+    let displayBalance = opBal + lifetimePurchases - lifetimePaid;
+
+    let displayPurchases = lifetimePurchases;
+    let displayPaid = lifetimePaid;
 
     if (globalFromDate || globalToDate) {
       const filteredSales = cSales.filter((s) => {
@@ -268,27 +275,23 @@ const Customers = () => {
         (sum, s) => sum + (Number(s.totalAmount) || 0),
         0,
       );
-
-      let filteredExternalPayments = filteredPayments.reduce(
-        (sum, p) => sum + (Number(p.amount) || 0),
-        0,
-      );
-
-      let filteredBillPayments = filteredSales.reduce(
+      let fBillPaid = filteredSales.reduce(
         (sum, s) => sum + (Number(s.paidAmount) || 0),
         0,
       );
-
-      displayPaid = filteredExternalPayments + filteredBillPayments;
+      let fExtPaid = filteredPayments.reduce(
+        (sum, p) => sum + (Number(p.amount) || 0),
+        0,
+      );
+      displayPaid = fBillPaid + fExtPaid;
     }
-
-    let displayBalance = displayPurchases - displayPaid;
 
     return {
       ...customer,
       displayPurchases,
       displayPaid,
       displayBalance,
+      opBal,
     };
   });
 
@@ -299,6 +302,10 @@ const Customers = () => {
       (c.area && c.area.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
+  const marketTotalOpening = filteredCustomers.reduce(
+    (sum, c) => sum + c.opBal,
+    0,
+  );
   const marketTotalPurchases = filteredCustomers.reduce(
     (sum, c) => sum + c.displayPurchases,
     0,
@@ -336,15 +343,15 @@ const Customers = () => {
     .filter((x) => x.isSale)
     .reduce((sum, x) => sum + (Number(x.totalAmount) || 0), 0);
 
-  const periodRecoveries = filteredLedger
-    .filter((x) => x.isPayment)
-    .reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
-
   const periodBillPaid = filteredLedger
     .filter((x) => x.isSale)
     .reduce((sum, x) => sum + (Number(x.paidAmount) || 0), 0);
 
-  const totalPeriodPaid = periodRecoveries + periodBillPaid;
+  const periodRecoveries = filteredLedger
+    .filter((x) => x.isPayment)
+    .reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+
+  const totalPeriodPaid = periodBillPaid + periodRecoveries;
   const periodRemaining = periodSales - totalPeriodPaid;
 
   const handlePrintLedger = useReactToPrint({
@@ -490,6 +497,9 @@ const Customers = () => {
                   <th className="px-1.5 py-3 print:py-2 font-medium">Mobile</th>
                   <th className="px-1.5 py-3 print:py-2 font-medium">Area</th>
                   <th className="px-1.5 py-3 print:py-2 font-medium">
+                    Opening Bal
+                  </th>
+                  <th className="px-1.5 py-3 print:py-2 font-medium">
                     Purchases (Maal)
                   </th>
                   <th className="px-1.5 py-3 print:py-2 font-medium">
@@ -510,7 +520,7 @@ const Customers = () => {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan="8"
+                      colSpan="9"
                       className="text-center p-8 text-gray-500 text-sm"
                     >
                       Loading customers...
@@ -519,7 +529,7 @@ const Customers = () => {
                 ) : filteredCustomers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="8"
+                      colSpan="9"
                       className="text-center p-8 text-gray-500 text-sm"
                     >
                       No customers found.
@@ -544,6 +554,10 @@ const Customers = () => {
                         </span>
                       </td>
 
+                      <td className="px-1.5 py-3 print:py-2 text-gray-600 font-medium whitespace-nowrap">
+                        Rs. {customer.opBal.toLocaleString()}
+                      </td>
+
                       <td className="px-1.5 py-3 print:py-2 text-blue-600 font-medium whitespace-nowrap">
                         Rs. {customer.displayPurchases.toLocaleString() || 0}
                       </td>
@@ -551,14 +565,12 @@ const Customers = () => {
                         Rs. {customer.displayPaid.toLocaleString() || 0}
                       </td>
 
-                      {/* Udhaar Column */}
                       <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap text-red-500">
                         {customer.displayBalance > 0
                           ? `Rs. ${customer.displayBalance.toLocaleString()}`
                           : "Nil"}
                       </td>
 
-                      {/* Advance Column */}
                       <td className="px-1.5 py-3 print:py-2 font-bold whitespace-nowrap text-green-600">
                         {customer.displayBalance < 0
                           ? `Rs. ${Math.abs(customer.displayBalance).toLocaleString()}`
@@ -610,6 +622,9 @@ const Customers = () => {
                 <tr>
                   <td colSpan="3" className="px-1.5 py-3 text-right">
                     TOTAL MARKET:
+                  </td>
+                  <td className="px-1.5 py-3 text-gray-700">
+                    Rs. {marketTotalOpening.toLocaleString()}
                   </td>
                   <td className="px-1.5 py-3 text-blue-700">
                     Rs. {marketTotalPurchases.toLocaleString()}
@@ -666,6 +681,12 @@ const Customers = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg text-sm border border-gray-100">
+                  <div>
+                    <p className="text-gray-500 text-xs mb-1">Opening Bal</p>
+                    <p className="font-medium text-gray-700">
+                      Rs. {customer.opBal.toLocaleString()}
+                    </p>
+                  </div>
                   <div>
                     <p className="text-gray-500 text-xs mb-1">
                       Purchases (Maal)
@@ -750,7 +771,6 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* 🔥 Add/Edit Customer Modal (Jo pichli dafa reh gaya tha) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -905,8 +925,11 @@ const Customers = () => {
                   <FileText className="text-blue-600" /> {selectedCustomer.name}{" "}
                   - Khata
                 </h2>
-                <p className="text-sm text-gray-500 mt-1 print:hidden">
-                  View detailed sales and payments
+                <p className="text-sm font-bold text-blue-600 mt-1 print:hidden">
+                  Opening Balance: Rs.{" "}
+                  {(
+                    Number(selectedCustomer.openingBalance) || 0
+                  ).toLocaleString()}
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -1013,8 +1036,11 @@ const Customers = () => {
                     <h2 className="text-xl font-bold text-gray-800">
                       {selectedCustomer.name}
                     </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Printed On: {new Date().toLocaleDateString("en-GB")}
+                    <p className="text-sm font-bold text-blue-600 mt-1">
+                      Opening Balance: Rs.{" "}
+                      {(
+                        Number(selectedCustomer.openingBalance) || 0
+                      ).toLocaleString()}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1079,18 +1105,9 @@ const Customers = () => {
                       </div>
                       <div className="text-right pl-11 sm:pl-0">
                         {tx.isSale ? (
-                          <>
-                            <p className="font-black text-blue-600 print:text-base">
-                              Rs.{" "}
-                              {(Number(tx.totalAmount) || 0).toLocaleString()}
-                            </p>
-                            {tx.paidAmount > 0 && (
-                              <p className="text-xs font-bold text-green-600 mt-1">
-                                (Bill Paid: Rs. {tx.paidAmount.toLocaleString()}
-                                )
-                              </p>
-                            )}
-                          </>
+                          <p className="font-black text-blue-600 print:text-base">
+                            Rs. {(Number(tx.totalAmount) || 0).toLocaleString()}
+                          </p>
                         ) : (
                           <p className="font-black text-green-600 print:text-base">
                             + Rs. {(Number(tx.amount) || 0).toLocaleString()}

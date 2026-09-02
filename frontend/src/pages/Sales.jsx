@@ -12,18 +12,15 @@ import {
   Edit,
   ShoppingCart,
   DollarSign,
-  Wallet,
-  AlertCircle,
+  Package,
   Printer,
   Save,
-  Package,
 } from "lucide-react";
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purchases, setPurchases] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,7 +47,7 @@ const Sales = () => {
     weight: "",
     rate: "",
     totalAmount: 0,
-    paidAmount: 0, // Hamesha 0 rahega client ki demand ke mutabiq
+    paidAmount: 0,
     balanceDue: 0,
     paymentMethod: "cash",
     date: "",
@@ -59,31 +56,25 @@ const Sales = () => {
 
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
   const isOwner = userInfo?.role === "owner";
-
   const todayDateStr = new Date().toISOString().split("T")[0];
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [salesRes, customersRes, purchasesRes, paymentsRes] =
-        await Promise.all([
-          axios.get("https://asiapoultrybusiness.com/api/sales", {
-            withCredentials: true,
-          }),
-          axios.get("https://asiapoultrybusiness.com/api/customers", {
-            withCredentials: true,
-          }),
-          axios.get("https://asiapoultrybusiness.com/api/purchases", {
-            withCredentials: true,
-          }),
-          axios.get("https://asiapoultrybusiness.com/api/payments", {
-            withCredentials: true,
-          }),
-        ]);
+      const [salesRes, customersRes, purchasesRes] = await Promise.all([
+        axios.get("https://asiapoultrybusiness.com/api/sales", {
+          withCredentials: true,
+        }),
+        axios.get("https://asiapoultrybusiness.com/api/customers", {
+          withCredentials: true,
+        }),
+        axios.get("https://asiapoultrybusiness.com/api/purchases", {
+          withCredentials: true,
+        }),
+      ]);
       setSales(salesRes.data);
       setCustomers(customersRes.data.filter((c) => c.status !== "inactive"));
       setPurchases(purchasesRes.data);
-      setPayments(paymentsRes.data);
     } catch (error) {
       toast.error("Failed to fetch data");
     } finally {
@@ -145,7 +136,7 @@ const Sales = () => {
       const rate = parseFloat(newFormData.rate) || 0;
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
-      newFormData.balanceDue = totalAmount; // Paid amount hamesha 0 hoga
+      newFormData.balanceDue = totalAmount;
     }
 
     setFormData(newFormData);
@@ -158,7 +149,7 @@ const Sales = () => {
         weight: sale.weight,
         rate: sale.rate,
         totalAmount: sale.totalAmount,
-        paidAmount: 0, // Resetting old paid amounts to 0
+        paidAmount: 0,
         balanceDue: sale.totalAmount,
         paymentMethod: "cash",
         date: new Date(sale.date).toISOString().split("T")[0],
@@ -190,8 +181,6 @@ const Sales = () => {
       return toast.error("Customer and Weight are required");
 
     setIsSubmitting(true);
-
-    // Explicitly setting paidAmount to 0 before sending to backend
     const payload = {
       ...formData,
       paidAmount: 0,
@@ -254,8 +243,6 @@ const Sales = () => {
       ...sale,
       weightNum: Number(sale.weight) || 0,
       totalAmountNum: Number(sale.totalAmount) || 0,
-      displayPaid: Number(sale.paidAmount) || 0,
-      displayBalance: Number(sale.balanceDue) || 0,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
@@ -269,9 +256,6 @@ const Sales = () => {
       groupedSalesMap[key].weight = groupedSalesMap[key].weightNum;
       groupedSalesMap[key].totalAmountNum += sale.totalAmountNum;
       groupedSalesMap[key].totalAmount = groupedSalesMap[key].totalAmountNum;
-      groupedSalesMap[key].displayPaid += sale.displayPaid;
-      groupedSalesMap[key].displayBalance =
-        groupedSalesMap[key].totalAmountNum - groupedSalesMap[key].displayPaid;
       groupedSalesMap[key].isGrouped = true;
       groupedSalesMap[key].groupCount += 1;
     } else {
@@ -298,13 +282,6 @@ const Sales = () => {
     .reduce((sum, sale) => sum + sale.totalAmountNum, 0)
     .toFixed(2);
 
-  const tablePaidAmount = enhancedSales
-    .reduce((sum, sale) => sum + sale.displayPaid, 0)
-    .toFixed(2);
-  const tableOutstanding = enhancedSales
-    .reduce((sum, sale) => sum + sale.displayBalance, 0)
-    .toFixed(2);
-
   const shortageWeight = (
     Number(totalPurchasedWeight) - Number(totalWeight)
   ).toFixed(2);
@@ -326,12 +303,12 @@ const Sales = () => {
         </h2>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
             <Package size={16} className="text-blue-600" />
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
-              Purchased
+              Purchased (Maal Aaya)
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
@@ -342,7 +319,7 @@ const Sales = () => {
           <div className="flex items-center gap-2 mb-1">
             <ShoppingCart size={16} className="text-green-600" />
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
-              Sold (KG)
+              Sold (Maal Bika)
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
@@ -369,30 +346,6 @@ const Sales = () => {
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
             Rs. {Number(totalAmount).toLocaleString()}
-          </h3>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-green-200 flex flex-col justify-center overflow-hidden">
-          <div className="flex items-center gap-2 mb-1">
-            <Wallet size={16} className="text-teal-600" />
-            <p className="text-[11px] uppercase tracking-wider text-green-700 font-bold truncate">
-              Sale Vasooli
-            </p>
-          </div>
-          <h3 className="text-lg sm:text-xl font-bold text-green-700 truncate">
-            Rs. {Number(tablePaidAmount).toLocaleString()}
-          </h3>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 flex flex-col justify-center overflow-hidden">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertCircle size={16} className="text-orange-500" />
-            <p className="text-[11px] uppercase tracking-wider text-red-600 font-bold truncate">
-              Net Udhaar
-            </p>
-          </div>
-          <h3
-            className={`text-lg sm:text-xl font-bold truncate ${Number(tableOutstanding) > 0 ? "text-red-600" : "text-green-600"}`}
-          >
-            Rs. {Number(tableOutstanding).toLocaleString()}
           </h3>
         </div>
       </div>
@@ -463,9 +416,7 @@ const Sales = () => {
                 className="w-14 sm:w-16 px-1.5 py-1 text-xs sm:text-sm border border-blue-200 rounded outline-none focus:border-blue-500 font-bold text-center"
               />
             </div>
-
             <div className="w-px h-5 bg-blue-200 mx-2 hidden sm:block"></div>
-
             <div className="flex items-center">
               <span className="text-xs font-bold text-green-800 mr-2">
                 Supply Rate:
@@ -480,7 +431,6 @@ const Sales = () => {
                 className="w-14 sm:w-16 px-1.5 py-1 text-xs sm:text-sm border border-green-200 rounded outline-none focus:border-green-500 font-bold text-center"
               />
             </div>
-
             <button
               onClick={handleSaveRates}
               disabled={savingRates}
@@ -513,28 +463,22 @@ const Sales = () => {
           <table className="w-full text-left border-collapse text-sm print:text-xs">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 print:bg-gray-200 print:text-black">
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
+                <th className="px-4 py-4 print:py-2 font-medium whitespace-nowrap">
                   Date
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
+                <th className="px-4 py-4 print:py-2 font-medium whitespace-nowrap">
                   Customer Name
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
+                <th className="px-4 py-4 print:py-2 font-medium whitespace-nowrap">
                   Weight (KG)
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
+                <th className="px-4 py-4 print:py-2 font-medium whitespace-nowrap">
                   Rate
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
+                <th className="px-4 py-4 print:py-2 font-medium whitespace-nowrap">
                   Bill Amount
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
-                  Paid Amount
-                </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
-                  Outstanding
-                </th>
-                <th className="px-3 py-4 print:py-2 font-medium text-center whitespace-nowrap print:hidden">
+                <th className="px-4 py-4 print:py-2 font-medium text-center whitespace-nowrap print:hidden">
                   Action
                 </th>
               </tr>
@@ -542,13 +486,13 @@ const Sales = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center p-8 text-gray-500">
+                  <td colSpan="6" className="text-center p-8 text-gray-500">
                     Loading sales...
                   </td>
                 </tr>
               ) : finalGroupedSales.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center p-8 text-gray-500">
+                  <td colSpan="6" className="text-center p-8 text-gray-500">
                     {fromDate || toDate
                       ? "No sales found for selected dates."
                       : "No sales records found."}
@@ -560,10 +504,10 @@ const Sales = () => {
                     key={index}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors print:border-b-2 print:border-gray-300"
                   >
-                    <td className="px-3 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
+                    <td className="px-4 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
                       {new Date(sale.date).toLocaleDateString("en-GB")}
                     </td>
-                    <td className="px-3 py-4 print:py-2 font-bold text-gray-800 print:text-black whitespace-nowrap">
+                    <td className="px-4 py-4 print:py-2 font-bold text-gray-800 print:text-black whitespace-nowrap">
                       <p className="truncate max-w-[150px] print:max-w-none print:whitespace-normal">
                         {sale.customer?.name || "Unknown"}
                         {sale.isGrouped && (
@@ -573,35 +517,16 @@ const Sales = () => {
                         )}
                       </p>
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-gray-800 font-medium print:text-black whitespace-nowrap">
+                    <td className="px-4 py-4 print:py-2 text-gray-800 font-medium print:text-black whitespace-nowrap">
                       {sale.weightNum.toFixed(2)} KG
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
+                    <td className="px-4 py-4 print:py-2 text-gray-600 print:text-black whitespace-nowrap">
                       Rs. {sale.rate}
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
+                    <td className="px-4 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmountNum.toLocaleString()}
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-gray-500 font-medium print:text-black whitespace-nowrap">
-                      {sale.displayPaid > 0
-                        ? `Rs. ${sale.displayPaid.toLocaleString()}`
-                        : "-"}
-                    </td>
-                    <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
-                      {sale.displayBalance > 0 ? (
-                        <span className="text-red-500">
-                          Rs. {sale.displayBalance.toLocaleString()}
-                        </span>
-                      ) : sale.displayBalance < 0 ? (
-                        <span className="text-green-600">
-                          Advance Rs.{" "}
-                          {Math.abs(sale.displayBalance).toLocaleString()}
-                        </span>
-                      ) : (
-                        "Nil"
-                      )}
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap print:hidden">
+                    <td className="px-4 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
                         {isOwner ? (
                           <>
@@ -641,30 +566,15 @@ const Sales = () => {
             </tbody>
             <tfoot className="table-row-group bg-gray-100 font-bold text-black border-t-2 border-gray-300">
               <tr>
-                <td colSpan="2" className="px-3 py-3 text-right">
+                <td colSpan="2" className="px-4 py-4 text-right">
                   TOTAL (TABLE):
                 </td>
-                <td className="px-3 py-3">{totalWeight} KG</td>
-                <td className="px-3 py-3">-</td>
-                <td className="px-3 py-3">
+                <td className="px-4 py-4">{totalWeight} KG</td>
+                <td className="px-4 py-4">-</td>
+                <td className="px-4 py-4">
                   Rs. {Number(totalAmount).toLocaleString()}
                 </td>
-                <td className="px-3 py-3">
-                  Rs. {Number(tablePaidAmount).toLocaleString()}
-                </td>
-                <td className="px-3 py-3">
-                  {Number(tableOutstanding) > 0 ? (
-                    <span className="text-red-500">
-                      Rs. {Number(tableOutstanding).toLocaleString()}
-                    </span>
-                  ) : Number(tableOutstanding) < 0 ? (
-                    <span className="text-green-600">
-                      Advance Rs. {Math.abs(tableOutstanding).toLocaleString()}
-                    </span>
-                  ) : (
-                    "Nil"
-                  )}
-                </td>
+                <td className="print:hidden"></td>
               </tr>
             </tfoot>
           </table>
@@ -710,35 +620,6 @@ const Sales = () => {
                   <p className="text-gray-500 text-xs mb-1">Rate</p>
                   <p className="font-medium">Rs. {sale.rate}</p>
                 </div>
-                <div className="col-span-2 pt-2 border-t border-gray-200 grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-gray-500 text-xs mb-1">Paid Amount</p>
-                    <p className="font-medium text-gray-500">
-                      {sale.displayPaid > 0
-                        ? `Rs. ${sale.displayPaid.toLocaleString()}`
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-xs mb-1">
-                      Outstanding Balance
-                    </p>
-                    <p className="font-bold">
-                      {sale.displayBalance > 0 ? (
-                        <span className="text-red-500">
-                          Rs. {sale.displayBalance.toLocaleString()}
-                        </span>
-                      ) : sale.displayBalance < 0 ? (
-                        <span className="text-green-600">
-                          Advance Rs.{" "}
-                          {Math.abs(sale.displayBalance).toLocaleString()}
-                        </span>
-                      ) : (
-                        "Nil"
-                      )}
-                    </p>
-                  </div>
-                </div>
               </div>
 
               <div className="flex gap-2">
@@ -778,7 +659,6 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Add/Edit Sale Modal (NO CASH INPUTS) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -797,7 +677,6 @@ const Sales = () => {
               </button>
             </div>
 
-            {/* Warning Note for User */}
             <div className="bg-orange-50 border-l-4 border-orange-500 p-3 mx-5 mt-5 rounded text-xs text-orange-800 font-medium">
               Note: Iss form mein sirf Bill banega. Cash ki vasooli{" "}
               <strong>Payments</strong> wale page se karein.
@@ -874,29 +753,16 @@ const Sales = () => {
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-600 font-medium mb-1 text-xs">
-                    Total Bill Amount (Rs)
-                  </label>
-                  <input
-                    type="number"
-                    readOnly
-                    value={formData.totalAmount}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white font-black text-blue-700 text-lg outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-600 font-medium mb-1 text-xs">
-                    Outstanding Due (Auto)
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={`Rs. ${formData.totalAmount}`}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-red-500 outline-none"
-                  />
-                </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label className="block text-gray-600 font-medium mb-1 text-xs">
+                  Total Bill Amount (Rs)
+                </label>
+                <input
+                  type="number"
+                  readOnly
+                  value={formData.totalAmount}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white font-black text-blue-700 text-xl outline-none"
+                />
               </div>
 
               <div>
@@ -939,7 +805,6 @@ const Sales = () => {
         </div>
       )}
 
-      {/* DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
