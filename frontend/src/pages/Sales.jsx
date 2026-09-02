@@ -50,7 +50,7 @@ const Sales = () => {
     weight: "",
     rate: "",
     totalAmount: 0,
-    paidAmount: "",
+    paidAmount: 0, // Hamesha 0 rahega client ki demand ke mutabiq
     balanceDue: 0,
     paymentMethod: "cash",
     date: "",
@@ -145,16 +145,7 @@ const Sales = () => {
       const rate = parseFloat(newFormData.rate) || 0;
       const totalAmount = weight * rate;
       newFormData.totalAmount = totalAmount;
-      newFormData.balanceDue =
-        totalAmount - (parseFloat(newFormData.paidAmount) || 0);
-    } else if (name === "paymentMethod") {
-      if (value === "credit") {
-        newFormData.paidAmount = "";
-        newFormData.balanceDue = parseFloat(newFormData.totalAmount) || 0;
-      }
-    } else if (name === "paidAmount") {
-      const totalAmount = parseFloat(newFormData.totalAmount) || 0;
-      newFormData.balanceDue = totalAmount - (parseFloat(value) || 0);
+      newFormData.balanceDue = totalAmount; // Paid amount hamesha 0 hoga
     }
 
     setFormData(newFormData);
@@ -167,9 +158,9 @@ const Sales = () => {
         weight: sale.weight,
         rate: sale.rate,
         totalAmount: sale.totalAmount,
-        paidAmount: sale.paidAmount,
-        balanceDue: sale.balanceDue,
-        paymentMethod: sale.paymentMethod || "cash",
+        paidAmount: 0, // Resetting old paid amounts to 0
+        balanceDue: sale.totalAmount,
+        paymentMethod: "cash",
         date: new Date(sale.date).toISOString().split("T")[0],
         notes: sale.notes || "",
       });
@@ -180,7 +171,7 @@ const Sales = () => {
         weight: "",
         rate: "",
         totalAmount: 0,
-        paidAmount: "",
+        paidAmount: 0,
         balanceDue: 0,
         paymentMethod: "cash",
         date: new Date().toISOString().split("T")[0],
@@ -199,23 +190,27 @@ const Sales = () => {
       return toast.error("Customer and Weight are required");
 
     setIsSubmitting(true);
+
+    // Explicitly setting paidAmount to 0 before sending to backend
+    const payload = {
+      ...formData,
+      paidAmount: 0,
+      balanceDue: formData.totalAmount,
+    };
+
     try {
       if (editingId) {
         await axios.put(
           `https://asiapoultrybusiness.com/api/sales/${editingId}`,
-          formData,
+          payload,
           { withCredentials: true },
         );
-        toast.success("Sale updated successfully");
+        toast.success("Sale bill updated successfully");
       } else {
-        await axios.post(
-          "https://asiapoultrybusiness.com/api/sales",
-          formData,
-          {
-            withCredentials: true,
-          },
-        );
-        toast.success("Sale added successfully");
+        await axios.post("https://asiapoultrybusiness.com/api/sales", payload, {
+          withCredentials: true,
+        });
+        toast.success("Sale bill added successfully");
       }
       setIsModalOpen(false);
       fetchData();
@@ -329,23 +324,6 @@ const Sales = () => {
           {fromDate ? new Date(fromDate).toLocaleDateString("en-GB") : "Start"}{" "}
           TO {toDate ? new Date(toDate).toLocaleDateString("en-GB") : "End"}
         </h2>
-
-        {toDate && (
-          <div className="flex justify-center gap-12 mt-4 bg-gray-100 p-3 rounded-lg border border-gray-300">
-            <p className="font-bold text-lg text-gray-800">
-              BAHAWALPUR RATE:{" "}
-              <span className="text-blue-700">
-                Rs. {dailyRates.bahawalpurRate || "0"}
-              </span>
-            </p>
-            <p className="font-bold text-lg text-gray-800">
-              SUPPLY RATE:{" "}
-              <span className="text-green-700">
-                Rs. {dailyRates.supplyRate || "0"}
-              </span>
-            </p>
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 print:hidden">
@@ -386,7 +364,7 @@ const Sales = () => {
           <div className="flex items-center gap-2 mb-1">
             <DollarSign size={16} className="text-purple-600" />
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold truncate">
-              Sale Amount
+              Total Sale Bill
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">
@@ -397,7 +375,7 @@ const Sales = () => {
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={16} className="text-teal-600" />
             <p className="text-[11px] uppercase tracking-wider text-green-700 font-bold truncate">
-              Sale Vasooli (Cash)
+              Sale Vasooli
             </p>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-green-700 truncate">
@@ -511,22 +489,6 @@ const Sales = () => {
             >
               <Save size={16} />
             </button>
-
-            <div className="w-px h-5 bg-blue-200 mx-1 hidden lg:block"></div>
-
-            <div className="flex items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 px-1 border-t lg:border-none border-blue-200 pt-2 lg:pt-0">
-              <span className="text-[11px] sm:text-xs font-bold text-gray-700">
-                Purchased:{" "}
-                <span className="text-blue-700">{totalPurchasedWeight}</span>
-              </span>
-              <span className="text-[11px] sm:text-xs font-bold text-gray-700">
-                Sold: <span className="text-green-700">{totalWeight}</span>
-              </span>
-              <span className="text-[11px] sm:text-xs font-bold text-gray-700">
-                Shortage:{" "}
-                <span className="text-red-600">{shortageWeight} KG</span>
-              </span>
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 shrink-0">
@@ -540,7 +502,7 @@ const Sales = () => {
               onClick={() => openModal()}
               className="flex-1 sm:flex-none bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
-              <Plus size={18} /> Add Sale
+              <Plus size={18} /> Add Sale Bill
             </button>
           </div>
         </div>
@@ -564,7 +526,7 @@ const Sales = () => {
                   Rate
                 </th>
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
-                  Total Amount
+                  Bill Amount
                 </th>
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
                   Paid Amount
@@ -620,8 +582,10 @@ const Sales = () => {
                     <td className="px-3 py-4 print:py-2 text-blue-600 font-bold print:text-black whitespace-nowrap">
                       Rs. {sale.totalAmountNum.toLocaleString()}
                     </td>
-                    <td className="px-3 py-4 print:py-2 text-green-600 font-medium print:text-black whitespace-nowrap">
-                      Rs. {sale.displayPaid.toLocaleString()}
+                    <td className="px-3 py-4 print:py-2 text-gray-500 font-medium print:text-black whitespace-nowrap">
+                      {sale.displayPaid > 0
+                        ? `Rs. ${sale.displayPaid.toLocaleString()}`
+                        : "-"}
                     </td>
                     <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
                       {sale.displayBalance > 0 ? (
@@ -728,7 +692,7 @@ const Sales = () => {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-gray-500 mb-0.5">Total Amount</p>
+                  <p className="text-xs text-gray-500 mb-0.5">Total Bill</p>
                   <p className="text-sm font-bold text-blue-600">
                     Rs. {sale.totalAmountNum.toLocaleString()}
                   </p>
@@ -749,8 +713,10 @@ const Sales = () => {
                 <div className="col-span-2 pt-2 border-t border-gray-200 grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-gray-500 text-xs mb-1">Paid Amount</p>
-                    <p className="font-medium text-green-600">
-                      Rs. {sale.displayPaid.toLocaleString()}
+                    <p className="font-medium text-gray-500">
+                      {sale.displayPaid > 0
+                        ? `Rs. ${sale.displayPaid.toLocaleString()}`
+                        : "-"}
                     </p>
                   </div>
                   <div>
@@ -812,7 +778,7 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Sale Modal (NO CASH INPUTS) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -821,7 +787,7 @@ const Sales = () => {
           >
             <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
               <h2 className="text-lg font-bold text-gray-800">
-                {editingId ? "Edit Sale" : "Add New Sale"}
+                {editingId ? "Edit Sale Bill" : "Create Sale Bill"}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -830,6 +796,13 @@ const Sales = () => {
                 <X size={20} />
               </button>
             </div>
+
+            {/* Warning Note for User */}
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-3 mx-5 mt-5 rounded text-xs text-orange-800 font-medium">
+              Note: Iss form mein sirf Bill banega. Cash ki vasooli{" "}
+              <strong>Payments</strong> wale page se karein.
+            </div>
+
             <form
               onSubmit={handleSubmit}
               className="p-5 space-y-4 text-sm overflow-y-auto custom-scrollbar flex-1"
@@ -844,7 +817,7 @@ const Sales = () => {
                     value={formData.customer}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                   >
                     <option value="">-- Choose Customer --</option>
                     {customers.map((c) => (
@@ -864,7 +837,7 @@ const Sales = () => {
                     value={formData.date}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
               </div>
@@ -881,7 +854,7 @@ const Sales = () => {
                     value={formData.weight}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     placeholder="0"
                   />
                 </div>
@@ -895,35 +868,22 @@ const Sales = () => {
                     name="rate"
                     value={formData.rate}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     placeholder="0"
                   />
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-600 font-medium mb-1 text-xs">
-                    Total Amount (Auto)
+                    Total Bill Amount (Rs)
                   </label>
                   <input
                     type="number"
                     readOnly
                     value={formData.totalAmount}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-gray-700"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-800 font-medium mb-1 text-xs">
-                    Paid Amount (Rs)
-                  </label>
-                  <input
-                    type="number"
-                    name="paidAmount"
-                    value={formData.paidAmount}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 outline-none font-bold"
-                    placeholder="0"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white font-black text-blue-700 text-lg outline-none"
                   />
                 </div>
                 <div>
@@ -933,53 +893,24 @@ const Sales = () => {
                   <input
                     type="text"
                     readOnly
-                    value={
-                      formData.balanceDue > 0
-                        ? formData.balanceDue
-                        : formData.balanceDue < 0
-                          ? `Advance ${Math.abs(formData.balanceDue)}`
-                          : "0"
-                    }
-                    className={`w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold ${formData.balanceDue > 0 ? "text-red-500" : formData.balanceDue < 0 ? "text-green-600" : "text-gray-500"}`}
+                    value={`Rs. ${formData.totalAmount}`}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-red-500 outline-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Payment Method
-                  </label>
-                  <select
-                    name="paymentMethod"
-                    value={formData.paymentMethod}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="credit">Credit / Udhaar</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    {formData.paymentMethod === "bank"
-                      ? "Bank Details / Slip No"
-                      : "Notes / Vehicle No"}
-                  </label>
-                  <input
-                    type="text"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder={
-                      formData.paymentMethod === "bank"
-                        ? "e.g. Meezan Bank TXN-123"
-                        : "Optional notes..."
-                    }
-                  />
-                </div>
+              <div>
+                <label className="block text-gray-700 font-medium mb-1">
+                  Details / Vehicle No
+                </label>
+                <input
+                  type="text"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Optional details..."
+                />
               </div>
             </form>
             <div className="p-4 flex justify-end gap-3 border-t border-gray-100 shrink-0 bg-white">
@@ -995,13 +926,13 @@ const Sales = () => {
                 type="submit"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={`px-4 py-2 bg-[#0a5228] text-white rounded-lg hover:bg-green-800 font-medium flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}
+                className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}
               >
                 {isSubmitting
                   ? "Saving..."
                   : editingId
-                    ? "Update Sale"
-                    : "Save Sale"}
+                    ? "Update Sale Bill"
+                    : "Save Sale Bill"}
               </button>
             </div>
           </div>
