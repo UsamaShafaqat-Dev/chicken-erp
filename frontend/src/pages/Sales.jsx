@@ -236,8 +236,28 @@ const Sales = () => {
     }
   };
 
-  // 🔥 PURE ROZNAMCHA LOGIC (No Auto-Mixing of Previous Advance) 🔥
+  // 🔥 VISUAL TRICK: Calculate Current Khata Balance for each customer dynamically 🔥
+  const customerBalancesMap = {};
+  customers.forEach((cust) => {
+    customerBalancesMap[cust._id] = Number(cust.openingBalance) || 0;
+  });
+  sales.forEach((s) => {
+    const cid = s.customer?._id || s.customer;
+    if (cid && customerBalancesMap[cid] !== undefined) {
+      customerBalancesMap[cid] +=
+        (Number(s.totalAmount) || 0) - (Number(s.paidAmount) || 0);
+    }
+  });
+  allPayments.forEach((p) => {
+    if (p.type === "receive") {
+      const cid = p.customer?._id || p.customer;
+      if (cid && customerBalancesMap[cid] !== undefined) {
+        customerBalancesMap[cid] -= Number(p.amount) || 0;
+      }
+    }
+  });
 
+  // 🔥 PURE ROZNAMCHA LOGIC (No Auto-Mixing of Previous Advance for the Bill itself) 🔥
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -272,7 +292,6 @@ const Sales = () => {
     };
   });
 
-  // Group identical sales (same day, same customer, same rate)
   const groupedSalesMap = {};
   enhancedSales.forEach((sale) => {
     const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
@@ -688,6 +707,35 @@ const Sales = () => {
                           </span>
                         )}
                       </p>
+                      {/* 🔥 VISUAL TRICK: Live Khata Badge 🔥 */}
+                      {sale.customer && (
+                        <div className="mt-1 print:hidden">
+                          {(() => {
+                            const cid = sale.customer?._id || sale.customer;
+                            const netBal = customerBalancesMap[cid];
+                            if (netBal === undefined) return null;
+                            if (netBal < 0) {
+                              return (
+                                <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold border border-teal-100">
+                                  Adv: Rs. {Math.abs(netBal).toLocaleString()}
+                                </span>
+                              );
+                            } else if (netBal > 0) {
+                              return (
+                                <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold border border-red-100">
+                                  Due: Rs. {netBal.toLocaleString()}
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-bold border border-green-100">
+                                  Cleared
+                                </span>
+                              );
+                            }
+                          })()}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-4 print:py-2 text-gray-800 font-medium print:text-black whitespace-nowrap">
                       {sale.weightNum.toFixed(2)}
@@ -796,12 +844,43 @@ const Sales = () => {
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-bold text-gray-800 text-lg">
-                    {sale.customer?.name || "Unknown"}
-                    {sale.isGrouped && (
-                      <span className="ml-2 text-xs text-blue-600">
-                        ({sale.groupCount})
-                      </span>
+                  <h3 className="font-bold text-gray-800 text-lg flex flex-col items-start gap-1">
+                    <div>
+                      {sale.customer?.name || "Unknown"}
+                      {sale.isGrouped && (
+                        <span className="ml-2 text-xs text-blue-600">
+                          ({sale.groupCount})
+                        </span>
+                      )}
+                    </div>
+                    {/* 🔥 VISUAL TRICK: Live Khata Badge for Mobile 🔥 */}
+                    {sale.customer && (
+                      <div>
+                        {(() => {
+                          const cid = sale.customer?._id || sale.customer;
+                          const netBal = customerBalancesMap[cid];
+                          if (netBal === undefined) return null;
+                          if (netBal < 0) {
+                            return (
+                              <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold border border-teal-100">
+                                Adv: Rs. {Math.abs(netBal).toLocaleString()}
+                              </span>
+                            );
+                          } else if (netBal > 0) {
+                            return (
+                              <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold border border-red-100">
+                                Due: Rs. {netBal.toLocaleString()}
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-bold border border-green-100">
+                                Cleared
+                              </span>
+                            );
+                          }
+                        })()}
+                      </div>
                     )}
                   </h3>
                   <p className="flex items-center gap-1.5 mt-1 text-sm text-gray-500">
