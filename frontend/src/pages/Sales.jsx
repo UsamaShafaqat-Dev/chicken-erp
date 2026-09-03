@@ -236,27 +236,46 @@ const Sales = () => {
     }
   };
 
-  const filteredSales = sales.filter((s) => {
-    const matchName = s.customer?.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const saleDate = new Date(s.date).toISOString().split("T")[0];
-    const matchFrom = fromDate ? saleDate >= fromDate : true;
-    const matchTo = toDate ? saleDate <= toDate : true;
-    return matchName && matchFrom && matchTo;
+  // 🔥 FRONTEND MAGIC: Smart Allocation Logic (Khata Double Nahi Hoga) 🔥
+
+  // 1. Group all external payments by customer
+  const externalPaymentsByCustomer = {};
+  allPayments.forEach((p) => {
+    if (p.type === "receive") {
+      const cid = p.customer?._id || p.customer;
+      if (!externalPaymentsByCustomer[cid]) externalPaymentsByCustomer[cid] = 0;
+      externalPaymentsByCustomer[cid] += Number(p.amount) || 0;
+    }
   });
 
-  const enhancedSales = filteredSales.map((sale) => {
-    const displayPaid = Number(sale.paidAmount) || 0;
-    const totalAmountNum = Number(sale.totalAmount) || 0;
+  // 2. Sort all sales chronologically (oldest first) to clear old bills first
+  const chronologicalSales = [...sales].sort(
+    (a, b) => new Date(a.date) - new Date(b.date),
+  );
 
-    let billDue = 0;
+  // 3. Allocate payments dynamically to clear pending bills visually
+  const allocatedSalesList = chronologicalSales.map((sale) => {
+    const cid = sale.customer?._id || sale.customer;
+    const totalAmountNum = Number(sale.totalAmount) || 0;
+    const counterPaid = Number(sale.paidAmount) || 0;
+
+    let remainingBillDue = totalAmountNum - counterPaid;
+    let displayPaid = counterPaid;
     let advance = 0;
 
-    if (displayPaid > totalAmountNum) {
-      advance = displayPaid - totalAmountNum;
-    } else {
-      billDue = totalAmountNum - displayPaid;
+    if (remainingBillDue > 0 && externalPaymentsByCustomer[cid] > 0) {
+      if (externalPaymentsByCustomer[cid] >= remainingBillDue) {
+        displayPaid += remainingBillDue; // Bill fully cleared
+        externalPaymentsByCustomer[cid] -= remainingBillDue;
+        remainingBillDue = 0;
+      } else {
+        displayPaid += externalPaymentsByCustomer[cid]; // Partially cleared
+        remainingBillDue -= externalPaymentsByCustomer[cid];
+        externalPaymentsByCustomer[cid] = 0; // Pool empty
+      }
+    } else if (remainingBillDue < 0) {
+      advance = Math.abs(remainingBillDue);
+      remainingBillDue = 0;
     }
 
     return {
@@ -264,14 +283,40 @@ const Sales = () => {
       weightNum: Number(sale.weight) || 0,
       totalAmountNum,
       displayPaid,
-      billDue,
+      billDue: remainingBillDue,
       advance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
 
+  // 4. Add leftover advance cash to the customer's most recent sale row
+  Object.keys(externalPaymentsByCustomer).forEach((cid) => {
+    const remainingAdvance = externalPaymentsByCustomer[cid];
+    if (remainingAdvance > 0) {
+      const custSales = allocatedSalesList.filter(
+        (s) => (s.customer?._id || s.customer) === cid,
+      );
+      if (custSales.length > 0) {
+        const lastSale = custSales[custSales.length - 1];
+        lastSale.advance += remainingAdvance;
+        lastSale.displayPaid += remainingAdvance;
+      }
+    }
+  });
+
+  // 5. Now apply Search & Date Filters for UI display
+  const filteredSales = allocatedSalesList.filter((s) => {
+    const matchName = s.customer?.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchFrom = fromDate ? s.entryDateStr >= fromDate : true;
+    const matchTo = toDate ? s.entryDateStr <= toDate : true;
+    return matchName && matchFrom && matchTo;
+  });
+
+  // 6. Group identical sales (same day, same customer, same rate)
   const groupedSalesMap = {};
-  enhancedSales.forEach((sale) => {
+  filteredSales.forEach((sale) => {
     const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
 
     if (groupedSalesMap[key]) {
@@ -291,7 +336,10 @@ const Sales = () => {
     }
   });
 
-  const finalGroupedSales = Object.values(groupedSalesMap);
+  // 7. Finally sort reversed for UI (newest on top)
+  const finalGroupedSales = Object.values(groupedSalesMap).sort(
+    (a, b) => new Date(b.date) - new Date(a.date),
+  );
 
   const filteredPurchases = purchases.filter((p) => {
     const pDate = new Date(p.date).toISOString().split("T")[0];
@@ -308,6 +356,7 @@ const Sales = () => {
     return matchFrom && matchTo;
   });
 
+  // Here we use the raw 'paidAmount' for accurate market wasooli totals
   const periodSalesPaid = filteredSales.reduce(
     (sum, sale) => sum + (Number(sale.paidAmount) || 0),
     0,
