@@ -257,7 +257,7 @@ const Sales = () => {
     }
   });
 
-  // 🔥 PURE ROZNAMCHA LOGIC (No Auto-Mixing of Previous Advance for the Bill itself) 🔥
+  // 🔥 PURE ROZNAMCHA LOGIC (No Auto-Mixing) 🔥
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -273,11 +273,7 @@ const Sales = () => {
     const totalAmountNum = Number(sale.totalAmount) || 0;
 
     let billDue = 0;
-    let advance = 0;
-
-    if (displayPaid > totalAmountNum) {
-      advance = displayPaid - totalAmountNum;
-    } else {
+    if (displayPaid < totalAmountNum) {
       billDue = totalAmountNum - displayPaid;
     }
 
@@ -287,7 +283,6 @@ const Sales = () => {
       totalAmountNum,
       displayPaid,
       billDue,
-      advance,
       entryDateStr: new Date(sale.date).toISOString().split("T")[0],
     };
   });
@@ -304,7 +299,6 @@ const Sales = () => {
       const gTotal = groupedSalesMap[key].totalAmountNum;
       const gPaid = groupedSalesMap[key].displayPaid;
       groupedSalesMap[key].billDue = gPaid < gTotal ? gTotal - gPaid : 0;
-      groupedSalesMap[key].advance = gPaid > gTotal ? gPaid - gTotal : 0;
 
       groupedSalesMap[key].isGrouped = true;
       groupedSalesMap[key].groupCount += 1;
@@ -369,10 +363,6 @@ const Sales = () => {
   );
   const tableFooterPending = finalGroupedSales.reduce(
     (sum, sale) => sum + sale.billDue,
-    0,
-  );
-  const tableFooterAdvance = finalGroupedSales.reduce(
-    (sum, sale) => sum + sale.advance,
     0,
   );
 
@@ -668,9 +658,6 @@ const Sales = () => {
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-red-500">
                   Pending Due
                 </th>
-                <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-teal-600">
-                  Advance (Jama)
-                </th>
                 <th className="px-3 py-4 print:py-2 font-medium text-center whitespace-nowrap print:hidden">
                   Action
                 </th>
@@ -679,13 +666,13 @@ const Sales = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-8 text-gray-500">
+                  <td colSpan="8" className="text-center p-8 text-gray-500">
                     Loading sales...
                   </td>
                 </tr>
               ) : finalGroupedSales.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center p-8 text-gray-500">
+                  <td colSpan="8" className="text-center p-8 text-gray-500">
                     No sales records found.
                   </td>
                 </tr>
@@ -764,15 +751,6 @@ const Sales = () => {
                         <span className="text-green-600">Cleared</span>
                       )}
                     </td>
-                    <td className="px-3 py-4 print:py-2 font-bold whitespace-nowrap print:text-black">
-                      {sale.advance > 0 ? (
-                        <span className="text-teal-600">
-                          Rs. {sale.advance.toLocaleString()}
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
                     <td className="px-3 py-4 whitespace-nowrap print:hidden">
                       <div className="flex justify-center items-center gap-1.5">
                         {isOwner ? (
@@ -826,9 +804,6 @@ const Sales = () => {
                 </td>
                 <td className="px-3 py-3 text-red-500">
                   Rs. {tableFooterPending.toLocaleString()}
-                </td>
-                <td className="px-3 py-3 text-teal-600">
-                  Rs. {tableFooterAdvance.toLocaleString()}
                 </td>
                 <td className="print:hidden"></td>
               </tr>
@@ -908,7 +883,7 @@ const Sales = () => {
                   <p className="font-medium">Rs. {sale.rate}</p>
                 </div>
 
-                <div className="col-span-2 pt-3 border-t border-gray-200 grid grid-cols-3 gap-2">
+                <div className="col-span-2 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2 text-center">
                   <div>
                     <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
                       Paid Amount
@@ -930,20 +905,6 @@ const Sales = () => {
                         </span>
                       ) : (
                         <span className="text-green-600">Cleared</span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
-                      Advance (Jama)
-                    </p>
-                    <p className="font-bold text-xs">
-                      {sale.advance > 0 ? (
-                        <span className="text-teal-600">
-                          Rs. {sale.advance.toLocaleString()}
-                        </span>
-                      ) : (
-                        "-"
                       )}
                     </p>
                   </div>
