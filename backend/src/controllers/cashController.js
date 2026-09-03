@@ -1,7 +1,6 @@
 const CashAccount = require("../models/CashAccount");
 const CashTransaction = require("../models/CashTransaction");
 
-// 1. Naya cash account banayen
 const createAccount = async (req, res) => {
   try {
     const { name, type, initialBalance } = req.body;
@@ -16,7 +15,6 @@ const createAccount = async (req, res) => {
   }
 };
 
-// 2. Tamam cash accounts ki list mangwayen
 const getAccounts = async (req, res) => {
   try {
     const accounts = await CashAccount.find({ status: "active" });
@@ -26,7 +24,6 @@ const getAccounts = async (req, res) => {
   }
 };
 
-// 3. Ek account se doosre account mein paise transfer karein
 const transferCash = async (req, res) => {
   try {
     const { fromAccountId, toAccountId, amount, particulars, date } = req.body;
@@ -67,7 +64,6 @@ const transferCash = async (req, res) => {
   }
 };
 
-// 4. Kisi ek account ka ledger (history) nikalen
 const getAccountLedger = async (req, res) => {
   try {
     const { id } = req.params;
@@ -86,7 +82,6 @@ const getAccountLedger = async (req, res) => {
 
     const formattedTransactions = transactions.map((tx) => {
       const isReceive = tx.toAccount && tx.toAccount._id.toString() === id;
-
       let otherPartyName = "System / Adjustment";
       if (isReceive && tx.fromAccount) {
         otherPartyName = tx.fromAccount.name;
@@ -144,8 +139,17 @@ const updateAccount = async (req, res) => {
 
 const deleteAccount = async (req, res) => {
   try {
-    const account = await CashAccount.findByIdAndDelete(req.params.id);
+    const account = await CashAccount.findById(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found" });
+
+    // 🔥 SECURITY LOCK: Balance check for Cash Account
+    if (account.balance !== 0) {
+      return res.status(400).json({
+        message: `Deletion Failed! This account has a balance of Rs. ${account.balance}. Please clear the balance to 0 before deleting.`,
+      });
+    }
+
+    await CashAccount.findByIdAndDelete(req.params.id);
 
     await CashTransaction.deleteMany({
       $or: [{ fromAccount: req.params.id }, { toAccount: req.params.id }],
@@ -157,15 +161,12 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-// 🔥 NAYA: Specific Cash Transaction (Transfer) ko Delete karke Balance Wapas karna
 const deleteTransaction = async (req, res) => {
   try {
     const tx = await CashTransaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ message: "Transaction not found" });
 
-    // Sirf Internal Transfer wali entry direct delete ho sakti hai
     if (tx.transactionType === "internal_transfer") {
-      // Jahan se paise gaye the, usko wapas karo
       if (tx.fromAccount) {
         const fromAcc = await CashAccount.findById(tx.fromAccount);
         if (fromAcc) {
@@ -173,7 +174,6 @@ const deleteTransaction = async (req, res) => {
           await fromAcc.save();
         }
       }
-      // Jisko paise mile the, uske kat lo
       if (tx.toAccount) {
         const toAcc = await CashAccount.findById(tx.toAccount);
         if (toAcc) {
@@ -187,13 +187,10 @@ const deleteTransaction = async (req, res) => {
         message: "Transfer deleted and balances reverted successfully",
       });
     } else {
-      // Agar wo koi aur payment hai (jaise customer recovery) to error do
-      return res
-        .status(400)
-        .json({
-          message:
-            "Please delete this entry from its original page (Sales, Payments, or Expenses) to ensure correct account balances.",
-        });
+      return res.status(400).json({
+        message:
+          "Please delete this entry from its original page (Sales, Payments, or Expenses) to ensure correct account balances.",
+      });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -207,5 +204,5 @@ module.exports = {
   getAccountLedger,
   updateAccount,
   deleteAccount,
-  deleteTransaction, // 🔥 NAYA
+  deleteTransaction,
 };
