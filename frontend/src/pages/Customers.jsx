@@ -15,8 +15,6 @@ import {
   Map,
   History,
   Calendar,
-  ArrowDownLeft,
-  ArrowUpRight,
   Printer,
   FileText,
 } from "lucide-react";
@@ -191,7 +189,6 @@ const Customers = () => {
     );
   };
 
-  // 🔥 NEW PURE LEDGER LOGIC (Khata Modal Fix) 🔥
   const openLedger = async (customer) => {
     setSelectedCustomer(customer);
     setLedgerStartDate("");
@@ -203,14 +200,12 @@ const Customers = () => {
       let opBal = Number(customer.openingBalance) || 0;
       let txs = [];
 
-      // 1. Sales Data
       const cSales = allSales.filter(
         (s) => (s.customer?._id || s.customer) === customer._id,
       );
       cSales.forEach((s) => {
         const sDate = new Date(s.date);
 
-        // A. Bill Amount (Debit)
         txs.push({
           id: s._id + "_sale",
           isSale: true,
@@ -220,7 +215,6 @@ const Customers = () => {
           credit: 0,
         });
 
-        // B. Paid Amount (Credit) - Isko sale se nikal kar alag line bana di!
         if (Number(s.paidAmount) > 0) {
           txs.push({
             id: s._id + "_pay",
@@ -233,7 +227,6 @@ const Customers = () => {
         }
       });
 
-      // 2. Payments Data (External Ledger Payments)
       const cPayments = allPayments.filter(
         (p) =>
           p.type === "receive" &&
@@ -250,10 +243,8 @@ const Customers = () => {
         });
       });
 
-      // Sort by Date (Oldest to Newest)
       txs.sort((a, b) => a.ledgerDate - b.ledgerDate);
 
-      // Calculate Running Balance
       let currentBal = opBal;
       txs = txs.map((tx) => {
         currentBal = currentBal + tx.debit - tx.credit;
@@ -368,7 +359,6 @@ const Customers = () => {
     return c.displayBalance < 0 ? sum + Math.abs(c.displayBalance) : sum;
   }, 0);
 
-  // Khata Modal Date Filtering
   const filteredLedger = ledgerData.filter((item) => {
     try {
       const dateStr = new Date(item.ledgerDate || Date.now())
@@ -674,7 +664,6 @@ const Customers = () => {
                 key={customer._id}
                 className={`p-4 flex flex-col gap-4 ${index !== filteredCustomers.length - 1 ? "border-b border-gray-100" : ""}`}
               >
-                {/* ... (Mobile display code logic unchanged from original) ... */}
                 <div>
                   <div className="flex justify-between items-start mb-1">
                     <h3 className="font-bold text-gray-800 text-lg">
@@ -929,7 +918,6 @@ const Customers = () => {
         </div>
       )}
 
-      {/* NEW KHATA MODAL (FIXED DOUBLE ENTRY ISSUE) */}
       {isLedgerModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div

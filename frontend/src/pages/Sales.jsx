@@ -246,7 +246,6 @@ const Sales = () => {
     return matchName && matchFrom && matchTo;
   });
 
-  // 🔥 100% PURE LOGIC: Yahan Payments page ka koi data shamil nahi kiya gaya! 🔥
   const enhancedSales = filteredSales.map((sale) => {
     const displayPaid = Number(sale.paidAmount) || 0;
     const totalAmountNum = Number(sale.totalAmount) || 0;
@@ -639,9 +638,8 @@ const Sales = () => {
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap">
                   Bill Amount
                 </th>
-                {/* 🔥 Yahan (Update) ki nishani daal di hai taake pata chalay code change ho gaya hai 🔥 */}
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-green-700">
-                  Paid Amount (Update)
+                  Paid Amount (Rs)
                 </th>
                 <th className="px-3 py-4 print:py-2 font-medium whitespace-nowrap text-red-500">
                   Pending Due

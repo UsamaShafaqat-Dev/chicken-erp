@@ -114,25 +114,7 @@ const createPayment = async (req, res) => {
         });
       }
 
-      let remainingAmount = paymentAmount;
-      const pendingSales = await Sale.find({
-        customer: customer,
-        balanceDue: { $gt: 0 },
-      }).sort({ date: 1 });
-
-      for (let sale of pendingSales) {
-        if (remainingAmount <= 0) break;
-        if (remainingAmount >= sale.balanceDue) {
-          remainingAmount -= sale.balanceDue;
-          sale.paidAmount += sale.balanceDue;
-          sale.balanceDue = 0;
-        } else {
-          sale.paidAmount += remainingAmount;
-          sale.balanceDue -= remainingAmount;
-          remainingAmount = 0;
-        }
-        await sale.save();
-      }
+      // 🔥 Yahan se 'pendingSales' wala Auto-update Loop hamesha ke liye Delete kar diya gaya hai! 🔥
     } else if (type === "pay" && employee) {
       const empRecord = await Employee.findById(employee);
       if (empRecord) {
@@ -178,25 +160,7 @@ const createPayment = async (req, res) => {
         });
       }
 
-      let remainingAmount = paymentAmount;
-      const pendingPurchases = await Purchase.find({
-        supplier: supplier,
-        balanceDue: { $gt: 0 },
-      }).sort({ date: 1 });
-
-      for (let purchase of pendingPurchases) {
-        if (remainingAmount <= 0) break;
-        if (remainingAmount >= purchase.balanceDue) {
-          remainingAmount -= purchase.balanceDue;
-          purchase.paidAmount += purchase.balanceDue;
-          purchase.balanceDue = 0;
-        } else {
-          purchase.paidAmount += remainingAmount;
-          purchase.balanceDue -= remainingAmount;
-          remainingAmount = 0;
-        }
-        await purchase.save();
-      }
+      // 🔥 Yahan se 'pendingPurchases' wala Auto-update Loop hamesha ke liye Delete kar diya gaya hai! 🔥
     }
 
     res.status(201).json(payment);
@@ -219,11 +183,9 @@ const updatePayment = async (req, res) => {
     payment.amount = newAmount;
     payment.method = req.body.method;
 
-    // 🔥 FIX: Keep the original Time intact when Date is updated
     if (req.body.date) {
       const oldDate = new Date(payment.date);
       const newDate = new Date(req.body.date);
-      // Set the hours, minutes, seconds from the old date to the new date
       newDate.setUTCHours(
         oldDate.getUTCHours(),
         oldDate.getUTCMinutes(),
@@ -258,7 +220,7 @@ const updatePayment = async (req, res) => {
           { toAccount: payment.cashAccountId },
         ],
       },
-      { $set: { amount: newAmount, date: payment.date } }, // 🔥 Time will be preserved here too
+      { $set: { amount: newAmount, date: payment.date } },
     );
 
     if (payment.type === "receive" && payment.customer) {
