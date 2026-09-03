@@ -29,6 +29,7 @@ const CashBook = () => {
     toAccountId: "",
     amount: "",
     particulars: "",
+    date: new Date().toISOString().split("T")[0], // 🔥 Yahan default Date add kar di
   });
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -161,6 +162,7 @@ const CashBook = () => {
         toAccountId: "",
         amount: "",
         particulars: "",
+        date: new Date().toISOString().split("T")[0], // 🔥 Date wapas reset ho jayegi
       });
       fetchAccounts();
     } catch (error) {
@@ -719,66 +721,87 @@ const CashBook = () => {
               </button>
             </div>
             <form onSubmit={handleTransfer} className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  From Account (Sender)
-                </label>
-                <select
-                  value={transferData.fromAccountId}
-                  onChange={(e) =>
-                    setTransferData({
-                      ...transferData,
-                      fromAccountId: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
-                  required
-                >
-                  <option value="">-- Select Sender --</option>
-                  {accounts.map((a) => (
-                    <option key={a._id} value={a._id}>
-                      {a.name} (Bal: Rs.{a.balance.toLocaleString()})
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    From Account (Sender)
+                  </label>
+                  <select
+                    value={transferData.fromAccountId}
+                    onChange={(e) =>
+                      setTransferData({
+                        ...transferData,
+                        fromAccountId: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
+                    required
+                  >
+                    <option value="">-- Select Sender --</option>
+                    {accounts.map((a) => (
+                      <option key={a._id} value={a._id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    To Account (Receiver)
+                  </label>
+                  <select
+                    value={transferData.toAccountId}
+                    onChange={(e) =>
+                      setTransferData({
+                        ...transferData,
+                        toAccountId: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
+                    required
+                  >
+                    <option value="">-- Select Receiver --</option>
+                    {accounts.map((a) => (
+                      <option key={a._id} value={a._id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  To Account (Receiver)
-                </label>
-                <select
-                  value={transferData.toAccountId}
-                  onChange={(e) =>
-                    setTransferData({
-                      ...transferData,
-                      toAccountId: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500 bg-white"
-                  required
-                >
-                  <option value="">-- Select Receiver --</option>
-                  {accounts.map((a) => (
-                    <option key={a._id} value={a._id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount (Rs)
-                </label>
-                <input
-                  type="number"
-                  value={transferData.amount}
-                  onChange={(e) =>
-                    setTransferData({ ...transferData, amount: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
-                  placeholder="e.g. 50000"
-                  required
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount (Rs)
+                  </label>
+                  <input
+                    type="number"
+                    value={transferData.amount}
+                    onChange={(e) =>
+                      setTransferData({
+                        ...transferData,
+                        amount: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                    placeholder="e.g. 50000"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={transferData.date}
+                    onChange={(e) =>
+                      setTransferData({ ...transferData, date: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                    required
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -795,7 +818,6 @@ const CashBook = () => {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
                   placeholder="e.g. Cash handed over in evening"
-                  required
                 />
               </div>
               <div className="pt-2 flex gap-3">
