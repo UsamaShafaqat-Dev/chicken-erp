@@ -17,6 +17,7 @@ import {
   Calendar,
   Printer,
   FileText,
+  Download,
 } from "lucide-react";
 
 const Customers = () => {
@@ -386,6 +387,99 @@ const Customers = () => {
     documentTitle: `Market_Summary_${new Date().toISOString().split("T")[0]}`,
   });
 
+  // 🔥 NAYA: Export Customers to Excel (Pure .xls) 🔥
+  const handleExportCustomersExcel = () => {
+    if (!filteredCustomers || filteredCustomers.length === 0) {
+      return toast.error("No data available to export");
+    }
+
+    const periodText =
+      globalFromDate || globalToDate
+        ? `Period: ${globalFromDate ? new Date(globalFromDate).toLocaleDateString("en-GB") : "Start"} TO ${globalToDate ? new Date(globalToDate).toLocaleDateString("en-GB") : "End"}`
+        : "All Time / Lifetime Balances";
+
+    let tableHTML = `
+      <html xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="utf-8">
+          <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid black; padding: 5px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .header-title { font-size: 20px; font-weight: bold; text-align: center; background-color: #ffffff; }
+            .period-title { font-size: 14px; font-weight: bold; text-align: center; background-color: #ffffff; }
+            .footer-row { font-weight: bold; background-color: #e6f2ff; }
+            .text-red { color: red; }
+            .text-green { color: green; }
+            .text-blue { color: blue; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th colspan="8" class="header-title">ASIA POULTRY BUSINESS - Market Summary & Customer Balances</th>
+              </tr>
+              <tr>
+                <th colspan="8" class="period-title">${periodText}</th>
+              </tr>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Area</th>
+                <th>Opening Bal</th>
+                <th>Purchases (Maal)</th>
+                <th>Paid (Vasooli)</th>
+                <th>Udhaar (Lene Hain)</th>
+                <th>Advance (Dene Hain)</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    filteredCustomers.forEach((c) => {
+      const udhaar = c.displayBalance > 0 ? c.displayBalance : "-";
+      const advance = c.displayBalance < 0 ? Math.abs(c.displayBalance) : "-";
+
+      tableHTML += `
+        <tr>
+          <td>${c.name || ""}</td>
+          <td>${c.mobile || "-"}</td>
+          <td>${c.area || "-"}</td>
+          <td>${c.opBal}</td>
+          <td>${c.displayPurchases}</td>
+          <td>${c.displayPaid}</td>
+          <td class="text-red">${udhaar}</td>
+          <td class="text-green">${advance}</td>
+        </tr>
+      `;
+    });
+
+    // Add Footer Row
+    tableHTML += `
+            <tr class="footer-row">
+              <td colspan="3" style="text-align: right;">TOTAL MARKET:</td>
+              <td class="text-blue">${marketTotalOpening}</td>
+              <td class="text-blue">${marketTotalPurchases}</td>
+              <td class="text-green">${marketTotalPaid}</td>
+              <td class="text-red">${marketTotalUdhaar}</td>
+              <td class="text-green">${marketTotalAdvance}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>`;
+
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Market_Summary_${new Date().toISOString().split("T")[0]}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
@@ -431,11 +525,18 @@ const Customers = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+          {/* 🔥 NAYA: Save as Excel Button Added Here 🔥 */}
+          <button
+            onClick={handleExportCustomersExcel}
+            className="flex-1 sm:flex-none w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+          >
+            <Download size={18} /> Save Excel
+          </button>
           <button
             onClick={handleMainPrint}
-            className="flex-1 sm:flex-none w-full sm:w-auto bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+            className="flex-1 sm:flex-none w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
           >
-            <Printer size={18} /> Print
+            <Printer size={18} /> Print / PDF
           </button>
           <button
             onClick={() => openModal()}
