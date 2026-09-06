@@ -29,7 +29,7 @@ const CashBook = () => {
     toAccountId: "",
     amount: "",
     particulars: "",
-    date: new Date().toISOString().split("T")[0], // 🔥 Yahan default Date add kar di
+    date: new Date().toISOString().split("T")[0],
   });
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -142,12 +142,10 @@ const CashBook = () => {
       !transferData.fromAccountId ||
       !transferData.toAccountId ||
       !transferData.amount
-    ) {
+    )
       return toast.error("Please fill all required fields");
-    }
-    if (transferData.fromAccountId === transferData.toAccountId) {
+    if (transferData.fromAccountId === transferData.toAccountId)
       return toast.error("Cannot transfer to the same account");
-    }
 
     try {
       await axios.post(
@@ -162,7 +160,7 @@ const CashBook = () => {
         toAccountId: "",
         amount: "",
         particulars: "",
-        date: new Date().toISOString().split("T")[0], // 🔥 Date wapas reset ho jayegi
+        date: new Date().toISOString().split("T")[0],
       });
       fetchAccounts();
     } catch (error) {
@@ -229,11 +227,9 @@ const CashBook = () => {
   const periodCashIn = filteredLedgerTransactions
     .filter((tx) => tx.type === "in")
     .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
-
   const periodCashOut = filteredLedgerTransactions
     .filter((tx) => tx.type === "out")
     .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
-
   const periodNet = periodCashIn - periodCashOut;
 
   return (
@@ -334,7 +330,6 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* LEDGER HISTORY MODAL */}
       {showLedgerModal && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -492,7 +487,7 @@ const CashBook = () => {
                   <History
                     size={40}
                     className="mx-auto mb-3 text-gray-300 print:hidden"
-                  />
+                  />{" "}
                   No transactions found for selected dates.
                 </div>
               ) : (
@@ -517,11 +512,7 @@ const CashBook = () => {
                             {tx.particulars || "Transfer / Adjustment"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(tx.date).toLocaleDateString("en-GB")} •{" "}
-                            {new Date(tx.date).toLocaleTimeString("en-US", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {new Date(tx.date).toLocaleDateString("en-GB")}
                           </p>
                         </div>
                       </div>
@@ -554,7 +545,6 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Delete Txn Modal */}
       {isDeleteTxnModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
@@ -586,7 +576,6 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Add/Edit Account Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
@@ -672,7 +661,6 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Delete Khata Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
@@ -704,7 +692,6 @@ const CashBook = () => {
         </div>
       )}
 
-      {/* Transfer Modal */}
       {showTransferModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
