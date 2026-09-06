@@ -387,7 +387,6 @@ const Customers = () => {
     documentTitle: `Market_Summary_${new Date().toISOString().split("T")[0]}`,
   });
 
-  // 🔥 NAYA: Export Customers to Excel (Pure .xls) 🔥
   const handleExportCustomersExcel = () => {
     if (!filteredCustomers || filteredCustomers.length === 0) {
       return toast.error("No data available to export");
@@ -455,7 +454,6 @@ const Customers = () => {
       `;
     });
 
-    // Add Footer Row
     tableHTML += `
             <tr class="footer-row">
               <td colspan="3" style="text-align: right;">TOTAL MARKET:</td>
@@ -482,9 +480,11 @@ const Customers = () => {
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
-        <div className="flex flex-col xl:flex-row items-start xl:items-center gap-3 w-full xl:w-auto">
-          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-64 flex items-center gap-2 w-full xl:w-auto">
+      {/* 🔥 FIX: Top Bar Design updated for strict inline buttons 🔥 */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 print:hidden">
+        {/* Left Side: Search and Date Filter */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+          <div className="bg-gray-100 p-2 rounded-lg flex-1 sm:w-64 flex items-center gap-2 w-full">
             <Search size={18} className="text-gray-400 shrink-0" />
             <input
               type="text"
@@ -524,23 +524,23 @@ const Customers = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-          {/* 🔥 NAYA: Save as Excel Button Added Here 🔥 */}
+        {/* Right Side: Buttons (Strictly in one row) */}
+        <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
           <button
             onClick={handleExportCustomersExcel}
-            className="flex-1 sm:flex-none w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+            className="whitespace-nowrap shrink-0 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Download size={18} /> Save Excel
           </button>
           <button
             onClick={handleMainPrint}
-            className="flex-1 sm:flex-none w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+            className="whitespace-nowrap shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Printer size={18} /> Print / PDF
           </button>
           <button
             onClick={() => openModal()}
-            className="flex-1 sm:flex-none w-full sm:w-auto bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+            className="whitespace-nowrap shrink-0 bg-[#0a5228] hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Plus size={18} /> Add Customer
           </button>
