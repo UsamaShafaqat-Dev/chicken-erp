@@ -18,6 +18,80 @@ import {
   Printer,
 } from "lucide-react";
 
+// 🔥 CUSTOM SEARCHABLE DROPDOWN COMPONENT (Fix for Mobile Search Issue) 🔥
+const SearchableSelect = ({ options, value, onChange, name, placeholder }) => {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target))
+        setIsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-green-500 cursor-pointer flex justify-between items-center"
+      >
+        <span
+          className={
+            selectedOption ? "text-gray-800 font-medium" : "text-gray-500"
+          }
+        >
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <span className="text-gray-400 text-xs">▼</span>
+      </div>
+      {isOpen && (
+        <div className="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-xl">
+          <div className="sticky top-0 bg-white p-2 border-b border-gray-100">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Type to search..."
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded outline-none focus:border-green-500 text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="p-1">
+            {filteredOptions.length === 0 ? (
+              <div className="p-2 text-center text-gray-500 text-sm">
+                No results found
+              </div>
+            ) : (
+              filteredOptions.map((o) => (
+                <div
+                  key={o.value}
+                  onClick={() => {
+                    onChange({ target: { name, value: o.value } });
+                    setIsOpen(false);
+                    setSearch("");
+                  }}
+                  className={`p-2.5 hover:bg-green-50 rounded cursor-pointer text-sm ${value === o.value ? "bg-green-50 text-green-700 font-bold" : "text-gray-700"}`}
+                >
+                  {o.label}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Payments = () => {
   const [payments, setPayments] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -311,11 +385,9 @@ const Payments = () => {
       partyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cleanNotes.toLowerCase().includes(searchQuery.toLowerCase()) ||
       accountName.toLowerCase().includes(searchQuery.toLowerCase());
-
     const pDate = new Date(p.date).toISOString().split("T")[0];
     const matchesStart = startDate ? pDate >= startDate : true;
     const matchesEnd = endDate ? pDate <= endDate : true;
-
     return matchesSearch && matchesStart && matchesEnd;
   });
 
@@ -388,7 +460,6 @@ const Payments = () => {
           </p>
         </div>
 
-        {/* 🚀 RESPONSIVE TABLE FIX 🚀 */}
         <div className="hidden lg:block print:block w-full">
           <table className="w-full text-left border-collapse text-xs table-auto">
             <thead>
@@ -509,7 +580,6 @@ const Payments = () => {
                         {payment.type === "receive" ? "+" : "-"} Rs.{" "}
                         {payment.amount.toLocaleString()}
                       </td>
-
                       <td className="px-2 py-2.5 whitespace-nowrap print:hidden">
                         <div className="flex justify-center items-center gap-1.5">
                           {isOwner ? (
@@ -552,7 +622,6 @@ const Payments = () => {
           </table>
         </div>
 
-        {/* MOBILE VIEW */}
         <div className="lg:hidden print:hidden flex flex-col">
           {filteredPayments.map((payment, index) => {
             const isExp =
@@ -607,7 +676,6 @@ const Payments = () => {
                     </p>
                   </div>
                 </div>
-
                 <div className="bg-gray-50 p-3 rounded-lg text-sm border border-gray-100 space-y-2">
                   <div className="flex justify-between items-center border-b border-gray-200 pb-2">
                     <span className="text-gray-500 text-xs">Cash Account</span>
@@ -625,7 +693,6 @@ const Payments = () => {
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-2 mt-1">
                   {isOwner ? (
                     <>
@@ -654,7 +721,7 @@ const Payments = () => {
                     </button>
                   ) : (
                     <div className="flex-1 text-center bg-gray-100 text-gray-500 py-2 rounded-lg text-sm font-bold uppercase tracking-widest border border-gray-200">
-                      🔒 Locked (Old Entry)
+                      🔒 Locked
                     </div>
                   )}
                 </div>
@@ -664,7 +731,6 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* Adding Payment Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div
@@ -724,7 +790,7 @@ const Payments = () => {
                       checked={payeeType === "supplier"}
                       onChange={(e) => setPayeeType(e.target.value)}
                       className="accent-orange-600"
-                    />
+                    />{" "}
                     Broker
                   </label>
                   <label className="flex-1 flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700 p-1">
@@ -734,7 +800,7 @@ const Payments = () => {
                       checked={payeeType === "employee"}
                       onChange={(e) => setPayeeType(e.target.value)}
                       className="accent-orange-600"
-                    />
+                    />{" "}
                     Staff
                   </label>
                   <label className="flex-1 flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-700 p-1">
@@ -744,7 +810,7 @@ const Payments = () => {
                       checked={payeeType === "expense"}
                       onChange={(e) => setPayeeType(e.target.value)}
                       className="accent-orange-600"
-                    />
+                    />{" "}
                     Expense
                   </label>
                 </div>
@@ -756,60 +822,48 @@ const Payments = () => {
                     <label className="block text-gray-700 font-medium mb-1">
                       Select Customer (To Receive From) *
                     </label>
-                    <select
+                    <SearchableSelect
                       name="customer"
                       value={formData.customer}
                       onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="">-- Choose Customer --</option>
-                      {customers.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="-- Search Customer --"
+                      options={customers.map((c) => ({
+                        value: c._id,
+                        label: `${c.name} (${c.area || c.mobile || ""})`,
+                      }))}
+                    />
                   </div>
                 ) : payeeType === "supplier" ? (
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">
                       Select Broker/Supplier (To Pay To) *
                     </label>
-                    <select
+                    <SearchableSelect
                       name="supplier"
                       value={formData.supplier}
                       onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="">-- Choose Broker --</option>
-                      {suppliers.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="-- Search Broker --"
+                      options={suppliers.map((s) => ({
+                        value: s._id,
+                        label: `${s.name} (${s.area || ""})`,
+                      }))}
+                    />
                   </div>
                 ) : payeeType === "employee" ? (
                   <div>
                     <label className="block text-gray-700 font-medium mb-1">
                       Select Staff / Employee *
                     </label>
-                    <select
+                    <SearchableSelect
                       name="employee"
                       value={formData.employee}
                       onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="">-- Choose Staff --</option>
-                      {employees.map((emp) => (
-                        <option key={emp._id} value={emp._id}>
-                          {emp.name}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="-- Search Staff --"
+                      options={employees.map((e) => ({
+                        value: e._id,
+                        label: e.name,
+                      }))}
+                    />
                   </div>
                 ) : (
                   <div>
@@ -922,8 +976,8 @@ const Payments = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                 disabled={isSubmitting}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
               >
                 Cancel
               </button>
@@ -944,7 +998,6 @@ const Payments = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">

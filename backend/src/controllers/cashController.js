@@ -27,23 +27,25 @@ const getAccounts = async (req, res) => {
 const transferCash = async (req, res) => {
   try {
     const { fromAccountId, toAccountId, amount, particulars, date } = req.body;
-
-    if (!fromAccountId || !toAccountId || !amount) {
+    if (!fromAccountId || !toAccountId || !amount)
       return res.status(400).json({ message: "All fields are required" });
-    }
 
     const fromAccount = await CashAccount.findById(fromAccountId);
-    if (fromAccount.balance < amount) {
+    if (fromAccount.balance < amount)
       return res
         .status(400)
         .json({ message: `Insufficient balance in ${fromAccount.name}` });
-    }
     fromAccount.balance -= Number(amount);
     await fromAccount.save();
 
     const toAccount = await CashAccount.findById(toAccountId);
     toAccount.balance += Number(amount);
     await toAccount.save();
+
+    // 🔥 FIX: Prevent 5 AM Timezone Bug
+    const safeDate = date
+      ? new Date(date.split("T")[0] + "T12:00:00.000Z")
+      : new Date();
 
     const transaction = await CashTransaction.create({
       fromAccount: fromAccountId,
@@ -53,7 +55,7 @@ const transferCash = async (req, res) => {
       particulars:
         particulars ||
         `Cash transferred from ${fromAccount.name} to ${toAccount.name}`,
-      date: date || Date.now(),
+      date: safeDate,
     });
 
     res
@@ -68,26 +70,20 @@ const getAccountLedger = async (req, res) => {
   try {
     const { id } = req.params;
     const account = await CashAccount.findById(id);
-
-    if (!account) {
-      return res.status(404).json({ message: "Account not found" });
-    }
+    if (!account) return res.status(404).json({ message: "Account not found" });
 
     const transactions = await CashTransaction.find({
       $or: [{ fromAccount: id }, { toAccount: id }],
     })
       .populate("fromAccount", "name")
       .populate("toAccount", "name")
-      .sort({ date: -1 });
+      .sort({ date: -1, createdAt: -1 });
 
     const formattedTransactions = transactions.map((tx) => {
       const isReceive = tx.toAccount && tx.toAccount._id.toString() === id;
       let otherPartyName = "System / Adjustment";
-      if (isReceive && tx.fromAccount) {
-        otherPartyName = tx.fromAccount.name;
-      } else if (!isReceive && tx.toAccount) {
-        otherPartyName = tx.toAccount.name;
-      }
+      if (isReceive && tx.fromAccount) otherPartyName = tx.fromAccount.name;
+      else if (!isReceive && tx.toAccount) otherPartyName = tx.toAccount.name;
 
       return {
         _id: tx._id,
@@ -113,7 +109,6 @@ const getAccountLedger = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Ledger Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -126,10 +121,8 @@ const updateAccount = async (req, res) => {
 
     account.name = name || account.name;
     account.type = type || account.type;
-    if (initialBalance !== undefined && initialBalance !== "") {
+    if (initialBalance !== undefined && initialBalance !== "")
       account.balance = Number(initialBalance);
-    }
-
     await account.save();
     res.json(account);
   } catch (error) {
@@ -141,20 +134,16 @@ const deleteAccount = async (req, res) => {
   try {
     const account = await CashAccount.findById(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found" });
-
-    // 🔥 SECURITY LOCK: Balance check for Cash Account
-    if (account.balance !== 0) {
-      return res.status(400).json({
-        message: `Deletion Failed! This account has a balance of Rs. ${account.balance}. Please clear the balance to 0 before deleting.`,
-      });
-    }
-
+    if (account.balance !== 0)
+      return res
+        .status(400)
+        .json({
+          message: `Deletion Failed! This account has a balance of Rs. ${account.balance}. Please clear the balance to 0 before deleting.`,
+        });
     await CashAccount.findByIdAndDelete(req.params.id);
-
     await CashTransaction.deleteMany({
       $or: [{ fromAccount: req.params.id }, { toAccount: req.params.id }],
     });
-
     res.json({ message: "Account deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -181,16 +170,17 @@ const deleteTransaction = async (req, res) => {
           await toAcc.save();
         }
       }
-
       await CashTransaction.findByIdAndDelete(req.params.id);
       return res.json({
         message: "Transfer deleted and balances reverted successfully",
       });
     } else {
-      return res.status(400).json({
-        message:
-          "Please delete this entry from its original page (Sales, Payments, or Expenses) to ensure correct account balances.",
-      });
+      return res
+        .status(400)
+        .json({
+          message:
+            "Please delete this entry from its original page to ensure correct account balances.",
+        });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });

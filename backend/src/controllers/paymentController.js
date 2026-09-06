@@ -8,8 +8,13 @@ const Purchase = require("../models/Purchase");
 const Sale = require("../models/Sale");
 const Expense = require("../models/Expense");
 
-// @desc    Get all payments
-// @route   GET /api/payments
+// Helper function to prevent timezone jumping (5 AM bug fix)
+const getSafeUTC = (dateStr) => {
+  return dateStr
+    ? new Date(dateStr.split("T")[0] + "T12:00:00.000Z")
+    : new Date();
+};
+
 const getPayments = async (req, res) => {
   try {
     const payments = await Payment.find()
@@ -24,8 +29,6 @@ const getPayments = async (req, res) => {
   }
 };
 
-// @desc    Create a new payment
-// @route   POST /api/payments
 const createPayment = async (req, res) => {
   try {
     const {
@@ -42,11 +45,10 @@ const createPayment = async (req, res) => {
       expenseCategory,
     } = req.body;
     const paymentAmount = Number(amount);
+    const safeDate = getSafeUTC(date);
 
-    if (!cashAccountId) {
+    if (!cashAccountId)
       return res.status(400).json({ message: "Please select a Cash Account" });
-    }
-
     const cashAcc = await CashAccount.findById(cashAccountId);
 
     if (type === "pay" && payeeType === "expense" && expenseCategory) {
@@ -55,14 +57,14 @@ const createPayment = async (req, res) => {
         description: notes || "Direct Expense from Payments",
         amount: paymentAmount,
         paymentMethod: method,
-        date: date || Date.now(),
+        date: safeDate,
       });
 
       const payment = await Payment.create({
         type,
         amount: paymentAmount,
         method,
-        date,
+        date: safeDate,
         notes: `[EXPENSE:${expenseDoc._id}] ${notes || ""}`,
         cashAccountId,
       });
@@ -75,7 +77,7 @@ const createPayment = async (req, res) => {
           amount: paymentAmount,
           transactionType: "expense",
           particulars: `Expense: ${expenseCategory} - ${notes || ""}`,
-          date: date || Date.now(),
+          date: safeDate,
         });
       }
       return res.status(201).json(payment);
@@ -88,7 +90,7 @@ const createPayment = async (req, res) => {
       employee,
       amount: paymentAmount,
       method,
-      date,
+      date: safeDate,
       notes,
       cashAccountId,
     });
@@ -99,44 +101,38 @@ const createPayment = async (req, res) => {
         customerRecord.currentBalance -= paymentAmount;
         await customerRecord.save();
       }
-
       if (cashAcc) {
         cashAcc.balance += paymentAmount;
         await cashAcc.save();
-
         await CashTransaction.create({
           toAccount: cashAccountId,
           amount: paymentAmount,
           transactionType: "customer_recovery",
           referenceId: customer,
           particulars: `Received from ${customerRecord?.name || "Customer"} - ${notes || "Payment"}`,
-          date: date || Date.now(),
+          date: safeDate,
         });
       }
-
-      // 🔥 Yahan se 'pendingSales' wala Auto-update Loop hamesha ke liye Delete kar diya gaya hai! 🔥
     } else if (type === "pay" && employee) {
       const empRecord = await Employee.findById(employee);
       if (empRecord) {
-        if (empRecord.currentBalance !== undefined) {
+        if (empRecord.currentBalance !== undefined)
           empRecord.currentBalance -= paymentAmount;
-        } else if (empRecord.balance !== undefined) {
+        else if (empRecord.balance !== undefined)
           empRecord.balance -= paymentAmount;
-        }
         await empRecord.save();
       }
-
       if (cashAcc) {
         cashAcc.balance -= paymentAmount;
         await cashAcc.save();
-
+        // 🔥 FIX: Added notes details explicitly for Salary Ledger
         await CashTransaction.create({
           fromAccount: cashAccountId,
           amount: paymentAmount,
           transactionType: "employee_salary",
           referenceId: employee,
-          particulars: `Salary/Advance: ${empRecord?.name || "Employee"} - ${notes || ""}`,
-          date: date || Date.now(),
+          particulars: `Salary/Advance to ${empRecord?.name || "Employee"} - Details: ${notes || "None"}`,
+          date: safeDate,
         });
       }
     } else if (type === "pay" && supplier) {
@@ -145,22 +141,18 @@ const createPayment = async (req, res) => {
         supplierRecord.currentBalance -= paymentAmount;
         await supplierRecord.save();
       }
-
       if (cashAcc) {
         cashAcc.balance -= paymentAmount;
         await cashAcc.save();
-
         await CashTransaction.create({
           fromAccount: cashAccountId,
           amount: paymentAmount,
           transactionType: "supplier_payment",
           referenceId: supplier,
           particulars: `Paid to ${supplierRecord?.name || "Supplier"} - ${notes || "Payment"}`,
-          date: date || Date.now(),
+          date: safeDate,
         });
       }
-
-      // 🔥 Yahan se 'pendingPurchases' wala Auto-update Loop hamesha ke liye Delete kar diya gaya hai! 🔥
     }
 
     res.status(201).json(payment);
@@ -169,37 +161,60 @@ const createPayment = async (req, res) => {
   }
 };
 
-// @desc    Update a payment
-// @route   PUT /api/payments/:id
 const updatePayment = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    const newAmount = Number(req.body.amount);
     const oldAmount = payment.amount;
-    const difference = newAmount - oldAmount;
+    const newAmount = Number(req.body.amount);
+    const safeDate = req.body.date ? getSafeUTC(req.body.date) : payment.date;
 
+    // 🔥 FIX: 1. REVERT OLD BALANCES FIRST
+    if (payment.type === "receive" && payment.customer) {
+      await Customer.findByIdAndUpdate(payment.customer, {
+        $inc: { currentBalance: oldAmount },
+      });
+    } else if (payment.type === "pay") {
+      if (payment.supplier)
+        await Supplier.findByIdAndUpdate(payment.supplier, {
+          $inc: { currentBalance: oldAmount },
+        });
+      else if (payment.employee) {
+        const oldEmp = await Employee.findById(payment.employee);
+        if (oldEmp) {
+          if (oldEmp.currentBalance !== undefined)
+            oldEmp.currentBalance += oldAmount;
+          if (oldEmp.balance !== undefined) oldEmp.balance += oldAmount;
+          await oldEmp.save();
+        }
+      }
+    }
+    if (payment.cashAccountId) {
+      const revertAmount = payment.type === "receive" ? -oldAmount : oldAmount;
+      await CashAccount.findByIdAndUpdate(payment.cashAccountId, {
+        $inc: { balance: revertAmount },
+      });
+    }
+
+    // 🔥 FIX: 2. UPDATE PAYMENT DOCUMENT WITH NEW VALUES (INCLUDING NAME/PARTY CHANGE)
     payment.amount = newAmount;
     payment.method = req.body.method;
+    payment.date = safeDate;
 
-    if (req.body.date) {
-      const oldDate = new Date(payment.date);
-      const newDate = new Date(req.body.date);
-      newDate.setUTCHours(
-        oldDate.getUTCHours(),
-        oldDate.getUTCMinutes(),
-        oldDate.getUTCSeconds(),
-        oldDate.getUTCMilliseconds(),
-      );
-      payment.date = newDate;
-    }
+    if (req.body.customer !== undefined)
+      payment.customer = req.body.customer || null;
+    if (req.body.supplier !== undefined)
+      payment.supplier = req.body.supplier || null;
+    if (req.body.employee !== undefined)
+      payment.employee = req.body.employee || null;
+    if (req.body.cashAccountId !== undefined)
+      payment.cashAccountId = req.body.cashAccountId;
 
     const isExpense = payment.notes && payment.notes.startsWith("[EXPENSE:");
     if (isExpense) {
       const expId = payment.notes.split("]")[0].replace("[EXPENSE:", "");
       payment.notes = `[EXPENSE:${expId}] ${req.body.notes || ""}`;
-
       await Expense.findByIdAndUpdate(expId, {
         amount: newAmount,
         description: req.body.notes || "Direct Expense from Payments",
@@ -212,6 +227,46 @@ const updatePayment = async (req, res) => {
 
     await payment.save();
 
+    // 🔥 FIX: 3. APPLY NEW BALANCES TO THE NEW/UPDATED PARTY
+    let partyNameForLedger = "Party";
+    if (payment.type === "receive" && payment.customer) {
+      const newCust = await Customer.findByIdAndUpdate(
+        payment.customer,
+        { $inc: { currentBalance: -newAmount } },
+        { new: true },
+      );
+      if (newCust) partyNameForLedger = newCust.name;
+    } else if (payment.type === "pay") {
+      if (payment.supplier) {
+        const newSupp = await Supplier.findByIdAndUpdate(
+          payment.supplier,
+          { $inc: { currentBalance: -newAmount } },
+          { new: true },
+        );
+        if (newSupp) partyNameForLedger = newSupp.name;
+      } else if (payment.employee) {
+        const newEmp = await Employee.findById(payment.employee);
+        if (newEmp) {
+          if (newEmp.currentBalance !== undefined)
+            newEmp.currentBalance -= newAmount;
+          if (newEmp.balance !== undefined) newEmp.balance -= newAmount;
+          await newEmp.save();
+          partyNameForLedger = newEmp.name;
+        }
+      }
+    }
+    if (payment.cashAccountId) {
+      const applyAmount = payment.type === "receive" ? newAmount : -newAmount;
+      await CashAccount.findByIdAndUpdate(payment.cashAccountId, {
+        $inc: { balance: applyAmount },
+      });
+    }
+
+    // 🔥 FIX: 4. UPDATE CASH TRANSACTION DETAILS
+    let updatedParticulars = `${payment.type === "receive" ? "Received from" : "Paid to"} ${partyNameForLedger} - ${req.body.notes || "Updated"}`;
+    if (payment.employee)
+      updatedParticulars = `Salary/Advance to ${partyNameForLedger} - Details: ${req.body.notes || "Updated"}`;
+
     await CashTransaction.updateMany(
       {
         amount: oldAmount,
@@ -220,40 +275,15 @@ const updatePayment = async (req, res) => {
           { toAccount: payment.cashAccountId },
         ],
       },
-      { $set: { amount: newAmount, date: payment.date } },
+      {
+        $set: {
+          amount: newAmount,
+          date: payment.date,
+          particulars: updatedParticulars,
+          referenceId: payment.customer || payment.supplier || payment.employee,
+        },
+      },
     );
-
-    if (payment.type === "receive" && payment.customer) {
-      const customerRecord = await Customer.findById(payment.customer);
-      if (customerRecord) {
-        customerRecord.currentBalance -= difference;
-        await customerRecord.save();
-      }
-    } else if (payment.type === "pay" && payment.supplier) {
-      const supplierRecord = await Supplier.findById(payment.supplier);
-      if (supplierRecord) {
-        supplierRecord.currentBalance -= difference;
-        await supplierRecord.save();
-      }
-    } else if (payment.type === "pay" && payment.employee) {
-      const empRecord = await Employee.findById(payment.employee);
-      if (empRecord) {
-        if (empRecord.currentBalance !== undefined)
-          empRecord.currentBalance -= difference;
-        else if (empRecord.balance !== undefined)
-          empRecord.balance -= difference;
-        await empRecord.save();
-      }
-    }
-
-    if (payment.cashAccountId) {
-      const cashAcc = await CashAccount.findById(payment.cashAccountId);
-      if (cashAcc) {
-        if (payment.type === "receive") cashAcc.balance += difference;
-        else if (payment.type === "pay") cashAcc.balance -= difference;
-        await cashAcc.save();
-      }
-    }
 
     res.json(payment);
   } catch (error) {
@@ -261,8 +291,6 @@ const updatePayment = async (req, res) => {
   }
 };
 
-// @desc    Delete a payment
-// @route   DELETE /api/payments/:id
 const deletePayment = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id);
