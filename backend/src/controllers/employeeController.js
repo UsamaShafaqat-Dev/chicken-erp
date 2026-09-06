@@ -1,8 +1,15 @@
 const Employee = require("../models/Employee");
 const SalaryTransaction = require("../models/SalaryTransaction");
 const Expense = require("../models/Expense");
+const Payment = require("../models/Payment"); // 🔥 NAYA: Payment table link kar diya
 
-// 1. Get all employees
+// Helper to fix 5 AM timezone bug
+const getSafeUTC = (dateStr) => {
+  return dateStr
+    ? new Date(dateStr.split("T")[0] + "T12:00:00.000Z")
+    : new Date();
+};
+
 const getEmployees = async (req, res) => {
   try {
     const employees = await Employee.find().sort({ createdAt: -1 });
@@ -12,13 +19,10 @@ const getEmployees = async (req, res) => {
   }
 };
 
-// 2. Add new employee (With Opening Balance)
 const createEmployee = async (req, res) => {
   try {
     const { name, mobile, designation, monthlySalary, openingBalance } =
       req.body;
-
-    // NAYA: Opening balance handle karna
     let initialBalance = Number(openingBalance) || 0;
 
     const employee = await Employee.create({
@@ -26,7 +30,7 @@ const createEmployee = async (req, res) => {
       mobile: mobile || null,
       designation,
       monthlySalary,
-      currentBalance: initialBalance, // Set Opening Balance
+      currentBalance: initialBalance,
     });
     res.status(201).json(employee);
   } catch (error) {
@@ -34,7 +38,6 @@ const createEmployee = async (req, res) => {
   }
 };
 
-// 3. Update Employee
 const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,7 +64,6 @@ const updateEmployee = async (req, res) => {
   }
 };
 
-// 4. Delete Employee
 const deleteEmployee = async (req, res) => {
   try {
     const { id } = req.params;
@@ -75,10 +77,10 @@ const deleteEmployee = async (req, res) => {
   }
 };
 
-// 5. Add Transaction
 const addTransaction = async (req, res) => {
   try {
     const { employeeId, amount, type, description, date } = req.body;
+    const safeDate = getSafeUTC(date); // 🔥 Timezone fix applied
 
     const employee = await Employee.findById(employeeId);
     if (!employee)
@@ -91,7 +93,7 @@ const addTransaction = async (req, res) => {
         description: `${employee.name} - ${description || "Monthly Salary"}`,
         amount: Number(amount),
         paymentMethod: "cash",
-        date: date || Date.now(),
+        date: safeDate,
       });
     } else if (type === "payment_given") {
       employee.currentBalance -= Number(amount);
@@ -104,7 +106,7 @@ const addTransaction = async (req, res) => {
       amount,
       type,
       description,
-      date: date || Date.now(),
+      date: safeDate,
     });
 
     res
@@ -115,21 +117,50 @@ const addTransaction = async (req, res) => {
   }
 };
 
-// 6. Get Employee Ledger
+// 🔥 NAYA: Ab Payments page ki entries bhi Ledger mein aayengi
 const getEmployeeLedger = async (req, res) => {
   try {
     const { id } = req.params;
     const employee = await Employee.findById(id);
-    const transactions = await SalaryTransaction.find({ employee: id }).sort({
-      date: -1,
-    });
-    res.json({ employee, transactions });
+
+    // Get direct salary transactions
+    const salaryTxns = await SalaryTransaction.find({ employee: id }).lean();
+
+    // Get payments made from the "Payments" page
+    const payments = await Payment.find({ employee: id }).lean();
+
+    const formattedSalaryTxns = salaryTxns.map((tx) => ({
+      _id: tx._id,
+      type: tx.type,
+      amount: tx.amount,
+      description: tx.description,
+      date: tx.date,
+      isFromPaymentPage: false,
+    }));
+
+    const formattedPayments = payments.map((p) => ({
+      _id: p._id,
+      type: "payment_given",
+      amount: p.amount,
+      description: p.notes
+        ? `(Via Payments Page) ${p.notes}`
+        : "(Via Payments Page) Advance/Salary",
+      date: p.date,
+      isFromPaymentPage: true, // Label to identify external payment
+    }));
+
+    // Combine and sort by date
+    const combinedTransactions = [
+      ...formattedSalaryTxns,
+      ...formattedPayments,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({ employee, transactions: combinedTransactions });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// 🔥 7. NAYA: Sirf ek Transaction (Entry) Delete karna aur Ghost Balance Fix karna!
 const deleteTransaction = async (req, res) => {
   try {
     const { id } = req.params;
@@ -139,7 +170,6 @@ const deleteTransaction = async (req, res) => {
 
     const employee = await Employee.findById(transaction.employee);
     if (employee) {
-      // 🔥 FIX: Balance ko accurate tareeqay se reverse karna
       if (transaction.type === "salary_added") {
         employee.currentBalance -= Number(transaction.amount);
       } else if (transaction.type === "payment_given") {

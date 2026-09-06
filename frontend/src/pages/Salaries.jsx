@@ -43,7 +43,6 @@ const Salaries = () => {
   const userInfo = JSON.parse(localStorage.getItem("userInfo"));
   const isOwner = userInfo?.role === "owner";
 
-  // 🔥 NAYA: Form mein openingBalance add kiya
   const [empForm, setEmpForm] = useState({
     name: "",
     mobile: "",
@@ -51,7 +50,6 @@ const Salaries = () => {
     monthlySalary: "",
     openingBalance: 0,
   });
-
   const [txnForm, setTxnForm] = useState({
     type: "salary_added",
     amount: "",
@@ -64,9 +62,7 @@ const Salaries = () => {
       setLoading(true);
       const { data } = await axios.get(
         "https://asiapoultrybusiness.com/api/employees",
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
       setEmployees(data);
     } catch (error) {
@@ -87,7 +83,7 @@ const Salaries = () => {
         mobile: emp.mobile || "",
         designation: emp.designation || "Staff",
         monthlySalary: emp.monthlySalary,
-        openingBalance: emp.currentBalance, // 🔥 Load existing balance
+        openingBalance: emp.currentBalance,
       });
       setEditingId(emp._id);
     } else {
@@ -96,7 +92,7 @@ const Salaries = () => {
         mobile: "",
         designation: "Staff",
         monthlySalary: "",
-        openingBalance: 0, // 🔥 Default is 0
+        openingBalance: 0,
       });
       setEditingId(null);
     }
@@ -203,7 +199,6 @@ const Salaries = () => {
   const filteredEmployees = employees.filter((emp) =>
     emp.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
-
   const filteredLedgerData = ledgerData.filter((tx) => {
     const txDate = new Date(tx.date).toISOString().split("T")[0];
     if (ledgerStartDate && txDate < ledgerStartDate) return false;
@@ -258,14 +253,12 @@ const Salaries = () => {
                     <Briefcase size={14} /> {emp.designation}
                   </p>
                 </div>
-
                 <div className="flex flex-col items-end gap-2">
                   {isOwner && (
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => openEmpModal(emp)}
                         className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors"
-                        title="Edit Employee"
                       >
                         <Edit size={16} />
                       </button>
@@ -275,7 +268,6 @@ const Salaries = () => {
                           setIsDeleteModalOpen(true);
                         }}
                         className="text-red-600 bg-red-50 hover:bg-red-100 p-1.5 rounded transition-colors"
-                        title="Delete Employee"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -289,7 +281,6 @@ const Salaries = () => {
                   </div>
                 </div>
               </div>
-
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex justify-between items-center">
                 <div>
                   <p className="text-xs text-gray-500 font-bold uppercase">
@@ -309,7 +300,6 @@ const Salaries = () => {
                   </p>
                 </div>
               </div>
-
               <div className="flex gap-2 mt-auto">
                 <button
                   onClick={() => {
@@ -332,7 +322,6 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* ADD/EDIT EMPLOYEE MODAL */}
       {isEmpModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
@@ -409,7 +398,6 @@ const Salaries = () => {
                     placeholder="0"
                   />
                 </div>
-                {/* 🔥 NAYA: Opening Balance Field */}
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
                     Opening Balance
@@ -450,7 +438,6 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* ADD TRANSACTION MODAL */}
       {isTxnModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
@@ -557,7 +544,6 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* LEDGER (KHATA) MODAL */}
       {isLedgerModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div
@@ -592,7 +578,6 @@ const Salaries = () => {
                 <X size={20} />
               </button>
             </div>
-
             <div className="bg-white px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row items-center gap-3 shrink-0 print:hidden">
               <div className="flex items-center gap-2 text-gray-600 font-medium text-xs">
                 <Calendar size={14} className="text-blue-500" /> Filter Dates:
@@ -627,7 +612,6 @@ const Salaries = () => {
                 </button>
               )}
             </div>
-
             <div className="overflow-y-auto p-4 custom-scrollbar flex-1 bg-white">
               {filteredLedgerData.length === 0 ? (
                 <div className="text-center text-gray-500 py-10">
@@ -671,16 +655,26 @@ const Salaries = () => {
                           {tx.type === "salary_added" ? "+" : "-"} Rs.{" "}
                           {tx.amount.toLocaleString()}
                         </p>
-                        {isOwner && (
-                          <button
-                            onClick={() => {
-                              setDeletingTxnId(tx._id);
-                              setIsDeleteTxnModalOpen(true);
-                            }}
-                            className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded text-[10px] font-bold border border-red-100 transition-colors"
+                        {/* 🔥 FIX: Jo payments Payments page se aayi hain unhe yahan delete hone se block kar diya gaya hai */}
+                        {tx.isFromPaymentPage ? (
+                          <span
+                            className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded font-bold uppercase tracking-wider"
+                            title="Delete this entry from the Payments page"
                           >
-                            Del
-                          </button>
+                            Via Payments
+                          </span>
+                        ) : (
+                          isOwner && (
+                            <button
+                              onClick={() => {
+                                setDeletingTxnId(tx._id);
+                                setIsDeleteTxnModalOpen(true);
+                              }}
+                              className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded text-[10px] font-bold border border-red-100 transition-colors"
+                            >
+                              Del
+                            </button>
+                          )
                         )}
                       </div>
                     </div>
@@ -692,7 +686,6 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* FULL EMPLOYEE DELETE MODAL */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
@@ -724,7 +717,6 @@ const Salaries = () => {
         </div>
       )}
 
-      {/* SINGLE TRANSACTION DELETE MODAL */}
       {isDeleteTxnModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import {
@@ -18,6 +18,80 @@ import {
   Wallet,
   AlertCircle,
 } from "lucide-react";
+
+// 🔥 CUSTOM SEARCHABLE DROPDOWN COMPONENT (Fix for Mobile Search Issue in Sales) 🔥
+const SearchableSelect = ({ options, value, onChange, name, placeholder }) => {
+  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target))
+        setIsOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white focus:ring-2 focus:ring-blue-500 cursor-pointer flex justify-between items-center"
+      >
+        <span
+          className={
+            selectedOption ? "text-gray-800 font-medium" : "text-gray-500"
+          }
+        >
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <span className="text-gray-400 text-xs">▼</span>
+      </div>
+      {isOpen && (
+        <div className="absolute z-[100] w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-xl">
+          <div className="sticky top-0 bg-white p-2 border-b border-gray-100">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Type to search..."
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded outline-none focus:border-blue-500 text-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="p-1">
+            {filteredOptions.length === 0 ? (
+              <div className="p-2 text-center text-gray-500 text-sm">
+                No results found
+              </div>
+            ) : (
+              filteredOptions.map((o) => (
+                <div
+                  key={o.value}
+                  onClick={() => {
+                    onChange({ target: { name, value: o.value } });
+                    setIsOpen(false);
+                    setSearch("");
+                  }}
+                  className={`p-2.5 hover:bg-blue-50 rounded cursor-pointer text-sm ${value === o.value ? "bg-blue-50 text-blue-700 font-bold" : "text-gray-700"}`}
+                >
+                  {o.label}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Sales = () => {
   const [sales, setSales] = useState([]);
@@ -109,7 +183,6 @@ const Sales = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
   useEffect(() => {
     fetchRatesForDate(toDate);
   }, [toDate]);
@@ -189,7 +262,6 @@ const Sales = () => {
       return toast.error("Customer and Weight are required");
 
     setIsSubmitting(true);
-
     const payload = {
       ...formData,
       paidAmount: String(formData.paidAmount || "0"),
@@ -224,9 +296,7 @@ const Sales = () => {
     try {
       await axios.delete(
         `https://asiapoultrybusiness.com/api/sales/${deletingId}`,
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
       toast.success("Sale deleted successfully");
       setIsDeleteModalOpen(false);
@@ -236,7 +306,6 @@ const Sales = () => {
     }
   };
 
-  // 🔥 VISUAL TRICK: Calculate Current Khata Balance for each customer dynamically 🔥
   const customerBalancesMap = {};
   customers.forEach((cust) => {
     customerBalancesMap[cust._id] = Number(cust.openingBalance) || 0;
@@ -257,7 +326,6 @@ const Sales = () => {
     }
   });
 
-  // 🔥 PURE ROZNAMCHA LOGIC (No Auto-Mixing) 🔥
   const filteredSales = sales.filter((s) => {
     const matchName = s.customer?.name
       .toLowerCase()
@@ -271,11 +339,8 @@ const Sales = () => {
   const enhancedSales = filteredSales.map((sale) => {
     const displayPaid = Number(sale.paidAmount) || 0;
     const totalAmountNum = Number(sale.totalAmount) || 0;
-
     let billDue = 0;
-    if (displayPaid < totalAmountNum) {
-      billDue = totalAmountNum - displayPaid;
-    }
+    if (displayPaid < totalAmountNum) billDue = totalAmountNum - displayPaid;
 
     return {
       ...sale,
@@ -290,16 +355,13 @@ const Sales = () => {
   const groupedSalesMap = {};
   enhancedSales.forEach((sale) => {
     const key = `${sale.customer?._id}_${sale.entryDateStr}_${sale.rate}`;
-
     if (groupedSalesMap[key]) {
       groupedSalesMap[key].weightNum += sale.weightNum;
       groupedSalesMap[key].totalAmountNum += sale.totalAmountNum;
       groupedSalesMap[key].displayPaid += sale.displayPaid;
-
       const gTotal = groupedSalesMap[key].totalAmountNum;
       const gPaid = groupedSalesMap[key].displayPaid;
       groupedSalesMap[key].billDue = gPaid < gTotal ? gTotal - gPaid : 0;
-
       groupedSalesMap[key].isGrouped = true;
       groupedSalesMap[key].groupCount += 1;
     } else {
@@ -335,7 +397,6 @@ const Sales = () => {
     0,
   );
   const totalMarketWasooli = periodSalesPaid + periodExtPaid;
-
   const totalPurchasedWeight = filteredPurchases.reduce(
     (sum, p) => sum + (Number(p.weight) || 0),
     0,
@@ -349,7 +410,6 @@ const Sales = () => {
     0,
   );
   const shortageWeight = totalPurchasedWeight - totalWeight;
-
   const netMarketBalance = totalAmount - totalMarketWasooli;
   const topCardPending = netMarketBalance > 0 ? netMarketBalance : 0;
 
@@ -366,9 +426,7 @@ const Sales = () => {
     0,
   );
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   return (
     <div className="space-y-6 w-full min-w-0 print:bg-white print:m-0 print:p-0 overflow-hidden print:overflow-visible">
@@ -381,7 +439,6 @@ const Sales = () => {
           {fromDate ? new Date(fromDate).toLocaleDateString("en-GB") : "Start"}{" "}
           TO {toDate ? new Date(toDate).toLocaleDateString("en-GB") : "End"}
         </h2>
-
         <div className="mt-6 flex flex-col gap-4 px-2">
           <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border-2 border-gray-300">
             <span className="font-bold text-gray-900 text-sm uppercase">
@@ -397,7 +454,6 @@ const Sales = () => {
               </span>
             </span>
           </div>
-
           <div className="grid grid-cols-3 gap-4 text-sm mt-2">
             <div className="border-2 border-gray-300 p-2 rounded-lg text-center">
               <p className="text-gray-500 font-bold text-[11px] uppercase">
@@ -536,7 +592,6 @@ const Sales = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <div className="bg-gray-100 p-2 rounded-lg flex items-center gap-2 border-2 border-transparent focus-within:border-blue-400 transition-colors flex-1 sm:flex-none">
               <span className="text-xs text-gray-500 font-bold">From:</span>
@@ -694,32 +749,30 @@ const Sales = () => {
                           </span>
                         )}
                       </p>
-                      {/* 🔥 VISUAL TRICK: Live Khata Badge 🔥 */}
                       {sale.customer && (
                         <div className="mt-1 print:hidden">
                           {(() => {
                             const cid = sale.customer?._id || sale.customer;
                             const netBal = customerBalancesMap[cid];
                             if (netBal === undefined) return null;
-                            if (netBal < 0) {
+                            if (netBal < 0)
                               return (
                                 <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold border border-teal-100">
                                   Adv: Rs. {Math.abs(netBal).toLocaleString()}
                                 </span>
                               );
-                            } else if (netBal > 0) {
+                            else if (netBal > 0)
                               return (
                                 <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold border border-red-100">
                                   Due: Rs. {netBal.toLocaleString()}
                                 </span>
                               );
-                            } else {
+                            else
                               return (
                                 <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-bold border border-green-100">
                                   Cleared
                                 </span>
                               );
-                            }
                           })()}
                         </div>
                       )}
@@ -821,39 +874,37 @@ const Sales = () => {
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg flex flex-col items-start gap-1">
                     <div>
-                      {sale.customer?.name || "Unknown"}
+                      {sale.customer?.name || "Unknown"}{" "}
                       {sale.isGrouped && (
                         <span className="ml-2 text-xs text-blue-600">
                           ({sale.groupCount})
                         </span>
                       )}
                     </div>
-                    {/* 🔥 VISUAL TRICK: Live Khata Badge for Mobile 🔥 */}
                     {sale.customer && (
                       <div>
                         {(() => {
                           const cid = sale.customer?._id || sale.customer;
                           const netBal = customerBalancesMap[cid];
                           if (netBal === undefined) return null;
-                          if (netBal < 0) {
+                          if (netBal < 0)
                             return (
                               <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold border border-teal-100">
                                 Adv: Rs. {Math.abs(netBal).toLocaleString()}
                               </span>
                             );
-                          } else if (netBal > 0) {
+                          else if (netBal > 0)
                             return (
                               <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold border border-red-100">
                                 Due: Rs. {netBal.toLocaleString()}
                               </span>
                             );
-                          } else {
+                          else
                             return (
                               <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded font-bold border border-green-100">
                                 Cleared
                               </span>
                             );
-                          }
                         })()}
                       </div>
                     )}
@@ -882,7 +933,6 @@ const Sales = () => {
                   <p className="text-gray-500 text-xs mb-1">Rate</p>
                   <p className="font-medium">Rs. {sale.rate}</p>
                 </div>
-
                 <div className="col-span-2 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2 text-center">
                   <div>
                     <p className="text-gray-500 text-[10px] uppercase font-bold mb-1">
@@ -975,20 +1025,17 @@ const Sales = () => {
                   <label className="block text-gray-700 font-medium mb-1">
                     Select Customer *
                   </label>
-                  <select
+                  {/* 🔥 NAYA: SEARCHABLE DROPDOWN ADDED HERE */}
+                  <SearchableSelect
                     name="customer"
                     value={formData.customer}
                     onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">-- Choose Customer --</option>
-                    {customers.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name} ({c.mobile})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="-- Search Customer --"
+                    options={customers.map((c) => ({
+                      value: c._id,
+                      label: `${c.name} (${c.mobile || "No Mobile"})`,
+                    }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">
