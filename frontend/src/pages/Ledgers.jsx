@@ -10,6 +10,7 @@ import {
   Calendar,
   Phone,
   X,
+  Download,
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -52,11 +53,13 @@ const Ledgers = () => {
 
     try {
       setLoading(true);
+
       let apiUrl = `https://asiapoultrybusiness.com/api/ledgers?type=${partyType}&id=${selectedParty}`;
       if (fromDate) apiUrl += `&startDate=${fromDate}`;
       if (toDate) apiUrl += `&endDate=${toDate}`;
 
       const { data } = await axios.get(apiUrl, { withCredentials: true });
+
       setLedgerData(data);
     } catch (error) {
       toast.error("Failed to generate ledger");
@@ -75,14 +78,64 @@ const Ledgers = () => {
       ? ledgerData.transactions[ledgerData.transactions.length - 1].balance
       : ledgerData?.party?.currentBalance || 0;
 
+  // 🔥 NAYA: Export to Excel (CSV) Function 🔥
+  const handleExportExcel = () => {
+    if (!ledgerData || !ledgerData.transactions) {
+      return toast.error("No data available to export");
+    }
+
+    // 1. Excel ke Columns ke naam
+    const headers = [
+      "Date",
+      "Particulars / Details",
+      "Debit (Dr)",
+      "Credit (Cr)",
+      "Balance",
+    ];
+
+    // 2. Data ko Excel format mein map karna
+    const csvRows = ledgerData.transactions.map((tx) => {
+      const date = new Date(tx.date).toLocaleDateString("en-GB");
+      // Agar description mein comma ho, to issue na aaye isliye quotes mein wrap kiya hai
+      const particulars = `"${(tx.particulars || "").replace(/"/g, '""')}"`;
+      const debit = tx.debit > 0 ? tx.debit : 0;
+      const credit = tx.credit > 0 ? tx.credit : 0;
+      const balance = tx.balance;
+
+      return [date, particulars, debit, credit, balance].join(",");
+    });
+
+    // 3. Niche Closing Balance ki row add karna
+    csvRows.push("");
+    csvRows.push(`"","Closing Balance","","","${finalBalance}"`);
+
+    // 4. File generate karna
+    const csvContent = headers.join(",") + "\n" + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    // 5. Auto download karwana
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `${ledgerData.party.name.replace(/\s+/g, "_")}_Khata.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
+      {/* Filters Section */}
       <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <FileText size={20} /> Account Ledgers (Khata)
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+          {/* Account Type */}
           <div className="w-full">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               Account Type
@@ -117,6 +170,7 @@ const Ledgers = () => {
             </div>
           </div>
 
+          {/* Party Name */}
           <div className="w-full">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               Select Name
@@ -135,6 +189,7 @@ const Ledgers = () => {
             </select>
           </div>
 
+          {/* From Date */}
           <div className="w-full">
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               From Date
@@ -147,6 +202,7 @@ const Ledgers = () => {
             />
           </div>
 
+          {/* To Date */}
           <div className="w-full flex items-end gap-2">
             <div className="flex-1">
               <label className="block text-gray-700 font-medium mb-1 text-sm">
@@ -159,6 +215,7 @@ const Ledgers = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
               />
             </div>
+            {/* Clear Dates Button */}
             {(fromDate || toDate) && (
               <button
                 onClick={() => {
@@ -173,6 +230,7 @@ const Ledgers = () => {
             )}
           </div>
 
+          {/* Submit Button */}
           <div className="sm:col-span-2 lg:col-span-4 mt-2">
             <button
               onClick={generateLedger}
@@ -186,24 +244,38 @@ const Ledgers = () => {
         </div>
       </div>
 
+      {/* Ledger Report Section */}
       {ledgerData && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
-          <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+          {/* Action Bar */}
+          <div className="bg-gray-50 p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
             <h3 className="font-bold text-gray-800 text-sm sm:text-base">
               Statement Preview
             </h3>
-            <button
-              onClick={handlePrint}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Printer size={16} /> Print / PDF
-            </button>
+
+            {/* 🔥 NAYA: Yahan 'Save as Excel' aur 'Print / PDF' Dono Button Hain 🔥 */}
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleExportExcel}
+                className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Download size={16} /> Save as Excel
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Printer size={16} /> Print / PDF
+              </button>
+            </div>
           </div>
 
+          {/* Printable Area */}
           <div
             ref={printRef}
             className="p-4 sm:p-8 bg-white print:p-4 print:w-full"
           >
+            {/* Print Header */}
             <div className="text-center mb-6 sm:mb-8 border-b-2 border-gray-800 pb-4">
               <h1 className="text-2xl sm:text-4xl font-black text-gray-900 mb-1">
                 ASIA POULTRY BUSINESS
@@ -211,6 +283,7 @@ const Ledgers = () => {
               <p className="text-gray-600 text-sm sm:text-base mb-3 font-medium">
                 Account Statement (Ledger)
               </p>
+
               <div className="flex flex-wrap justify-center items-center gap-2 sm:gap-4 text-xs sm:text-sm font-bold text-gray-800">
                 <span className="flex items-center gap-1">
                   <Phone size={14} /> 0305-7074775
@@ -226,6 +299,7 @@ const Ledgers = () => {
               </div>
             </div>
 
+            {/* Party Details */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4 print:flex-row print:items-end print:gap-0">
               <div>
                 <p className="text-xs sm:text-sm text-gray-500 mb-1 uppercase font-bold">
@@ -260,11 +334,13 @@ const Ledgers = () => {
                 <p className="text-xs sm:text-sm text-gray-500 mb-1 uppercase font-bold">
                   Closing Balance:
                 </p>
+
                 <h2
                   className={`text-xl sm:text-2xl font-black ${finalBalance > 0 ? "text-red-600" : "text-gray-800"}`}
                 >
                   Rs. {finalBalance.toLocaleString()}
                 </h2>
+
                 <p className="text-gray-500 text-[10px] sm:text-xs uppercase">
                   As of{" "}
                   {toDate
@@ -274,6 +350,7 @@ const Ledgers = () => {
               </div>
             </div>
 
+            {/* DESKTOP & PRINT TABLE VIEW */}
             <div className="hidden sm:block print:block w-full">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
@@ -332,6 +409,7 @@ const Ledgers = () => {
               </table>
             </div>
 
+            {/* MOBILE CARDS VIEW */}
             <div className="sm:hidden flex flex-col print:hidden">
               <div className="border-y-2 border-gray-800 bg-gray-100 px-3 py-2 text-xs font-bold text-gray-800 uppercase tracking-wider mb-2">
                 Transaction History
@@ -378,6 +456,7 @@ const Ledgers = () => {
               )}
             </div>
 
+            {/* Print Footer */}
             <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200 text-center text-gray-500 text-[10px] sm:text-xs flex flex-col sm:flex-row justify-between items-center gap-2">
               <p>Generated by ASIA POULTRY BUSINESS</p>
               <p>Date: {new Date().toLocaleString()}</p>
