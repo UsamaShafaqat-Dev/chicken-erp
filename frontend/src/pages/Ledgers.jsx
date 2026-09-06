@@ -78,49 +78,86 @@ const Ledgers = () => {
       ? ledgerData.transactions[ledgerData.transactions.length - 1].balance
       : ledgerData?.party?.currentBalance || 0;
 
-  // 🔥 NAYA: Export to Excel (CSV) Function 🔥
+  // 🔥 NAYA: Pure Excel (.xls) Export Function 🔥
   const handleExportExcel = () => {
     if (!ledgerData || !ledgerData.transactions) {
       return toast.error("No data available to export");
     }
 
-    // 1. Excel ke Columns ke naam
-    const headers = [
-      "Date",
-      "Particulars / Details",
-      "Debit (Dr)",
-      "Credit (Cr)",
-      "Balance",
-    ];
+    // HTML Table structure for Excel
+    let tableHTML = `
+      <html xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="utf-8">
+          <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid black; padding: 5px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .header-title { font-size: 20px; font-weight: bold; text-align: center; background-color: #ffffff; }
+            .party-name { font-size: 16px; font-weight: bold; text-align: center; background-color: #ffffff; }
+            .balance-row { font-weight: bold; background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th colspan="5" class="header-title">ASIA POULTRY BUSINESS - Account Ledger</th>
+              </tr>
+              <tr>
+                <th colspan="5" class="party-name">Party Name: ${ledgerData.party.name}</th>
+              </tr>
+              <tr>
+                <th colspan="5" class="party-name">Report Date: ${new Date().toLocaleDateString("en-GB")}</th>
+              </tr>
+              <tr>
+                <th>Date</th>
+                <th>Particulars / Details</th>
+                <th>Debit (Dr)</th>
+                <th>Credit (Cr)</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
 
-    // 2. Data ko Excel format mein map karna
-    const csvRows = ledgerData.transactions.map((tx) => {
+    // Data Rows
+    ledgerData.transactions.forEach((tx) => {
       const date = new Date(tx.date).toLocaleDateString("en-GB");
-      // Agar description mein comma ho, to issue na aaye isliye quotes mein wrap kiya hai
-      const particulars = `"${(tx.particulars || "").replace(/"/g, '""')}"`;
-      const debit = tx.debit > 0 ? tx.debit : 0;
-      const credit = tx.credit > 0 ? tx.credit : 0;
+      const particulars = tx.particulars || "";
+      const debit = tx.debit > 0 ? tx.debit : "-";
+      const credit = tx.credit > 0 ? tx.credit : "-";
       const balance = tx.balance;
 
-      return [date, particulars, debit, credit, balance].join(",");
+      tableHTML += `
+        <tr>
+          <td>${date}</td>
+          <td>${particulars}</td>
+          <td>${debit}</td>
+          <td>${credit}</td>
+          <td>${balance}</td>
+        </tr>
+      `;
     });
 
-    // 3. Niche Closing Balance ki row add karna
-    csvRows.push("");
-    csvRows.push(`"","Closing Balance","","","${finalBalance}"`);
+    // Closing Balance Row
+    tableHTML += `
+            <tr class="balance-row">
+              <td colspan="4" style="text-align: right;">Closing Balance:</td>
+              <td>${finalBalance}</td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+    </html>`;
 
-    // 4. File generate karna
-    const csvContent = headers.join(",") + "\n" + csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Convert to Blob and Download as .xls
+    const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
     const url = URL.createObjectURL(blob);
 
-    // 5. Auto download karwana
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `${ledgerData.party.name.replace(/\s+/g, "_")}_Khata.csv`,
-    );
+    link.href = url;
+    link.download = `${ledgerData.party.name.replace(/\s+/g, "_")}_Khata.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -253,7 +290,6 @@ const Ledgers = () => {
               Statement Preview
             </h3>
 
-            {/* 🔥 NAYA: Yahan 'Save as Excel' aur 'Print / PDF' Dono Button Hain 🔥 */}
             <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={handleExportExcel}
