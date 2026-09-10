@@ -31,10 +31,10 @@ const transferCash = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
 
     const fromAccount = await CashAccount.findById(fromAccountId);
-    if (fromAccount.balance < amount)
-      return res
-        .status(400)
-        .json({ message: `Insufficient balance in ${fromAccount.name}` });
+
+    // 🔥 FIX: Yahan se "Insufficient balance" wali rukawat (if condition) khatam kar di gayi hai
+    // taake balance minus (-) mein ja sake.
+
     fromAccount.balance -= Number(amount);
     await fromAccount.save();
 
@@ -42,7 +42,7 @@ const transferCash = async (req, res) => {
     toAccount.balance += Number(amount);
     await toAccount.save();
 
-    // 🔥 FIX: Prevent 5 AM Timezone Bug
+    // Prevent 5 AM Timezone Bug
     const safeDate = date
       ? new Date(date.split("T")[0] + "T12:00:00.000Z")
       : new Date();
@@ -135,11 +135,9 @@ const deleteAccount = async (req, res) => {
     const account = await CashAccount.findById(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found" });
     if (account.balance !== 0)
-      return res
-        .status(400)
-        .json({
-          message: `Deletion Failed! This account has a balance of Rs. ${account.balance}. Please clear the balance to 0 before deleting.`,
-        });
+      return res.status(400).json({
+        message: `Deletion Failed! This account has a balance of Rs. ${account.balance}. Please clear the balance to 0 before deleting.`,
+      });
     await CashAccount.findByIdAndDelete(req.params.id);
     await CashTransaction.deleteMany({
       $or: [{ fromAccount: req.params.id }, { toAccount: req.params.id }],
@@ -175,12 +173,10 @@ const deleteTransaction = async (req, res) => {
         message: "Transfer deleted and balances reverted successfully",
       });
     } else {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Please delete this entry from its original page to ensure correct account balances.",
-        });
+      return res.status(400).json({
+        message:
+          "Please delete this entry from its original page to ensure correct account balances.",
+      });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
