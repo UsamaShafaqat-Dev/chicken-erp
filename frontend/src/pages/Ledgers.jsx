@@ -26,7 +26,7 @@ const Ledgers = () => {
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔥 NAYA: Searchable Dropdown States
+  // Searchable Dropdown States
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -176,7 +176,6 @@ const Ledgers = () => {
     document.body.removeChild(link);
   };
 
-  // 🔥 Filter logic
   const filteredParties = parties.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -187,8 +186,8 @@ const Ledgers = () => {
   const selectedPartyDetails = parties.find((p) => p._id === selectedParty);
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-hidden">
-      {/* Filters Section */}
+    // 🔥 FIX: Removed 'overflow-hidden' to allow dropdown to expand fully downwards
+    <div className="space-y-6 w-full max-w-full relative">
       <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <FileText size={20} /> Account Ledgers (Khata)
@@ -243,24 +242,25 @@ const Ledgers = () => {
                 className={`block truncate ${selectedPartyDetails ? "text-gray-900 font-medium" : "text-gray-500"}`}
               >
                 {selectedPartyDetails
-                  ? `${selectedPartyDetails.name} (${selectedPartyDetails.area || selectedPartyDetails.mobile})`
+                  ? selectedPartyDetails.name
                   : "-- Choose from list --"}
               </span>
               <ChevronDown size={16} className="text-gray-500 shrink-0 ml-2" />
             </div>
 
             {isDropdownOpen && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl">
-                <div className="p-2 border-b border-gray-100 sticky top-0 bg-white rounded-t-lg">
+              // 🔥 FIX: Added min-width, increased shadow, and adjusted z-index to make it wide and prominent
+              <div className="absolute z-50 w-full min-w-[100%] sm:min-w-[320px] mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl">
+                <div className="p-3 border-b border-gray-100 sticky top-0 bg-gray-50 rounded-t-xl">
                   <div className="relative">
                     <Search
-                      size={14}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                     />
                     <input
                       type="text"
-                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500 text-sm bg-gray-50"
-                      placeholder="Search name, area..."
+                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:border-green-500 text-sm bg-white shadow-sm"
+                      placeholder="Search name, area or mobile..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
@@ -268,26 +268,29 @@ const Ledgers = () => {
                     />
                   </div>
                 </div>
-                <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                {/* 🔥 FIX: Increased max height for longer scroll */}
+                <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
                   {filteredParties.length === 0 ? (
-                    <div className="p-4 text-sm text-gray-500 text-center font-medium">
+                    <div className="p-6 text-sm text-gray-500 text-center font-medium">
                       No match found
                     </div>
                   ) : (
                     filteredParties.map((p) => (
                       <div
                         key={p._id}
-                        className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-green-50 border-b border-gray-50 last:border-0 ${selectedParty === p._id ? "bg-green-50 text-green-700 font-bold" : "text-gray-700 font-medium"}`}
+                        className={`px-4 py-3 cursor-pointer hover:bg-green-50 border-b border-gray-50 last:border-0 transition-colors ${selectedParty === p._id ? "bg-green-50 text-green-700" : "text-gray-700"}`}
                         onClick={() => {
                           setSelectedParty(p._id);
                           setIsDropdownOpen(false);
                           setSearchQuery("");
                         }}
                       >
-                        {p.name}{" "}
-                        <span className="text-gray-500 text-xs ml-1 font-normal">
-                          ({p.area || p.mobile})
-                        </span>
+                        <div className="font-bold text-base">{p.name}</div>
+                        <div className="text-gray-500 text-xs mt-0.5 font-medium">
+                          {p.area ? `${p.area}` : ""}
+                          {p.area && p.mobile ? " | " : ""}
+                          {p.mobile ? `${p.mobile}` : ""}
+                        </div>
                       </div>
                     ))
                   )}
