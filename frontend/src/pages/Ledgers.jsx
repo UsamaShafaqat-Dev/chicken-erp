@@ -11,6 +11,7 @@ import {
   Phone,
   X,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -24,6 +25,11 @@ const Ledgers = () => {
 
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // 🔥 NAYA: Searchable Dropdown States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   const printRef = useRef(null);
 
@@ -40,6 +46,7 @@ const Ledgers = () => {
         );
         setParties(data.filter((p) => p.status !== "inactive"));
         setSelectedParty("");
+        setSearchQuery(""); // Clear search when type changes
         setLedgerData(null);
       } catch (error) {
         toast.error("Failed to fetch list");
@@ -47,6 +54,17 @@ const Ledgers = () => {
     };
     fetchParties();
   }, [partyType]);
+
+  // Dropdown ko baahar click karne par band karna
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const generateLedger = async () => {
     if (!selectedParty) return toast.error("Please select a party first");
@@ -78,13 +96,11 @@ const Ledgers = () => {
       ? ledgerData.transactions[ledgerData.transactions.length - 1].balance
       : ledgerData?.party?.currentBalance || 0;
 
-  // 🔥 NAYA: Pure Excel (.xls) Export Function 🔥
   const handleExportExcel = () => {
     if (!ledgerData || !ledgerData.transactions) {
       return toast.error("No data available to export");
     }
 
-    // HTML Table structure for Excel
     let tableHTML = `
       <html xmlns:x="urn:schemas-microsoft-com:office:excel">
         <head>
@@ -121,7 +137,6 @@ const Ledgers = () => {
             <tbody>
     `;
 
-    // Data Rows
     ledgerData.transactions.forEach((tx) => {
       const date = new Date(tx.date).toLocaleDateString("en-GB");
       const particulars = tx.particulars || "";
@@ -140,7 +155,6 @@ const Ledgers = () => {
       `;
     });
 
-    // Closing Balance Row
     tableHTML += `
             <tr class="balance-row">
               <td colspan="4" style="text-align: right;">Closing Balance:</td>
@@ -151,7 +165,6 @@ const Ledgers = () => {
       </body>
     </html>`;
 
-    // Convert to Blob and Download as .xls
     const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel" });
     const url = URL.createObjectURL(blob);
 
@@ -162,6 +175,16 @@ const Ledgers = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  // 🔥 Filter logic
+  const filteredParties = parties.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.area && p.area.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.mobile && p.mobile.includes(searchQuery)),
+  );
+
+  const selectedPartyDetails = parties.find((p) => p._id === selectedParty);
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-hidden">
@@ -207,23 +230,70 @@ const Ledgers = () => {
             </div>
           </div>
 
-          {/* Party Name */}
-          <div className="w-full">
+          {/* Party Name (Searchable Dropdown) */}
+          <div className="w-full relative" ref={dropdownRef}>
             <label className="block text-gray-700 font-medium mb-1 text-sm">
               Select Name
             </label>
-            <select
-              value={selectedParty}
-              onChange={(e) => setSelectedParty(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
+            <div
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white cursor-pointer flex justify-between items-center focus:ring-2 focus:ring-green-500"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <option value="">-- Choose from list --</option>
-              {parties.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name} ({p.area || p.mobile})
-                </option>
-              ))}
-            </select>
+              <span
+                className={`block truncate ${selectedPartyDetails ? "text-gray-900 font-medium" : "text-gray-500"}`}
+              >
+                {selectedPartyDetails
+                  ? `${selectedPartyDetails.name} (${selectedPartyDetails.area || selectedPartyDetails.mobile})`
+                  : "-- Choose from list --"}
+              </span>
+              <ChevronDown size={16} className="text-gray-500 shrink-0 ml-2" />
+            </div>
+
+            {isDropdownOpen && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl">
+                <div className="p-2 border-b border-gray-100 sticky top-0 bg-white rounded-t-lg">
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      type="text"
+                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-green-500 text-sm bg-gray-50"
+                      placeholder="Search name, area..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                  {filteredParties.length === 0 ? (
+                    <div className="p-4 text-sm text-gray-500 text-center font-medium">
+                      No match found
+                    </div>
+                  ) : (
+                    filteredParties.map((p) => (
+                      <div
+                        key={p._id}
+                        className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-green-50 border-b border-gray-50 last:border-0 ${selectedParty === p._id ? "bg-green-50 text-green-700 font-bold" : "text-gray-700 font-medium"}`}
+                        onClick={() => {
+                          setSelectedParty(p._id);
+                          setIsDropdownOpen(false);
+                          setSearchQuery("");
+                        }}
+                      >
+                        {p.name}{" "}
+                        <span className="text-gray-500 text-xs ml-1 font-normal">
+                          ({p.area || p.mobile})
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* From Date */}
